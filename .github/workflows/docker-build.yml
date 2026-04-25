@@ -17,6 +17,8 @@ jobs:
       # 1. Check out the repository code
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       # 2. Set up Docker Buildx (improves caching and build capabilities)
       - name: Set up Docker Buildx
