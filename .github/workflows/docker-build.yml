@@ -22,7 +22,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Build the images using docker-compose
+      # 3. Create dummy .env files so docker-compose doesn't crash during build/up
+      - name: Create .env files
+        run: |
+          touch ./AquaInsurebackend/.env
+
+      # 4. Build the images using docker-compose
       - name: Build Docker Images
         run: |
           docker compose -f docker-compose.yml build
