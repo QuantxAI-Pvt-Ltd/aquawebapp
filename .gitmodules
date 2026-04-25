@@ -1,0 +1,9 @@
+[submodule "AquaInsure"]
+	path = AquaInsure
+	url = https://github.com/QuantxAI-Pvt-Ltd/AquaInsure.git
+[submodule "AquaInsurebackend"]
+	path = AquaInsurebackend
+	url = https://github.com/QuantxAI-Pvt-Ltd/AquaInsurebackend.git
+[submodule "Aquainsuredashboard"]
+	path = Aquainsuredashboard
+	url = https://github.com/QuantxAI-Pvt-Ltd/Aquainsuredashboard.git

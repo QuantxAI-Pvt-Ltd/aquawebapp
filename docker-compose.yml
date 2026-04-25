@@ -1,0 +1,39 @@
+services:
+  aquainsure:
+    build:
+      context: ./AquaInsure
+      dockerfile: Dockerfile
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+    depends_on:
+      - back_insure
+
+  back_insure:
+    build:
+      context: ./back_insure
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+    env_file:
+      - ./back_insure/.env
+    environment:
+      # Use host.docker.internal to route to MongoDB installed directly on your Windows PC
+      - MONGODB_URI=mongodb://host.docker.internal:27017/aquainsure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  dashboard:
+    build:
+      context: ./Aquainsuredashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=http://back_insure:5001
+    depends_on:
+      - back_insure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
