@@ -24,10 +24,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Create dummy .env files so docker-compose doesn't crash during build/up
+      # 3. Create .env files from GitHub Secrets
       - name: Create .env files
         run: |
-          touch ./AquaInsurebackend/.env
+          echo "PORT=${{ secrets.PORT }}" > ./AquaInsurebackend/.env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> ./AquaInsurebackend/.env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> ./AquaInsurebackend/.env
 
       # 4. Build the images using docker-compose
       - name: Build Docker Images
