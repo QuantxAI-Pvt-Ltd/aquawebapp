@@ -1,13 +1,13 @@
 name: Build Docker Images with Compose
 
-# This workflow triggers on every push to the main branch
+# This workflow triggers on every push to the master branch
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   build-images:
