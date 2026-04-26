@@ -1,5 +1,6 @@
 services:
   aquainsure:
+    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsure:latest
     build:
       context: ./AquaInsure
       dockerfile: Dockerfile
@@ -10,6 +11,7 @@ services:
       - aquainsurebackend
 
   aquainsurebackend:
+    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsurebackend:latest
     build:
       context: ./AquaInsurebackend
       dockerfile: Dockerfile
@@ -25,6 +27,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   dashboard:
+    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsuredashboard:latest
     build:
       context: ./Aquainsuredashboard
       dockerfile: Dockerfile

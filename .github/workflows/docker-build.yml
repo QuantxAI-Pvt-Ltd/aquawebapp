@@ -12,6 +12,9 @@ on:
 jobs:
   build-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       # 1. Check out the repository code
@@ -37,21 +40,15 @@ jobs:
         run: |
           docker compose -f docker-compose.yml build
           
-      # 4. (Optional) Start the containers to test if they run without crashing
-      - name: Test Containers (Dry Run)
+      # 5. Login to GitHub Container Registry
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # 6. Push the images to GHCR
+      - name: Push Docker Images
         run: |
-          docker compose -f docker-compose.yml up -d
-          
-          # Wait a few seconds for services to start up
-          sleep 10
-          
-          # Check the status of running containers
-          docker ps
-          
-          # Check for any errors in the backend logs
-          docker compose logs aquainsurebackend
-          
-      # 5. (Optional) Tear down the test environment
-      - name: Stop Containers
-        if: always()
-        run: docker compose down
+          docker compose -f docker-compose.yml push
