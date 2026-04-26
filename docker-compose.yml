@@ -20,9 +20,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./AquaInsurebackend/.env
-    environment:
-      # Use host.docker.internal to route to MongoDB installed directly on your Windows PC
-      - MONGODB_URI=mongodb://host.docker.internal:27017/aquainsure
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -35,7 +32,7 @@ services:
       - "3000:3000"
     restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_URL=http://aquainsurebackend:5001
+      - NEXT_PUBLIC_API_URL=/api
     depends_on:
       - aquainsurebackend
     extra_hosts:
