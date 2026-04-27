@@ -5,7 +5,7 @@ services:
       context: ./AquaInsure
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "5000:8080"
     restart: unless-stopped
     depends_on:
       - aquainsurebackend
@@ -29,7 +29,7 @@ services:
       context: ./Aquainsuredashboard
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "5002:3000"
     restart: unless-stopped
     environment:
       - NEXT_PUBLIC_API_URL=/api
