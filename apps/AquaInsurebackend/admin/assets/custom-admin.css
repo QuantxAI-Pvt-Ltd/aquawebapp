@@ -1,0 +1,51 @@
+/* Hide the PAGES section - target the AdminJS label class and OCR page links */
+label.adminjs_Label {
+  display: none !important;
+}
+a[href*="/pages/ocr-scanner"],
+a[href*="/pages/ocr-export"],
+a[href$="/pages/ocr-scanner"],
+a[href$="/pages/ocr-export"],
+a[href*="ocr-scanner"],
+a[href*="ocr-export"] {
+  display: none !important;
+}
+
+/* Ensure main wrapper borders are removed */
+nav, [data-css="app-wrapper"], [data-css="sidebar"], [data-css="topbar"], [class*="Header"], [class*="Sidebar"] {
+  border: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* Sidebar Toggle Support */
+body.sidebar-collapsed [data-css="sidebar"], 
+body.sidebar-collapsed nav[class*="Sidebar"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+}
+body.sidebar-collapsed [data-css="app-wrapper"] {
+  grid-template-columns: 1fr !important;
+  padding-left: 0 !important;
+}
+
+
+/* Force the AquaInsure logo instead of AdminJS SVG on all renders */
+[data-css="topbar"] a[data-css="logo"] svg,
+[data-css="sidebar"] a[data-css="logo"] svg,
+[class*="Login"] svg, [data-css="login-header"] svg {
+  display: none !important;
+}
+[data-css="topbar"] a[data-css="logo"],
+[data-css="sidebar"] a[data-css="logo"] {
+  background-image: url('/public/logo.jpeg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  min-width: 150px;
+  height: 40px;
+  display: block;
+}
+

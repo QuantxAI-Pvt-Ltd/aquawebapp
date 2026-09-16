@@ -1,0 +1,363 @@
+================================================================================
+  AQUAINSURE APACHE DEPLOYMENT GUIDE
+  Documenting all changes made to run the app in Apache on Linux (Production)
+  Date: 2026-03-29
+================================================================================
+
+This guide documents every change made to the project and to the Linux system
+so that this deployment can be reproduced on a new Linux or Windows server.
+
+--------------------------------------------------------------------------------
+PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+
+Three services are running:
+
+  1. AquaInsure (React/Vite frontend)   → served as static files via Apache
+  2. back_insure (Node.js/Express API)  → runs as a background service on port 5001
+  3. recorddashboard (AdminJS/Express)  → runs as a background service on port 8081
+
+Apache acts as the web server and reverse proxy, sitting in front of everything.
+
+
+================================================================================
+PART 1 — SYSTEM-LEVEL CHANGES (Apache & Linux)
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1  APACHE MODULES ENABLED
+--------------------------------------------------------------------------------
+
+The following modules were enabled (required for reverse proxy + SPA routing):
+
+  sudo a2enmod proxy
+  sudo a2enmod proxy_http
+  sudo a2enmod rewrite
+
+You can verify they are active with:
+  ls /etc/apache2/mods-enabled/ | grep -E "proxy|rewrite"
+
+
+--------------------------------------------------------------------------------
+1.2  CHANGES TO /etc/apache2/apache2.conf
+--------------------------------------------------------------------------------
+
+The following block was ADDED to apache2.conf to create an Alias from the
+URL path /aquainsure to the physical location of the frontend static files,
+and to allow .htaccess overrides (needed for React SPA client-side routing):
+
+  --- ADD THESE LINES inside apache2.conf ---
+
+  Alias /aquainsure "/var/www/html/aquainsure"
+
+  <Directory /var/www/html/aquainsure>
+          Options Indexes FollowSymLinks
+          AllowOverride All
+          Require all granted
+  </Directory>
+
+  --- END ---
+
+Also make sure the existing /var/www/ block has AllowOverride All:
+
+  <Directory /var/www/>
+          Options Indexes FollowSymLinks
+          AllowOverride All        <-- must be "All", not "None"
+          Require all granted
+  </Directory>
+
+
+--------------------------------------------------------------------------------
+1.3  CHANGES TO /etc/apache2/sites-enabled/000-default.conf
+--------------------------------------------------------------------------------
+
+The following was added/changed inside the <VirtualHost *:80> block:
+
+  <VirtualHost *:80>
+      ServerAdmin webmaster@localhost
+      DocumentRoot /var/www/html
+
+      # — ADDED: Allow the aquainsure subfolder to serve the React SPA —
+      <Directory /var/www/html/aquainsure>
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
+      </Directory>
+
+      # — ADDED: Reverse proxy for API calls —
+      # All requests to /api are forwarded to the Node.js backend.
+      # Must match back_insure PORT in .env (5001)
+      ProxyPass /api http://localhost:5001/api
+      ProxyPassReverse /api http://localhost:5001/api
+
+      ErrorLog ${APACHE_LOG_DIR}/error.log
+      CustomLog ${APACHE_LOG_DIR}/access.log combined
+  </VirtualHost>
+
+  NOTE: The live config currently shows port 3000 — correct it to 5001.
+
+  IMPORTANT — WHY PROXYPASS MATTERS ON A REMOTE SERVER:
+  -------------------------------------------------------
+  The ProxyPass is only used when the frontend makes RELATIVE API calls
+  (e.g. axios.get('/api/farmers')). If the frontend currently uses ABSOLUTE
+  URLs like 'http://localhost:5001/api/...' then:
+    - It works locally/LAN because client and server share the same machine.
+    - It WILL BREAK on a remote server — browsers will try to reach their
+      OWN localhost:5001 instead of the server's.
+  Fix for remote deployment:
+    1. Set the API base URL in the frontend to a relative path (/api)
+    2. Ensure ProxyPass in Apache points to the correct port (5001)
+  This makes the app work for any client anywhere.
+
+
+--------------------------------------------------------------------------------
+1.4  HTACCESS FILE FOR REACT SPA (CLIENT-SIDE ROUTING)
+--------------------------------------------------------------------------------
+
+Because AquaInsure uses React Router, a direct URL like /aquainsure/dashboard
+would 404 without an .htaccess that redirects all unknown paths back to
+index.html. Create this file:
+
+  File: /var/www/html/aquainsure/.htaccess
+
+  Options -MultiViews
+  RewriteEngine On
+  RewriteBase /aquainsure/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [QSA,L]
+
+  NOTE: mod_rewrite must be enabled (see 1.1) and AllowOverride All must be
+  set for this directory (see 1.2 and 1.3).
+
+
+--------------------------------------------------------------------------------
+1.5  PLACE BUILT FRONTEND FILES IN APACHE WEB ROOT
+--------------------------------------------------------------------------------
+
+After building the React frontend (see Part 2), copy the output to Apache:
+
+  sudo cp -r /home/jaswant/aquafiles/aqua/AquaInsure/dist/* /var/www/html/aquainsure/
+
+  Or to create the folder and copy in one go:
+  sudo mkdir -p /var/www/html/aquainsure
+  sudo cp -r /home/jaswant/aquafiles/aqua/AquaInsure/dist/. /var/www/html/aquainsure/
+  sudo chown -R www-data:www-data /var/www/html/aquainsure
+
+  Result: Apache serves static files at http://<server-ip>/aquainsure/
+
+
+--------------------------------------------------------------------------------
+1.6  RESTART APACHE AFTER ALL CHANGES
+--------------------------------------------------------------------------------
+
+  sudo systemctl restart apache2
+  # Or:
+  sudo service apache2 restart
+
+  To check status:
+  sudo systemctl status apache2
+
+
+================================================================================
+PART 2 — PROJECT FILE CHANGES
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1  AquaInsure (Frontend — React/Vite)
+      Path: /home/jaswant/aquafiles/aqua/AquaInsure/
+--------------------------------------------------------------------------------
+
+FILE CHANGED: vite.config.ts
+
+  Key change — base path set to /aquainsure/ so all asset URLs are relative
+  to the Apache sub-path, and a dev proxy forwards /api to the backend:
+
+  export default defineConfig(({ mode }) => ({
+    base: "/aquainsure/",           // <-- REQUIRED for Apache sub-path serving
+    server: {
+      host: "::",
+      port: 8080,
+      hmr: {
+        overlay: false,
+      },
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5001',   // <-- Dev proxy to back_insure
+          changeOrigin: true,
+        }
+      }
+    },
+    plugins: [react()].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+  }));
+
+BUILD COMMAND (run after making any frontend changes):
+
+  cd /home/jaswant/aquafiles/aqua/AquaInsure
+  npm run build
+  # Output goes to: AquaInsure/dist/
+  # Then copy dist/ to /var/www/html/aquainsure/ (see step 1.5)
+
+
+--------------------------------------------------------------------------------
+2.2  back_insure (Backend API — Node.js/Express)
+      Path: /home/jaswant/aquafiles/aqua/back_insure/
+--------------------------------------------------------------------------------
+
+FILE CHANGED: .env
+
+  PORT=5001                                      # <-- Changed from default 3000/5000
+  MONGODB_URI=mongodb://localhost:27017/aquainsure
+  JWT_SECRET=aquainsure-super-secret-jwt-key-2024
+
+  NOTE: Change MONGODB_URI to your server's MongoDB connection string.
+  NOTE: Change JWT_SECRET to a strong random value in production.
+
+FILE: server.js  (no structural changes from dev version, just uses .env PORT)
+
+  - Listens on PORT from .env (5001 in production)
+  - API routes mounted under /api/* prefix
+  - CORS enabled (app.use(cors()))
+  - Accepts large payloads: 50mb limit for JSON and urlencoded
+
+HOW TO RUN THE BACKEND (production):
+
+  cd /home/jaswant/aquafiles/aqua/back_insure
+  npm install
+  node server.js
+
+  Recommended: use PM2 to keep it running:
+    sudo npm install -g pm2
+    pm2 start server.js --name back_insure
+    pm2 save
+    pm2 startup   # auto-start on reboot
+
+
+--------------------------------------------------------------------------------
+2.3  recorddashboard (Admin Dashboard — AdminJS/Express)
+      Path: /home/jaswant/aquafiles/aqua/recorddashboard/
+--------------------------------------------------------------------------------
+
+FILE CHANGED: .env
+
+  DATABASE_URL=mongodb://localhost:27017/aquainsure   # <-- MongoDB URI
+  PORT=8081                                           # <-- Runs on port 8081
+  COOKIE_SECRET=I1QFnJHOi9BfKZ5DoyKdYuaAW58gGPAP    # <-- Change in production!
+
+  NOTE: Change COOKIE_SECRET to a long random string in production.
+  NOTE: Change DATABASE_URL to your server's MongoDB URI.
+
+FILE: src/app.ts  (production mode is detected automatically)
+
+  - When NODE_ENV=production → admin.initialize() is called (no file watching)
+  - When NODE_ENV=development → admin.watch() is called
+  - Listens on PORT from .env (8081)
+
+BUILD AND RUN COMMANDS:
+
+  cd /home/jaswant/aquafiles/aqua/recorddashboard
+  npm install
+  npm run build             # Compiles TypeScript → dist/
+  npm start                 # Runs: dotenv -c '.env' -- node dist/app
+
+  Recommended: use PM2:
+    pm2 start "npm start" --name recorddashboard
+    pm2 save
+
+
+================================================================================
+PART 3 — PORT SUMMARY
+================================================================================
+
+  Service            | Port | Notes
+  -------------------|------|-------------------------------------
+  Apache (HTTP)      |  80  | Public-facing, serves frontend + proxy
+  AquaInsure (Vite)  | 8080 | Dev only — NOT used in production
+  back_insure API    | 5001 | Internal — proxied via Apache /api
+  recorddashboard    | 8081 | Internal — direct access or add proxy
+
+
+================================================================================
+PART 4 — MONGODB SETUP (if not already installed)
+================================================================================
+
+  # Install MongoDB on Ubuntu/Debian
+  sudo apt-get install -y mongodb
+  sudo systemctl start mongodb
+  sudo systemctl enable mongodb
+
+  # Verify connection
+  mongo --eval "db.runCommand({ connectionStatus: 1 })"
+
+  Both back_insure and recorddashboard connect to:
+    mongodb://localhost:27017/aquainsure
+
+
+================================================================================
+PART 5 — FULL REPRODUCTION STEPS (NEW SERVER)
+================================================================================
+
+  1. Install dependencies:
+       sudo apt update
+       sudo apt install -y apache2 nodejs npm mongodb
+
+  2. Enable Apache modules:
+       sudo a2enmod proxy proxy_http rewrite
+
+  3. Copy project files to server (via git clone, scp, etc.)
+
+  4. Install Node.js dependencies for each service:
+       cd back_insure      && npm install
+       cd recorddashboard  && npm install && npm run build
+       cd AquaInsure       && npm install && npm run build
+
+  5. Edit .env files with production values (MongoDB URI, secrets, ports)
+
+  6. Copy AquaInsure dist to Apache web root:
+       sudo mkdir -p /var/www/html/aquainsure
+       sudo cp -r AquaInsure/dist/. /var/www/html/aquainsure/
+       sudo chown -R www-data:www-data /var/www/html/aquainsure
+
+  7. Create /var/www/html/aquainsure/.htaccess (see section 1.4)
+
+  8. Edit /etc/apache2/apache2.conf (add Alias block — see section 1.2)
+
+  9. Edit /etc/apache2/sites-enabled/000-default.conf
+       (add Directory block + ProxyPass — see section 1.3)
+
+  10. Restart Apache:
+        sudo systemctl restart apache2
+
+  11. Start Node.js services with PM2:
+        pm2 start back_insure/server.js --name back_insure
+        pm2 start "npm start" --name recorddashboard --cwd recorddashboard
+        pm2 save && pm2 startup
+
+  12. Test in browser:
+        http://<server-ip>/aquainsure/          → React frontend
+        http://<server-ip>/api/                  → API (proxied)
+        http://<server-ip>:8081/admin            → AdminJS dashboard
+
+
+================================================================================
+NOTES FOR WINDOWS SERVER
+================================================================================
+
+  - Use XAMPP or install Apache for Windows manually from https://httpd.apache.org
+  - Apache config files will use backslashes in paths on Windows
+  - Use Node.js for Windows from https://nodejs.org
+  - MongoDB for Windows from https://www.mongodb.com/try/download/community
+  - PM2 works on Windows: npm install -g pm2
+  - The Apache VirtualHost and module config is the same, just adjust paths:
+      Alias /aquainsure "C:/xampp/htdocs/aquainsure"
+  - Use NSSM (Non-Sucking Service Manager) to run Node.js apps as Windows services
+      https://nssm.cc/
+
+================================================================================
+END OF GUIDE
+================================================================================

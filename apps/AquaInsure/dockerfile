@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and install all dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Build the production bundle
+RUN npm run build
+
+# Install express v4 for serving static files
+RUN npm install express@4
+
+# Expose port 8080
+EXPOSE 8080
+
+# Serve using our custom Express server
+CMD ["node", "server.cjs"]

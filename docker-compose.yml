@@ -1,39 +1,19 @@
 services:
-  aquainsure:
-    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsure:latest
-    build:
-      context: ./AquaInsure
-      dockerfile: Dockerfile
-    ports:
-      - "5003:8080"
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: aquainsure-seaweedfs
     restart: unless-stopped
-    depends_on:
-      - aquainsurebackend
-
-  aquainsurebackend:
-    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsurebackend:latest
-    build:
-      context: ./AquaInsurebackend
-      dockerfile: Dockerfile
     ports:
-      - "5001:5001"
-    restart: unless-stopped
-    env_file:
-      - ./AquaInsurebackend/.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  dashboard:
-    image: ghcr.io/quantxai-pvt-ltd/aquawebapp-aquainsuredashboard:latest
-    build:
-      context: ./Aquainsuredashboard
-      dockerfile: Dockerfile
-    ports:
-      - "5002:3000"
-    restart: unless-stopped
+      - "8333:8333"   # S3 Gateway
+      - "8888:8888"   # Filer HTTP API
+      - "9333:9333"   # SeaweedFS Master
+      - "8085:8085"   # Volume Server (remapped from 8080)
+    command: "server -dir=/data -s3 -filer -ip=localhost -volume.port=8085 -s3.port=8333"
     environment:
-      - NEXT_PUBLIC_API_URL=/api
-    depends_on:
-      - aquainsurebackend
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - WEED_S3_ENABLED=true
+    volumes:
+      - seaweedfs_data:/data
+
+volumes:
+  seaweedfs_data:
+    driver: local

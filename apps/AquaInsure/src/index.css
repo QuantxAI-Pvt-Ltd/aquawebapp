@@ -1,0 +1,173 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 100% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Premium Aqua Palette */
+    --primary: 199 89% 48%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 199 89% 95%;
+    --secondary-foreground: 199 89% 30%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 190 90% 45%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 199 89% 48%;
+
+    --radius: 1.25rem;
+
+    --ocean-start: 199 89% 48%;
+    --ocean-end: 187 92% 45%;
+    --ocean-light: 199 89% 97%;
+    --ocean-deep: 222 47% 11%;
+  }
+
+  .dark {
+    --background: 222 47% 4%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 47% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 47% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 187 92% 45%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 222 47% 12%;
+    --input: 222 47% 12%;
+    --ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+    outline: none;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
+  }
+  
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px; /* Default medium-like base for mobile */
+  }
+
+  @media (min-width: 768px) {
+    body {
+      font-size: 16px;
+      background-color: #f8fafc;
+      display: flex;
+      justify-content: center;
+    }
+
+    #root {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      background-color: hsl(var(--background));
+      position: relative;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
+      overflow-x: hidden;
+    }
+  }
+}
+
+@layer utilities {
+  .ocean-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--ocean-start)),
+      hsl(var(--ocean-end))
+    );
+    box-shadow: 0 8px 30px rgba(14, 165, 233, 0.3);
+  }
+  .ocean-gradient-soft {
+    background: radial-gradient(
+      circle at top left,
+      hsl(var(--ocean-light)),
+      hsl(var(--background))
+    );
+  }
+  .ocean-text-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--ocean-start)),
+      hsl(var(--ocean-end))
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.05)];
+  }
+  .card-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .card-shine::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transform: rotate(45deg);
+    transition: 0.5s;
+    pointer-events: none;
+  }
+  .card-shine:hover::after {
+    left: 100%;
+    top: 100%;
+  }
+  .premium-shadow {
+    box-shadow:
+      0 20px 50px -10px rgba(0, 0, 0, 0.1),
+      0 10px 30px -15px rgba(0, 0, 0, 0.05);
+  }
+}
