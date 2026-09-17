@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mediaObjectSchema = require('./MediaObject');
 
 const dailyEntrySchema = new mongoose.Schema({
     pondId: {
@@ -14,21 +15,21 @@ const dailyEntrySchema = new mongoose.Schema({
         survival: { type: Number },              // % e.g. 60–100
         biomass: { type: Number },               // kg
         proportionateGrowth: { type: Boolean },  // Yes/No
-        samplingVideo: { type: mongoose.Schema.Types.Mixed } // SeaweedFS MediaObject or legacy Buffer
+        samplingVideo: { type: mediaObjectSchema, default: null }
     },
 
     feedManagement: {
         feedQuantity: { type: Number },          // kg
         feedCost: { type: Number },              // ₹
-        feedBills: { type: mongoose.Schema.Types.Mixed }     // SeaweedFS MediaObject or legacy Buffer
+        feedBills: { type: mediaObjectSchema, default: null }
     },
 
     financials: {
         labourCost: { type: Number },            // ₹
         otherExpenses: { type: Number },         // ₹
-        miscBills: { type: mongoose.Schema.Types.Mixed },    // SeaweedFS MediaObject or legacy Buffer
+        miscBills: { type: mediaObjectSchema, default: null },
         waterCost: { type: Number },             // ₹
-        electricityBills: { type: mongoose.Schema.Types.Mixed } // SeaweedFS MediaObject or legacy Buffer
+        electricityBills: { type: mediaObjectSchema, default: null }
     },
 
     waterQuality: {
@@ -38,14 +39,14 @@ const dailyEntrySchema = new mongoose.Schema({
         ammonia: { type: Number },               // mg/L
         hardness: { type: Number },              // mg/L
         alkalinity: { type: Number },            // mg/L
-        waterReport: { type: mongoose.Schema.Types.Mixed }   // SeaweedFS MediaObject or legacy Buffer
+        waterReport: { type: mediaObjectSchema, default: null }
     },
 
     shrimpHealth: {
         status: { type: String, enum: ['normal', 'deficiency'] },
         measures: { type: String },              // text note
-        shrimpPhoto: { type: mongoose.Schema.Types.Mixed },  // SeaweedFS MediaObject or legacy Buffer
-        labReport: { type: mongoose.Schema.Types.Mixed }     // SeaweedFS MediaObject or legacy Buffer
+        shrimpPhoto: { type: mediaObjectSchema, default: null },
+        labReport: { type: mediaObjectSchema, default: null }
     },
 
     productionEstimation: {

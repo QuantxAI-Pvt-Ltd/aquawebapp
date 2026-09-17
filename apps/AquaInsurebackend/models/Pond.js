@@ -19,7 +19,7 @@ const pondSchema = new mongoose.Schema({
 
     // Insured Ponds data
     dimensionAcres: { type: Number },              // size in acres
-    photo:          { type: mongoose.Schema.Types.Mixed }, // SeaweedFS MediaObject or legacy Buffer
+    photo:          { type: mediaObjectSchema, default: null },
 
     // Per-pond address
     address: {
@@ -32,5 +32,9 @@ const pondSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Indexes for rapid queries by farmer and farm
+pondSchema.index({ farmerId: 1, pondNumber: 1 });
+pondSchema.index({ farmId: 1 });
 
 module.exports = mongoose.model('Pond', pondSchema);
