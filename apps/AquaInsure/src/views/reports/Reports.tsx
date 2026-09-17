@@ -179,7 +179,7 @@ const Reports = () => {
       `}</style>
 
       {/* HEADER */}
-      <div className="no-print relative overflow-hidden z-10 px-5 pt-14 pb-6"
+      <div className="no-print relative overflow-hidden z-10 px-5 pt-8 pb-6"
         style={{
           background: 'linear-gradient(135deg, #0a2e2b 0%, #0f766e 45%, #0d9488 80%, #14b8a6 100%)',
           borderRadius: '0 0 2.5rem 2.5rem',

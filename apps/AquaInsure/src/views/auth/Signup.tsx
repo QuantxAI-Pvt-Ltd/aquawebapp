@@ -87,7 +87,7 @@ const Signup = () => {
         }
       `}</style>
 
-      <div className="flex-1 flex flex-col px-5 pt-4 pb-8 w-full max-w-sm mx-auto mt-16">
+      <div className="flex-1 flex flex-col justify-center px-5 py-8 w-full max-w-sm mx-auto my-auto">
         {/* HEADER */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}

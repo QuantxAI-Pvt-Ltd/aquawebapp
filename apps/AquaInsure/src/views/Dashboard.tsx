@@ -8,7 +8,8 @@ import {
   BarChart3,
   ClipboardList,
   CalendarDays,
-  Waves
+  Waves,
+  ShieldAlert
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
@@ -23,7 +24,7 @@ const dashboardCards = [
     bg: "rgba(181,129,58,0.08)",
     border: "rgba(181,129,58,0.20)",
     glow: "rgba(181,129,58,0.12)",
-    iconBg: "#fffbf0",
+    iconBg: "#fffdf9",
   },
   {
     icon: Landmark,
@@ -46,6 +47,17 @@ const dashboardCards = [
     border: "rgba(166,112,48,0.20)",
     glow: "rgba(166,112,48,0.10)",
     iconBg: "#fef9ee",
+  },
+  {
+    icon: ShieldAlert,
+    labelKey: "dashboard.claims",
+    descKey: "dashboard.descClaims",
+    path: "/claims",
+    accent: "#b54d2a",
+    bg: "rgba(181,77,42,0.08)",
+    border: "rgba(181,77,42,0.20)",
+    glow: "rgba(181,77,42,0.12)",
+    iconBg: "#fff8f5",
   },
   {
     icon: Waves,
@@ -123,11 +135,11 @@ const Dashboard = () => {
 
       <div
         className="min-h-screen bg-stone-50 flex flex-col relative overflow-hidden"
-        style={{ fontFamily: "'Sora', sans-serif", paddingBottom: "84px" }}
+        style={{ fontFamily: "'Sora', sans-serif", paddingBottom: "96px" }}
       >
         {/* HEADER */}
         <div
-          className="header-clip relative overflow-hidden z-10 px-6 pt-14 pb-9"
+          className="header-clip relative overflow-hidden z-10 px-6 pt-8 pb-7"
           style={{
             background: "linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)",
             boxShadow: "0 8px 32px -6px rgba(28,74,62,0.28)",

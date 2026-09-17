@@ -17,7 +17,7 @@ const BottomNav = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2.5rem)] max-w-md">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-[400px]">
       <nav
         className="bg-white border border-stone-100 rounded-[2rem] px-3 py-2.5"
         style={{ boxShadow: '0 8px 32px rgba(28,74,62,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}

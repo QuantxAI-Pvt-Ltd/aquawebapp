@@ -89,55 +89,55 @@ const Login = () => {
         }
       `}</style>
 
-      <div className="h-10 sm:h-12 shrink-0" />
-
-      {/* HEADER */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, delay: 0.1, ease: EASE }}
-        className="z-10 flex flex-col items-center pt-2 pb-1 px-6 mt-12"
-      >
+      {/* CENTERED CONTENT CONTAINER */}
+      <div className="z-10 flex-1 flex flex-col justify-center my-auto py-8 w-full max-w-sm mx-auto">
+        {/* HEADER */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.85, delay: 0.5, ease: EASE }}
-          className="text-center"
-          style={{ fontFamily: "'DM Serif Display', serif" }}
+          transition={{ duration: 0.9, delay: 0.1, ease: EASE }}
+          className="flex flex-col items-center pb-3 px-6"
         >
-          <h1 className="text-[1.5rem] font-normal leading-tight text-stone-800">
-            {t('auth.welcomeHeading')}
-          </h1>
-          <h1
-            className="text-[1.5rem] font-normal leading-tight"
-            style={{
-              background: 'linear-gradient(120deg, #b5813a 0%, #d4973f 50%, #1c6b5a 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.85, delay: 0.5, ease: EASE }}
+            className="text-center"
+            style={{ fontFamily: "'DM Serif Display', serif" }}
           >
-            {t('dashboard.farmer')}
-          </h1>
+            <h1 className="text-[1.5rem] font-normal leading-tight text-stone-800">
+              {t('auth.welcomeHeading')}
+            </h1>
+            <h1
+              className="text-[1.5rem] font-normal leading-tight"
+              style={{
+                background: 'linear-gradient(120deg, #b5813a 0%, #d4973f 50%, #1c6b5a 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+              {t('dashboard.farmer')}
+            </h1>
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.72, duration: 0.8 }}
+            className="text-xs font-medium mt-2 text-center text-stone-400"
+          >
+            {t('app.tagline')}
+          </motion.p>
         </motion.div>
 
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.72, duration: 0.8 }}
-          className="text-xs font-medium mt-2 text-center text-stone-400"
+        {/* FORM CARD */}
+        <motion.div
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.42, ease: EASE }}
+          className="flex flex-col px-5 sm:px-0 w-full"
         >
-          {t('app.tagline')}
-        </motion.p>
-      </motion.div>
-
-      {/* FORM CARD */}
-      <motion.div
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, delay: 0.42, ease: EASE }}
-        className="z-10 flex-1 flex flex-col px-5 sm:px-7 pt-7 pb-4 w-full max-w-sm mx-auto"
-      >
         <div
           className="rounded-3xl p-5 sm:p-6 flex flex-col gap-5 bg-white border border-stone-100"
           style={{ boxShadow: '0 8px 40px -8px rgba(28,74,62,0.10), 0 2px 12px rgba(0,0,0,0.04)' }}
@@ -245,6 +245,7 @@ const Login = () => {
           {t('auth.copyright')}
         </motion.p>
       </motion.div>
+      </div>
     </div>
   );
 };

@@ -80,49 +80,45 @@ const LanguageSelection = () => {
         }} />
       </div>
 
-      {/* ── SAFE AREA ── */}
-      <div className="h-12 sm:h-14 shrink-0" />
-
-      {/* ── HEADER ── */}
-      <motion.div
-        initial={{ opacity: 0, y: -18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.85, delay: 0.1, ease: EASE }}
-        className="z-10 flex flex-col items-center pt-2 px-6 pb-1"
-      >
-        {/* Logo with ring */}
+      {/* ── CENTERED CONTENT CONTAINER ── */}
+      <div className="z-10 flex-1 flex flex-col justify-center my-auto py-6 w-full">
+        {/* ── HEADER ── */}
         <motion.div
-
-        >
-          <img
-            src="/aquainsure/logo.jpeg"
-            alt="Aqua AInsure"
-            className="relative w-36 h-36 sm:w-36 sm:h-36  object-contain"
-            style={{ display: 'block' }}
-          />
-
-        </motion.div>
-
-        {/* Heading */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: -18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.85, delay: 0.45, ease: EASE }}
-          className="text-center"
+          transition={{ duration: 0.85, delay: 0.1, ease: EASE }}
+          className="flex flex-col items-center px-6 pb-2"
         >
-          <h1 className="font-bold leading-tight mb-1 text-stone-800"
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: 'clamp(1rem, 5vw, 1.2rem)',
-            }}
-          >
-            {t('language.title')}
-          </h1>
-        </motion.div>
-      </motion.div>
+          {/* Logo with ring */}
+          <motion.div>
+            <img
+              src="/aquainsure/logo.jpeg"
+              alt="Aqua AInsure"
+              className="relative w-32 h-32 sm:w-36 sm:h-36 object-contain"
+              style={{ display: 'block' }}
+            />
+          </motion.div>
 
-      {/* ── LANGUAGE CARDS ── */}
-      <div className="z-10 flex-1 flex flex-col px-5 sm:px-6 pt-5 pb-4 w-full max-w-sm mx-auto gap-2.5">
+          {/* Heading */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.85, delay: 0.45, ease: EASE }}
+            className="text-center mt-2"
+          >
+            <h1 className="font-bold leading-tight mb-1 text-stone-800"
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: 'clamp(1.1rem, 5vw, 1.3rem)',
+              }}
+            >
+              {t('language.title')}
+            </h1>
+          </motion.div>
+        </motion.div>
+
+        {/* ── LANGUAGE CARDS ── */}
+        <div className="flex flex-col px-5 sm:px-6 pt-3 pb-2 w-full max-w-sm mx-auto gap-2.5">
         {languages.map((lang, idx) => {
           const isSel = selected === lang.code;
           return (
@@ -203,7 +199,7 @@ const LanguageSelection = () => {
           © 2025 Aqua AInsure · All rights reserved
         </motion.p>
       </div>
-
+      </div>
     </div>
   );
 };

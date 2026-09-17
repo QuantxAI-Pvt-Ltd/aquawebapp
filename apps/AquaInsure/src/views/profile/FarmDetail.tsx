@@ -45,7 +45,7 @@ export default function FarmDetail() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
             {/* Header */}
-            <div className="px-5 pt-14 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
+            <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
                 style={{ background: "linear-gradient(140deg,#7c4a1e 0%,#c9922a 55%,#e6a832 100%)", boxShadow: "0 8px 32px -6px rgba(124,74,30,0.28)" }}>
                 <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
