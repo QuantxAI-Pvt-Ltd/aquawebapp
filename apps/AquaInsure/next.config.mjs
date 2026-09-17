@@ -16,8 +16,14 @@ if (typeof globalThis !== 'undefined') {
       configurable: true,
       writable: true,
     });
-  } catch {}
+  } catch { }
 }
+
+
+const rawDevOrigins = process.env.ALLOWED_DEV_ORIGINS || '';
+const allowedDevOrigins = rawDevOrigins
+  ? rawDevOrigins.split(',').map((o) => o.trim()).filter(Boolean)
+  : ['10.47.51.139', '10.63.178.139', 'localhost'];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -28,6 +34,7 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  allowedDevOrigins,
 };
 
 export default nextConfig;
