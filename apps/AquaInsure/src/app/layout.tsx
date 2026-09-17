@@ -24,9 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-stone-50 font-sans antialiased text-stone-900 selection:bg-teal-100 selection:text-teal-900">
-        <Providers>{children}</Providers>
+    <html lang="en" data-scroll-behavior="smooth">
+      <body className="min-h-screen bg-stone-200/50 dark:bg-stone-950 font-sans antialiased text-stone-900 selection:bg-teal-100 selection:text-teal-900 flex justify-center items-start sm:py-6 sm:px-4">
+        <div className="w-full sm:max-w-[440px] min-h-screen bg-stone-50 dark:bg-stone-900 sm:rounded-[36px] sm:shadow-2xl sm:border sm:border-stone-300/70 dark:sm:border-stone-800 relative flex flex-col overflow-x-hidden">
+          <Providers>{children}</Providers>
+        </div>
       </body>
     </html>
   );
