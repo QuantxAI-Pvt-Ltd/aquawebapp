@@ -106,15 +106,22 @@ router.get('/stream', async (req, res) => {
   }
 });
 
+const { requireAuth } = require('../middleware/auth');
+
 /**
  * @route   DELETE /api/media?key=...
  * @desc    Delete media from SeaweedFS
  */
-router.delete('/', async (req, res) => {
+router.delete('/', requireAuth, async (req, res) => {
   try {
     const key = req.query.key || req.body?.key;
     if (!key) {
       return res.status(400).json({ success: false, error: 'key is required' });
+    }
+
+    // Ensure non-admins can only delete files in their own farmer folder
+    if (req.user.farmerId && !key.startsWith(`farmers/${req.user.farmerId}/`) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Forbidden. You can only delete your own media.' });
     }
 
     await deleteObject(key);

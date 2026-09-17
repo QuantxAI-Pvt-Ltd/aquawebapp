@@ -5,7 +5,7 @@ const User = require('../models/User');
 const Farmer = require('../models/Farmer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'changeme-secret';
-const JWT_EXPIRES = '30d';
+const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '30d';
 
 // @route   POST /api/auth/register
 // @desc    Register a new user with phone, optional email, and password
