@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mediaObjectSchema = require('./MediaObject');
 
 const farmerSchema = new mongoose.Schema({
     // Basic Details
@@ -23,17 +24,17 @@ const farmerSchema = new mongoose.Schema({
     registration: {
         regType: { type: String, enum: ['caa', 'mpeda', 'dof'] },
         regNumber: { type: String },
-        regCertificate: { type: mongoose.Schema.Types.Mixed } // SeaweedFS MediaObject or legacy Buffer
+        regCertificate: { type: mediaObjectSchema, default: null }
     },
 
     // Identity
     identity: {
         aadharNumber: { type: String, unique: true, sparse: true },
-        aadharFile: { type: mongoose.Schema.Types.Mixed },    // SeaweedFS MediaObject or legacy Buffer
+        aadharFile: { type: mediaObjectSchema, default: null },
         hasPan: { type: Boolean, default: false },
         panNumber: { type: String },
-        panFile: { type: mongoose.Schema.Types.Mixed },       // SeaweedFS MediaObject or legacy Buffer
-        photo: { type: mongoose.Schema.Types.Mixed }          // SeaweedFS MediaObject or legacy Buffer
+        panFile: { type: mediaObjectSchema, default: null },
+        photo: { type: mediaObjectSchema, default: null }
     },
 
     // Bank Details

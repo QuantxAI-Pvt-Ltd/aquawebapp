@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mediaObjectSchema = require('./MediaObject');
 
 const farmSchema = new mongoose.Schema({
     farmerId: {
@@ -23,7 +24,7 @@ const farmSchema = new mongoose.Schema({
     },
 
     totalPonds: { type: Number, required: true },
-    farmPhoto: { type: mongoose.Schema.Types.Mixed }, // SeaweedFS MediaObject or legacy Buffer
+    farmPhoto: { type: mediaObjectSchema, default: null },
 
     // Infrastructure — all boolean Yes/No from UI toggles
     infrastructure: {
@@ -39,5 +40,8 @@ const farmSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Index for rapid queries by farmer
+farmSchema.index({ farmerId: 1 });
 
 module.exports = mongoose.model('Farm', farmSchema);
