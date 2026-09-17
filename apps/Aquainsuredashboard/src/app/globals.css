@@ -48,16 +48,52 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ─── Dark mode as default (SaaS dashboard aesthetic) ─────────────────────── */
+/* ─── Light Mode Defaults ─────────────────────────────────────────────────── */
 :root {
+  --background: oklch(0.985 0.002 247.8);
+  --foreground: oklch(0.145 0.01 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.01 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0.01 260);
+  --primary: oklch(0.48 0.14 175);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.005 247.8);
+  --secondary-foreground: oklch(0.2 0.01 260);
+  --muted: oklch(0.95 0.005 247.8);
+  --muted-foreground: oklch(0.5 0.01 260);
+  --accent: oklch(0.94 0.015 175);
+  --accent-foreground: oklch(0.2 0.05 175);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.89 0.005 247.8);
+  --input: oklch(0.89 0.005 247.8);
+  --ring: oklch(0.48 0.14 175);
+  --chart-1: oklch(0.48 0.14 175);
+  --chart-2: oklch(0.55 0.16 220);
+  --chart-3: oklch(0.65 0.15 140);
+  --chart-4: oklch(0.6 0.15 320);
+  --chart-5: oklch(0.65 0.18 60);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.98 0.002 247.8);
+  --sidebar-foreground: oklch(0.145 0.01 260);
+  --sidebar-primary: oklch(0.48 0.14 175);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.93 0.015 175);
+  --sidebar-accent-foreground: oklch(0.2 0.05 175);
+  --sidebar-border: oklch(0.89 0.005 247.8);
+  --sidebar-ring: oklch(0.48 0.14 175);
+}
+
+/* ─── Dark Mode (Sleek SaaS Aesthetic) ────────────────────────────────────── */
+.dark {
   --background: oklch(0.13 0.005 260);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.17 0.005 260);
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.17 0.005 260);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.65 0.2 260);
-  --primary-foreground: oklch(1 0 0);
+  --primary: oklch(0.65 0.2 175);
+  --primary-foreground: oklch(0.1 0.02 175);
   --secondary: oklch(0.22 0.005 260);
   --secondary-foreground: oklch(0.9 0 0);
   --muted: oklch(0.22 0.005 260);
@@ -67,21 +103,20 @@
   --destructive: oklch(0.65 0.2 25);
   --border: oklch(0.25 0.005 260);
   --input: oklch(0.22 0.005 260);
-  --ring: oklch(0.65 0.2 260);
-  --chart-1: oklch(0.65 0.2 260);
+  --ring: oklch(0.65 0.2 175);
+  --chart-1: oklch(0.65 0.2 175);
   --chart-2: oklch(0.7 0.18 180);
   --chart-3: oklch(0.75 0.15 140);
   --chart-4: oklch(0.7 0.15 320);
   --chart-5: oklch(0.75 0.18 60);
-  --radius: 0.625rem;
   --sidebar: oklch(0.15 0.005 260);
   --sidebar-foreground: oklch(0.97 0 0);
-  --sidebar-primary: oklch(0.65 0.2 260);
-  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.65 0.2 175);
+  --sidebar-primary-foreground: oklch(0.1 0.02 175);
   --sidebar-accent: oklch(0.22 0.01 260);
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.25 0.005 260);
-  --sidebar-ring: oklch(0.65 0.2 260);
+  --sidebar-ring: oklch(0.65 0.2 175);
 }
 
 @layer base {
@@ -99,13 +134,13 @@
 /* ─── Custom utilities ──────────────────────────────────────────────────────── */
 @layer utilities {
   .glass-card {
-    @apply rounded-xl border border-border bg-card/60 backdrop-blur-xl;
+    @apply rounded-xl border border-border bg-card/70 backdrop-blur-xl shadow-xs;
   }
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
+    animation: fadeIn 0.4s ease-out;
   }
   .animate-slide-up {
-    animation: slideUp 0.4s ease-out;
+    animation: slideUp 0.3s ease-out;
   }
 }
 
@@ -115,41 +150,49 @@
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── ApexCharts dark theme overrides ───────────────────────────────────────── */
+/* ─── ApexCharts Light & Dark Overrides ─────────────────────────────────────── */
 .apexcharts-tooltip {
-  background: oklch(0.17 0.005 260) !important;
-  border: 1px solid oklch(0.25 0.005 260) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
-  color: oklch(0.95 0 0) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15) !important;
+  color: var(--foreground) !important;
 }
 
 .apexcharts-tooltip-title {
-  background: oklch(0.2 0.005 260) !important;
-  border-bottom-color: oklch(0.25 0.005 260) !important;
-  color: oklch(0.95 0 0) !important;
+  background: var(--muted) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
 }
 
 .apexcharts-xaxistooltip,
 .apexcharts-yaxistooltip {
-  background: oklch(0.17 0.005 260) !important;
-  border-color: oklch(0.25 0.005 260) !important;
-  color: oklch(0.95 0 0) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
 }
 
 .apexcharts-legend-text {
-  color: oklch(0.7 0 0) !important;
+  color: var(--muted-foreground) !important;
 }
 
 .apexcharts-menu {
-  background: oklch(0.17 0.005 260) !important;
-  border-color: oklch(0.25 0.005 260) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px -4px rgba(0,0,0,0.12) !important;
+}
+
+.apexcharts-menu-item {
+  color: var(--foreground) !important;
 }
 
 .apexcharts-menu-item:hover {
-  background: oklch(0.22 0.005 260) !important;
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
 }
