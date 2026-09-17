@@ -6,10 +6,10 @@ import {
   Landmark,
   Waves,
   ShieldCheck,
-  ShieldOff,
   ClipboardList,
   TrendingUp,
   Activity,
+  ShieldAlert,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +17,8 @@ import ApexChart from '@/components/charts/ApexChart';
 import type { ApexOptions } from 'apexcharts';
 import type { DashboardStats } from '@/types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
 interface StatCardProps {
   title: string;
@@ -25,11 +26,12 @@ interface StatCardProps {
   icon: React.ReactNode;
   gradient: string;
   loading?: boolean;
+  href?: string;
 }
 
-function StatCard({ title, value, icon, gradient, loading }: StatCardProps) {
-  return (
-    <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl transition-all hover:border-border hover:shadow-lg hover:shadow-primary/5">
+function StatCard({ title, value, icon, gradient, loading, href }: StatCardProps) {
+  const cardContent = (
+    <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl transition-all hover:border-border hover:shadow-lg hover:shadow-primary/5 cursor-pointer">
       <div
         className={`absolute inset-0 opacity-[0.03] transition-opacity group-hover:opacity-[0.06] ${gradient}`}
       />
@@ -52,29 +54,21 @@ function StatCard({ title, value, icon, gradient, loading }: StatCardProps) {
       </CardContent>
     </Card>
   );
+
+  return href ? <Link href={href}>{cardContent}</Link> : cardContent;
 }
 
 // ─── Chart theme defaults ─────────────────────────────────────────────────────
-const darkChartTheme: ApexOptions = {
+const baseChartTheme: ApexOptions = {
   chart: {
     background: 'transparent',
     toolbar: { show: false },
     fontFamily: 'Inter, sans-serif',
   },
-  theme: { mode: 'dark' },
-  grid: {
-    borderColor: 'rgba(255,255,255,0.06)',
-    strokeDashArray: 4,
-  },
   xaxis: {
-    labels: { style: { colors: '#888', fontSize: '11px' } },
     axisBorder: { show: false },
     axisTicks: { show: false },
   },
-  yaxis: {
-    labels: { style: { colors: '#888', fontSize: '11px' } },
-  },
-  tooltip: { theme: 'dark' },
   dataLabels: { enabled: false },
 };
 
@@ -89,10 +83,10 @@ export default function OverviewPage() {
     async function fetchData() {
       try {
         const [statsRes, entriesRes, insRes, farmersRes] = await Promise.all([
-          fetch(`${API}/api/dashboard/stats`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/entries-over-time?days=30`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/insurance-status`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/top-farmers?limit=8`).then(r => r.json()),
+          apiFetch<{ success: boolean; data: DashboardStats }>('/api/dashboard/stats'),
+          apiFetch<{ success: boolean; data: { date: string; count: number }[] }>('/api/dashboard/analytics/entries-over-time?days=30'),
+          apiFetch<{ success: boolean; data: { status: string; count: number }[] }>('/api/dashboard/analytics/insurance-status'),
+          apiFetch<{ success: boolean; data: { name: string; entryCount: number }[] }>('/api/dashboard/analytics/top-farmers?limit=8'),
         ]);
         if (statsRes.success) setStats(statsRes.data);
         if (entriesRes.success) setEntriesOverTime(entriesRes.data);
@@ -109,55 +103,54 @@ export default function OverviewPage() {
 
   // ─── Chart configs ────────────────────────────────────────────────────────
   const areaChartOptions: ApexOptions = {
-    ...darkChartTheme,
-    chart: { ...darkChartTheme.chart, type: 'area', height: 320, sparkline: { enabled: false } },
+    ...baseChartTheme,
+    chart: { ...baseChartTheme.chart, type: 'area', height: 320, sparkline: { enabled: false } },
     stroke: { curve: 'smooth', width: 2.5 },
     fill: {
       type: 'gradient',
       gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] },
     },
-    colors: ['#818cf8'],
+    colors: ['#0d9488'],
     xaxis: {
-      ...darkChartTheme.xaxis,
+      ...baseChartTheme.xaxis,
       categories: entriesOverTime.map(e => e.date.slice(5)), // MM-DD
     },
   };
 
   const donutOptions: ApexOptions = {
     chart: { type: 'donut', background: 'transparent', fontFamily: 'Inter, sans-serif' },
-    theme: { mode: 'dark' },
-    colors: ['#34d399', '#fbbf24', '#f87171'],
+    colors: ['#10b981', '#f59e0b', '#ef4444'],
     labels: insuranceStatus.map(s => s.status ? s.status.charAt(0).toUpperCase() + s.status.slice(1) : 'Unknown'),
-    legend: { position: 'bottom', labels: { colors: '#999' } },
+    legend: { position: 'bottom' },
     stroke: { show: false },
     plotOptions: {
       pie: {
-        donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Total', color: '#999', fontSize: '13px' } } },
+        donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Total', fontSize: '13px' } } },
       },
     },
     dataLabels: { enabled: false },
   };
 
   const barOptions: ApexOptions = {
-    ...darkChartTheme,
-    chart: { ...darkChartTheme.chart, type: 'bar', height: 320 },
+    ...baseChartTheme,
+    chart: { ...baseChartTheme.chart, type: 'bar', height: 320 },
     plotOptions: { bar: { borderRadius: 6, horizontal: true, barHeight: '60%' } },
-    colors: ['#38bdf8'],
+    colors: ['#06b6d4'],
     xaxis: {
-      ...darkChartTheme.xaxis,
+      ...baseChartTheme.xaxis,
       categories: topFarmers.map(f => f.name.length > 16 ? f.name.slice(0, 16) + '…' : f.name),
     },
   };
 
   const statCards = [
-    { title: 'Total Farmers', value: stats?.totalFarmers ?? 0, icon: <Users className="h-5 w-5 text-white" />, gradient: 'from-blue-500 to-indigo-500' },
-    { title: 'Total Farms', value: stats?.totalFarms ?? 0, icon: <Landmark className="h-5 w-5 text-white" />, gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Active Ponds', value: stats?.totalPonds ?? 0, icon: <Waves className="h-5 w-5 text-white" />, gradient: 'from-cyan-500 to-blue-500' },
-    { title: 'Active Insurance', value: stats?.activeInsurances ?? 0, icon: <ShieldCheck className="h-5 w-5 text-white" />, gradient: 'from-green-500 to-emerald-500' },
-    { title: 'Expired Insurance', value: stats?.expiredInsurances ?? 0, icon: <ShieldOff className="h-5 w-5 text-white" />, gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Total Farmers', value: stats?.totalFarmers ?? 0, icon: <Users className="h-5 w-5 text-white" />, gradient: 'from-blue-500 to-indigo-500', href: '/farmers' },
+    { title: 'Total Farms', value: stats?.totalFarms ?? 0, icon: <Landmark className="h-5 w-5 text-white" />, gradient: 'from-emerald-500 to-teal-500', href: '/farmers' },
+    { title: 'Active Ponds', value: stats?.totalPonds ?? 0, icon: <Waves className="h-5 w-5 text-white" />, gradient: 'from-cyan-500 to-blue-500', href: '/farmers' },
+    { title: 'Active Coverage', value: stats?.activeInsurances ?? 0, icon: <ShieldCheck className="h-5 w-5 text-white" />, gradient: 'from-green-500 to-emerald-500', href: '/insurances' },
+    { title: 'Pending Claims', value: stats?.pendingClaims ?? 0, icon: <ShieldAlert className="h-5 w-5 text-white" />, gradient: 'from-amber-500 to-orange-500', href: '/insurances' },
+    { title: 'Settled Claims', value: stats?.claimedInsurances ?? 0, icon: <TrendingUp className="h-5 w-5 text-white" />, gradient: 'from-teal-500 to-emerald-500', href: '/insurances' },
     { title: 'Daily Entries', value: stats?.totalDailyEntries ?? 0, icon: <ClipboardList className="h-5 w-5 text-white" />, gradient: 'from-violet-500 to-purple-500' },
     { title: 'One-Time Entries', value: stats?.totalOneTimeEntries ?? 0, icon: <Activity className="h-5 w-5 text-white" />, gradient: 'from-pink-500 to-rose-500' },
-    { title: 'Total Insurances', value: stats?.totalInsurances ?? 0, icon: <TrendingUp className="h-5 w-5 text-white" />, gradient: 'from-indigo-500 to-blue-500' },
   ];
 
   return (

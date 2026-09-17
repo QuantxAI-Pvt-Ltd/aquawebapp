@@ -4,20 +4,19 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ApexChart from '@/components/charts/ApexChart';
 import type { ApexOptions } from 'apexcharts';
 import { CalendarDays, TrendingUp, Droplets, Users } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
+import type { ApiResponse } from '@/types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-
-const darkChart: ApexOptions = {
-  chart: { background: 'transparent', toolbar: { show: true, tools: { download: true, zoom: true, pan: true, reset: true, selection: false } }, fontFamily: 'Inter, sans-serif' },
-  theme: { mode: 'dark' },
-  grid: { borderColor: 'rgba(255,255,255,0.06)', strokeDashArray: 4 },
-  xaxis: { labels: { style: { colors: '#888', fontSize: '11px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
-  yaxis: { labels: { style: { colors: '#888', fontSize: '11px' } } },
-  tooltip: { theme: 'dark' },
+const baseChart: ApexOptions = {
+  chart: {
+    background: 'transparent',
+    toolbar: { show: true, tools: { download: true, zoom: true, pan: true, reset: true, selection: false } },
+    fontFamily: 'Inter, sans-serif'
+  },
+  xaxis: { axisBorder: { show: false }, axisTicks: { show: false } },
   dataLabels: { enabled: false },
 };
 
@@ -39,11 +38,11 @@ export default function AnalyticsPage() {
       setLoading(true);
       try {
         const [eRes, wRes, dRes, fRes, iRes] = await Promise.all([
-          fetch(`${API}/api/dashboard/analytics/entries-over-time?days=${period}`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/water-quality?days=${period}`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/farmer-distribution`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/top-farmers?limit=10`).then(r => r.json()),
-          fetch(`${API}/api/dashboard/analytics/insurance-status`).then(r => r.json()),
+          apiFetch<ApiResponse<{ date: string; count: number }[]>>(`/api/dashboard/analytics/entries-over-time?days=${period}`),
+          apiFetch<ApiResponse<{ date: string; ph: number | null; dissolvedOxygen: number | null; temperature: number | null; ammonia: number | null }[]>>(`/api/dashboard/analytics/water-quality?days=${period}`),
+          apiFetch<ApiResponse<{ district: string; count: number }[]>>('/api/dashboard/analytics/farmer-distribution'),
+          apiFetch<ApiResponse<{ name: string; entryCount: number }[]>>('/api/dashboard/analytics/top-farmers?limit=10'),
+          apiFetch<ApiResponse<{ status: string; count: number }[]>>('/api/dashboard/analytics/insurance-status'),
         ]);
         if (eRes.success) setEntriesOverTime(eRes.data);
         if (wRes.success) setWaterQuality(wRes.data);
@@ -61,47 +60,46 @@ export default function AnalyticsPage() {
 
   // ─── Chart configs ────────────────────────────────────────────────────────
   const entryAreaOptions: ApexOptions = {
-    ...darkChart,
-    chart: { ...darkChart.chart, type: 'area', height: 350 },
+    ...baseChart,
+    chart: { ...baseChart.chart, type: 'area', height: 350 },
     stroke: { curve: 'smooth', width: 2.5 },
     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
-    colors: ['#818cf8'],
-    xaxis: { ...darkChart.xaxis, categories: entriesOverTime.map(e => e.date.slice(5)) },
+    colors: ['#0d9488'],
+    xaxis: { ...baseChart.xaxis, categories: entriesOverTime.map(e => e.date.slice(5)) },
   };
 
   const waterLineOptions: ApexOptions = {
-    ...darkChart,
-    chart: { ...darkChart.chart, type: 'line', height: 350 },
+    ...baseChart,
+    chart: { ...baseChart.chart, type: 'line', height: 350 },
     stroke: { curve: 'smooth', width: 2 },
-    colors: ['#38bdf8', '#34d399', '#fbbf24', '#f87171'],
-    xaxis: { ...darkChart.xaxis, categories: waterQuality.map(w => w.date.slice(5)) },
-    legend: { position: 'top', horizontalAlign: 'right', labels: { colors: '#999' } },
+    colors: ['#0284c7', '#10b981', '#f59e0b', '#ef4444'],
+    xaxis: { ...baseChart.xaxis, categories: waterQuality.map(w => w.date.slice(5)) },
+    legend: { position: 'top', horizontalAlign: 'right' },
   };
 
   const distBarOptions: ApexOptions = {
-    ...darkChart,
-    chart: { ...darkChart.chart, type: 'bar', height: 350 },
+    ...baseChart,
+    chart: { ...baseChart.chart, type: 'bar', height: 350 },
     plotOptions: { bar: { borderRadius: 6, horizontal: false, columnWidth: '55%' } },
-    colors: ['#a78bfa'],
-    xaxis: { ...darkChart.xaxis, categories: farmerDist.map(d => d.district?.length > 12 ? d.district.slice(0, 12) + '…' : d.district) },
+    colors: ['#8b5cf6'],
+    xaxis: { ...baseChart.xaxis, categories: farmerDist.map(d => d.district?.length > 12 ? d.district.slice(0, 12) + '…' : d.district) },
   };
 
   const topFarmerBarOptions: ApexOptions = {
-    ...darkChart,
-    chart: { ...darkChart.chart, type: 'bar', height: 350 },
+    ...baseChart,
+    chart: { ...baseChart.chart, type: 'bar', height: 350 },
     plotOptions: { bar: { borderRadius: 6, horizontal: true, barHeight: '55%' } },
-    colors: ['#2dd4bf'],
-    xaxis: { ...darkChart.xaxis, categories: topFarmers.map(f => f.name?.length > 18 ? f.name.slice(0, 18) + '…' : f.name) },
+    colors: ['#06b6d4'],
+    xaxis: { ...baseChart.xaxis, categories: topFarmers.map(f => f.name?.length > 18 ? f.name.slice(0, 18) + '…' : f.name) },
   };
 
   const insDonutOptions: ApexOptions = {
     chart: { type: 'donut', background: 'transparent', fontFamily: 'Inter, sans-serif' },
-    theme: { mode: 'dark' },
-    colors: ['#34d399', '#fbbf24', '#f87171'],
+    colors: ['#10b981', '#f59e0b', '#ef4444'],
     labels: insuranceStatus.map(s => s.status ? s.status.charAt(0).toUpperCase() + s.status.slice(1) : 'Unknown'),
-    legend: { position: 'bottom', labels: { colors: '#999' } },
+    legend: { position: 'bottom' },
     stroke: { show: false },
-    plotOptions: { pie: { donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Policies', color: '#999', fontSize: '13px' } } } } },
+    plotOptions: { pie: { donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Policies', fontSize: '13px' } } } } },
     dataLabels: { enabled: false },
   };
 
