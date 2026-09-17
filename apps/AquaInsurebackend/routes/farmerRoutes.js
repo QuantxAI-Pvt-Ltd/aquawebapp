@@ -8,9 +8,10 @@ const path = require('path');
 const pdf = require('pdf-parse');
 
 // Multer: store in memory (we need the buffer for OCR)
+const maxFileSize = (parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 10) * 1024 * 1024;
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+    limits: { fileSize: maxFileSize },
     fileFilter: (req, file, cb) => {
         const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
         if (allowed.includes(file.mimetype)) cb(null, true);
@@ -84,23 +85,47 @@ router.post('/ocr/aadhaar', upload.single('aadhaar'), async (req, res) => {
     }
 });
 
+const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
+const mongoose = require('mongoose');
+
+const safeUploadBase64 = async (val, keyFn) => {
+    if (!val) return null;
+    try {
+        const res = await uploadBase64(val, keyFn);
+        if (res) return res;
+    } catch (err) {
+        console.warn('[SeaweedFS] Farmer upload failed, fallback to buffer:', err.message);
+    }
+    return base64ToBuffer(val);
+};
+
 // @route   POST /api/farmers
-// @desc    Register a new farmer
+// @desc    Create a new farmer
 router.post('/', async (req, res) => {
     try {
         const data = req.body;
+        const tempId = new mongoose.Types.ObjectId();
+        const farmerId = tempId.toString();
+
+        const [regCertObj, aadharObj, panObj, photoObj] = await Promise.all([
+            safeUploadBase64(data.registration?.regCertificate, (ext) => StorageHierarchy.farmerRegCert(farmerId, ext)),
+            safeUploadBase64(data.identity?.aadharFile, (ext) => StorageHierarchy.farmerAadhar(farmerId, ext)),
+            safeUploadBase64(data.identity?.panFile, (ext) => StorageHierarchy.farmerPan(farmerId, ext)),
+            safeUploadBase64(data.identity?.photo, (ext) => StorageHierarchy.farmerPhoto(farmerId, ext)),
+        ]);
 
         const farmerData = {
             ...data,
+            _id: tempId,
             registration: {
                 ...data.registration,
-                regCertificate: base64ToBuffer(data.registration?.regCertificate)
+                regCertificate: regCertObj
             },
             identity: {
                 ...data.identity,
-                aadharFile: base64ToBuffer(data.identity?.aadharFile),
-                panFile: base64ToBuffer(data.identity?.panFile),
-                photo: base64ToBuffer(data.identity?.photo)
+                aadharFile: aadharObj,
+                panFile: panObj,
+                photo: photoObj
             }
         };
 
@@ -112,30 +137,47 @@ router.post('/', async (req, res) => {
     }
 });
 
+const { requireAuth } = require('../middleware/auth');
+
 // @route   PATCH /api/farmers/:farmerId
 // @desc    Fill in registration details on the skeleton farmer doc created at login
-router.patch('/:farmerId', async (req, res) => {
+router.patch('/:farmerId', requireAuth, async (req, res) => {
     try {
         const data = req.body;
+        const farmerId = req.params.farmerId;
 
-        const farmerData = {
-            ...data,
-            registration: {
+        // Verify that authenticated user owns this profile or has admin role
+        if (req.user.farmerId && req.user.farmerId.toString() !== farmerId && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: 'Forbidden. You do not have permission to edit this profile.' });
+        }
+
+        const [regCertObj, aadharObj, panObj, photoObj] = await Promise.all([
+            data.registration?.regCertificate ? safeUploadBase64(data.registration.regCertificate, (ext) => StorageHierarchy.farmerRegCert(farmerId, ext)) : null,
+            data.identity?.aadharFile ? safeUploadBase64(data.identity.aadharFile, (ext) => StorageHierarchy.farmerAadhar(farmerId, ext)) : null,
+            data.identity?.panFile ? safeUploadBase64(data.identity.panFile, (ext) => StorageHierarchy.farmerPan(farmerId, ext)) : null,
+            data.identity?.photo ? safeUploadBase64(data.identity.photo, (ext) => StorageHierarchy.farmerPhoto(farmerId, ext)) : null,
+        ]);
+
+        const updateData = { ...data };
+        if (data.registration) {
+            updateData.registration = {
                 ...data.registration,
-                regCertificate: base64ToBuffer(data.registration?.regCertificate)
-            },
-            identity: {
+                regCertificate: regCertObj !== null ? regCertObj : undefined
+            };
+        }
+        if (data.identity) {
+            updateData.identity = {
                 ...data.identity,
-                aadharFile: base64ToBuffer(data.identity?.aadharFile),
-                panFile: base64ToBuffer(data.identity?.panFile),
-                photo: base64ToBuffer(data.identity?.photo)
-            }
-        };
+                aadharFile: aadharObj !== null ? aadharObj : undefined,
+                panFile: panObj !== null ? panObj : undefined,
+                photo: photoObj !== null ? photoObj : undefined
+            };
+        }
 
         const farmer = await Farmer.findByIdAndUpdate(
-            req.params.farmerId,
-            { $set: farmerData },
-            { new: true, runValidators: false } // runValidators:false because address placeholder is already set
+            farmerId,
+            { $set: updateData },
+            { new: true, runValidators: false }
         );
 
         if (!farmer) {

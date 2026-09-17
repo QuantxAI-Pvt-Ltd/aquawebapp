@@ -55,22 +55,54 @@ router.get('/daily', async (req, res) => {
     }
 });
 
+const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
+
+const safeUploadBase64 = async (val, keyFn) => {
+    if (!val) return null;
+    try {
+        const res = await uploadBase64(val, keyFn);
+        if (res) return res;
+    } catch (err) {
+        console.warn('[SeaweedFS] Entry upload failed, fallback to buffer:', err.message);
+    }
+    return base64ToBuffer(val);
+};
+
+const { requireAuth } = require('../middleware/auth');
+
 // @route   POST /api/entries/one-time
 // @desc    Save one-time pond setup entry
-router.post('/one-time', async (req, res) => {
+router.post('/one-time', requireAuth, async (req, res) => {
     try {
         const data = req.body;
+
+        const pond = await Pond.findById(data.pondId).select('farmId farmerId').lean();
+        const farmerId = pond?.farmerId?.toString() || 'unknown';
+        const farmId = pond?.farmId?.toString() || 'unknown';
+        const pondIdStr = data.pondId?.toString();
+
+        const [pondPrepBillsObj, pcrCertObj, seedBillsObj] = await Promise.all([
+            data.pondPreparation?.pondPrepBills
+                ? safeUploadBase64(data.pondPreparation.pondPrepBills, (ext) => StorageHierarchy.oneTimePondPrepBills(farmerId, farmId, pondIdStr, ext))
+                : null,
+            data.seedSelection?.pcrCertificate
+                ? safeUploadBase64(data.seedSelection.pcrCertificate, (ext) => StorageHierarchy.oneTimePcrCert(farmerId, farmId, pondIdStr, ext))
+                : null,
+            data.seedSelection?.seedBills
+                ? safeUploadBase64(data.seedSelection.seedBills, (ext) => StorageHierarchy.oneTimeSeedBills(farmerId, farmId, pondIdStr, ext))
+                : null,
+        ]);
 
         const entryData = {
             ...data,
             pondPreparation: {
                 ...data.pondPreparation,
-                pondPrepBills: base64ToBuffer(data.pondPreparation?.pondPrepBills)
+                pondPrepBills: pondPrepBillsObj
             },
             seedSelection: {
                 ...data.seedSelection,
-                pcrCertificate: base64ToBuffer(data.seedSelection?.pcrCertificate),
-                seedBills: base64ToBuffer(data.seedSelection?.seedBills)
+                pcrCertificate: pcrCertObj,
+                seedBills: seedBillsObj
             }
         };
 
@@ -84,17 +116,38 @@ router.post('/one-time', async (req, res) => {
 
 // @route   POST /api/entries/daily
 // @desc    Save or update a daily entry (tagged with current date)
-router.post('/daily', async (req, res) => {
+router.post('/daily', requireAuth, async (req, res) => {
     try {
         const data = req.body;
 
         // Fetch existing to preserve files if not re-uploaded
         const existingEntry = await DailyEntry.findOne({ pondId: data.pondId, dayNumber: data.dayNumber }).lean();
 
-        const getBuffer = (newBase64, oldBuffer) => {
-            if (newBase64) return base64ToBuffer(newBase64);
-            return oldBuffer;
+        const pond = await Pond.findById(data.pondId).select('farmId farmerId').lean();
+        const farmerId = pond?.farmerId?.toString() || 'unknown';
+        const farmId = pond?.farmId?.toString() || 'unknown';
+        const pondIdStr = data.pondId?.toString();
+        const dayNumber = data.dayNumber || 1;
+        const dateStr = (data.date ? new Date(data.date) : new Date()).toISOString().split('T')[0];
+
+        const uploadDailyField = (val, oldVal, fieldName) => {
+            if (val) {
+                return safeUploadBase64(val, (ext) =>
+                    StorageHierarchy.dailyMedia(farmerId, farmId, pondIdStr, dayNumber, dateStr, fieldName, ext)
+                );
+            }
+            return oldVal;
         };
+
+        const [samplingVideo, feedBills, miscBills, electricityBills, waterReport, shrimpPhoto, labReport] = await Promise.all([
+            uploadDailyField(data.sampling?.samplingVideo, existingEntry?.sampling?.samplingVideo, 'samplingVideo'),
+            uploadDailyField(data.feedManagement?.feedBills, existingEntry?.feedManagement?.feedBills, 'feedBills'),
+            uploadDailyField(data.financials?.miscBills, existingEntry?.financials?.miscBills, 'miscBills'),
+            uploadDailyField(data.financials?.electricityBills, existingEntry?.financials?.electricityBills, 'electricityBills'),
+            uploadDailyField(data.waterQuality?.waterReport, existingEntry?.waterQuality?.waterReport, 'waterReport'),
+            uploadDailyField(data.shrimpHealth?.shrimpPhoto, existingEntry?.shrimpHealth?.shrimpPhoto, 'shrimpPhoto'),
+            uploadDailyField(data.shrimpHealth?.labReport, existingEntry?.shrimpHealth?.labReport, 'labReport'),
+        ]);
 
         const entryData = {
             ...data,
@@ -102,25 +155,25 @@ router.post('/daily', async (req, res) => {
             date: data.date ? new Date(data.date) : new Date(),
             sampling: {
                 ...data.sampling,
-                samplingVideo: getBuffer(data.sampling?.samplingVideo, existingEntry?.sampling?.samplingVideo)
+                samplingVideo
             },
             feedManagement: {
                 ...data.feedManagement,
-                feedBills: getBuffer(data.feedManagement?.feedBills, existingEntry?.feedManagement?.feedBills)
+                feedBills
             },
             financials: {
                 ...data.financials,
-                miscBills: getBuffer(data.financials?.miscBills, existingEntry?.financials?.miscBills),
-                electricityBills: getBuffer(data.financials?.electricityBills, existingEntry?.financials?.electricityBills)
+                miscBills,
+                electricityBills
             },
             waterQuality: {
                 ...data.waterQuality,
-                waterReport: getBuffer(data.waterQuality?.waterReport, existingEntry?.waterQuality?.waterReport)
+                waterReport
             },
             shrimpHealth: {
                 ...data.shrimpHealth,
-                shrimpPhoto: getBuffer(data.shrimpHealth?.shrimpPhoto, existingEntry?.shrimpHealth?.shrimpPhoto),
-                labReport: getBuffer(data.shrimpHealth?.labReport, existingEntry?.shrimpHealth?.labReport)
+                shrimpPhoto,
+                labReport
             }
         };
 
@@ -131,16 +184,8 @@ router.post('/daily', async (req, res) => {
             { new: true, upsert: true, runValidators: true }
         );
 
-        // Return lean copy without buffers
+        // Return lean copy without heavy legacy buffers if any remain
         const lean = entry.toObject();
-        delete lean['sampling']?.samplingVideo;
-        delete lean['feedManagement']?.feedBills;
-        delete lean['financials']?.miscBills;
-        delete lean['financials']?.electricityBills;
-        delete lean['waterQuality']?.waterReport;
-        delete lean['shrimpHealth']?.shrimpPhoto;
-        delete lean['shrimpHealth']?.labReport;
-
         res.status(200).json({ success: true, data: lean });
     } catch (err) {
         console.error('Error in POST /api/entries/daily:', err);

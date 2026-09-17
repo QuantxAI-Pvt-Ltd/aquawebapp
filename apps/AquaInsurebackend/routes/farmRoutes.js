@@ -9,17 +9,41 @@ const base64ToBuffer = (base64Str) => {
     return Buffer.from(base64Data, 'base64');
 };
 
+const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
+const mongoose = require('mongoose');
+
+const safeUploadBase64 = async (val, keyFn) => {
+    if (!val) return null;
+    try {
+        const res = await uploadBase64(val, keyFn);
+        if (res) return res;
+    } catch (err) {
+        console.warn('[SeaweedFS] Farm upload failed, fallback to buffer:', err.message);
+    }
+    return base64ToBuffer(val);
+};
+
+const { requireAuth } = require('../middleware/auth');
+
 // @route   POST /api/farms
 // @desc    Register a farm and create its associated Ponds
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
     try {
         const { pondsCount, latitude, longitude, ...farmBody } = req.body;
+        const farmObjectId = new mongoose.Types.ObjectId();
+        const farmId = farmObjectId.toString();
+        const farmerId = farmBody.farmerId?.toString();
+
+        const farmPhotoObj = farmBody.farmPhoto
+            ? await safeUploadBase64(farmBody.farmPhoto, (ext) => StorageHierarchy.farmPhoto(farmerId, farmId, ext))
+            : null;
 
         const farmData = {
             ...farmBody,
+            _id: farmObjectId,
             latitude: latitude ? parseFloat(latitude) : undefined,
             longitude: longitude ? parseFloat(longitude) : undefined,
-            farmPhoto: base64ToBuffer(farmBody.farmPhoto)
+            farmPhoto: farmPhotoObj
         };
 
         const farm = await Farm.create(farmData);
@@ -59,23 +83,25 @@ router.get('/ponds', async (req, res) => {
         if (!farmerId) return res.status(400).json({ success: false, error: 'farmerId required' });
         const ponds = await Pond.find({ farmerId }).sort({ pondNumber: 1 }).lean();
 
-        // Convert photo Buffer → base64 data URL so frontend can render it directly
+        // Convert photo: SeaweedFS MediaObject URL or Buffer → base64 data URL
         const pondsWithPhoto = ponds.map(p => {
-            let base64Photo = null;
+            let photoUrl = null;
             if (p.photo) {
-                // p.photo might be a Node Buffer or a mongodb.Binary object
-                if (p.photo.buffer && Buffer.isBuffer(p.photo.buffer)) {
-                    base64Photo = p.photo.buffer.toString('base64');
+                if (typeof p.photo === 'object' && p.photo.url) {
+                    photoUrl = p.photo.url;
+                } else if (typeof p.photo === 'string' && (p.photo.startsWith('http://') || p.photo.startsWith('https://') || p.photo.startsWith('data:'))) {
+                    photoUrl = p.photo;
+                } else if (p.photo.buffer && Buffer.isBuffer(p.photo.buffer)) {
+                    photoUrl = `data:image/jpeg;base64,${p.photo.buffer.toString('base64')}`;
                 } else if (Buffer.isBuffer(p.photo)) {
-                    base64Photo = p.photo.toString('base64');
+                    photoUrl = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
                 } else {
-                    // Fallback to calling .toString('base64') on the Binary object directly
-                    base64Photo = p.photo.toString('base64');
+                    photoUrl = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
                 }
             }
             return {
                 ...p,
-                photo: base64Photo ? `data:image/jpeg;base64,${base64Photo}` : null
+                photo: photoUrl
             };
         });
 
@@ -98,7 +124,7 @@ router.get('/:farmerId', async (req, res) => {
 
 // @route   PATCH /api/farms/:farmId/ponds
 // @desc    Save dimension, photo and address for each insured pond
-router.patch('/:farmId/ponds', async (req, res) => {
+router.patch('/:farmId/ponds', requireAuth, async (req, res) => {
     try {
         const { farmId } = req.params;
         const { farmerId, ponds } = req.body; // ponds: [{ pondId, pondNumber, dimensionAcres, photo, address }]
@@ -107,12 +133,21 @@ router.patch('/:farmId/ponds', async (req, res) => {
             return res.status(400).json({ success: false, error: 'ponds array required' });
         }
 
+        const resolvedFarmerId = farmerId?.toString() || (await Farm.findById(farmId).select('farmerId').lean())?.farmerId?.toString();
+
         const updated = await Promise.all(ponds.map(async (pd) => {
             const updateFields = {};
 
             if (pd.dimensionAcres != null) updateFields.dimensionAcres = pd.dimensionAcres;
-            if (pd.photo)                  updateFields.photo = base64ToBuffer(pd.photo);
-            if (pd.address)                updateFields.address = pd.address;
+            if (pd.address) updateFields.address = pd.address;
+
+            if (pd.photo) {
+                const pondIdStr = pd.pondId ? pd.pondId.toString() : `pond_${pd.pondNumber}`;
+                updateFields.photo = await safeUploadBase64(
+                    pd.photo,
+                    (ext) => StorageHierarchy.pondPhoto(resolvedFarmerId, farmId, pondIdStr, ext)
+                );
+            }
 
             // Try to update by _id first (if a real ObjectId was sent)
             const isValidId = pd.pondId && pd.pondId.length === 24;

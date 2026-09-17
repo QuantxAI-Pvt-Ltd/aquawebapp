@@ -34,14 +34,15 @@ const bufferToDataUrl = (media, mime = 'image/jpeg') => {
 // GET /api/dashboard/stats — aggregate counts
 router.get('/stats', async (req, res) => {
     try {
-        const [totalFarmers, totalFarms, totalPonds, totalInsurances, activeInsurances, expiredInsurances, claimedInsurances, totalDailyEntries, totalOneTimeEntries] = await Promise.all([
+        const [totalFarmers, totalFarms, totalPonds, totalInsurances, activeInsurances, expiredInsurances, claimedInsurances, pendingClaims, totalDailyEntries, totalOneTimeEntries] = await Promise.all([
             Farmer.countDocuments(),
             Farm.countDocuments(),
             Pond.countDocuments(),
             Insurance.countDocuments(),
             Insurance.countDocuments({ status: 'active' }),
             Insurance.countDocuments({ status: 'expired' }),
-            Insurance.countDocuments({ status: 'claimed' }),
+            Insurance.countDocuments({ status: { $in: ['claimed', 'claim_approved'] } }),
+            Insurance.countDocuments({ status: 'claim_pending' }),
             DailyEntry.countDocuments(),
             OneTimeEntry.countDocuments()
         ]);
@@ -50,7 +51,7 @@ router.get('/stats', async (req, res) => {
             success: true,
             data: {
                 totalFarmers, totalFarms, totalPonds,
-                totalInsurances, activeInsurances, expiredInsurances, claimedInsurances,
+                totalInsurances, activeInsurances, expiredInsurances, claimedInsurances, pendingClaims,
                 totalDailyEntries, totalOneTimeEntries
             }
         });
@@ -113,17 +114,15 @@ router.get('/farmers', async (req, res) => {
     }
 });
 
-// GET /api/dashboard/farmers/:id — single farmer with full detail (no binary)
+// GET /api/dashboard/farmers/:id — single farmer with full detail including SeaweedFS media pointers
 router.get('/farmers/:id', async (req, res) => {
     try {
-        const farmer = await Farmer.findById(req.params.id)
-            .select('-identity.aadharFile -identity.panFile -identity.photo -registration.regCertificate')
-            .lean();
+        const farmer = await Farmer.findById(req.params.id).lean();
         if (!farmer) return res.status(404).json({ success: false, error: 'Farmer not found' });
 
         const [farms, ponds, insurances] = await Promise.all([
-            Farm.find({ farmerId: farmer._id }).select('-farmPhoto').lean(),
-            Pond.find({ farmerId: farmer._id }).select('-photo').lean(),
+            Farm.find({ farmerId: farmer._id }).lean(),
+            Pond.find({ farmerId: farmer._id }).lean(),
             Insurance.find({ farmerId: farmer._id }).lean()
         ]);
 
@@ -272,25 +271,43 @@ router.get('/images/list', async (req, res) => {
                 }
                 break;
             }
-            case 'sampling-video': {
-                total = await DailyEntry.countDocuments({ 'sampling.samplingVideo': { $exists: true, $ne: null } });
-                const entries = await DailyEntry.find({ 'sampling.samplingVideo': { $exists: true, $ne: null } })
-                    .select('sampling.samplingVideo sampling.survival sampling.biomass pondId dayNumber date createdAt')
-                    .populate('pondId', 'name farmerId')
-                    .sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean();
-                for (const e of entries) {
-                    let farmerName = 'Unknown';
-                    if (e.pondId?.farmerId) {
-                        const farmer = await Farmer.findById(e.pondId.farmerId).select('name').lean();
-                        if (farmer) farmerName = farmer.name;
-                    }
-                    items.push({
-                        _id: e._id, label: `Day ${e.dayNumber} Sampling — ${e.pondId?.name || ''}`, sublabel: farmerName,
-                        image: bufferToDataUrl(e.sampling?.samplingVideo, 'video/mp4'),
-                        timestamp: e.date || e.createdAt, source: 'sampling-video',
-                        meta: { survival: `${e.sampling?.survival ?? '—'}%`, biomass: `${e.sampling?.biomass ?? '—'} kg` }
-                    });
-                }
+            case 'aadhar-card': {
+                total = await Farmer.countDocuments({ 'identity.aadharFile': { $exists: true, $ne: null } });
+                const farmers = await Farmer.find({ 'identity.aadharFile': { $exists: true, $ne: null } })
+                    .select('name phone identity.aadharNumber identity.aadharFile createdAt')
+                    .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean();
+                items = farmers.map(f => ({
+                    _id: f._id, label: `${f.name} — Aadhaar`, sublabel: f.phone,
+                    image: bufferToDataUrl(f.identity?.aadharFile),
+                    timestamp: f.createdAt, source: 'aadhar-card',
+                    meta: { 'Aadhaar Number': f.identity?.aadharNumber || '—' }
+                }));
+                break;
+            }
+            case 'pan-card': {
+                total = await Farmer.countDocuments({ 'identity.panFile': { $exists: true, $ne: null } });
+                const farmers = await Farmer.find({ 'identity.panFile': { $exists: true, $ne: null } })
+                    .select('name phone identity.panNumber identity.panFile createdAt')
+                    .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean();
+                items = farmers.map(f => ({
+                    _id: f._id, label: `${f.name} — PAN`, sublabel: f.phone,
+                    image: bufferToDataUrl(f.identity?.panFile),
+                    timestamp: f.createdAt, source: 'pan-card',
+                    meta: { 'PAN Number': f.identity?.panNumber || '—' }
+                }));
+                break;
+            }
+            case 'reg-cert': {
+                total = await Farmer.countDocuments({ 'registration.regCertificate': { $exists: true, $ne: null } });
+                const farmers = await Farmer.find({ 'registration.regCertificate': { $exists: true, $ne: null } })
+                    .select('name phone registration.regType registration.regNumber registration.regCertificate createdAt')
+                    .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean();
+                items = farmers.map(f => ({
+                    _id: f._id, label: `${f.name} — ${f.registration?.regType?.toUpperCase() || 'Registration'} Cert`, sublabel: f.phone,
+                    image: bufferToDataUrl(f.registration?.regCertificate),
+                    timestamp: f.createdAt, source: 'reg-cert',
+                    meta: { 'Reg Number': f.registration?.regNumber || '—', 'Authority': f.registration?.regType?.toUpperCase() || '—' }
+                }));
                 break;
             }
             default:
@@ -455,8 +472,6 @@ router.get('/entries/:id', async (req, res) => {
         const entry = await DailyEntry.findById(req.params.id).lean();
         if (!entry) return res.status(404).json({ success: false, error: 'Entry not found' });
         
-        // Convert buffers to base64
-        if (entry.sampling?.samplingVideo) entry.sampling.samplingVideo = bufferToDataUrl(entry.sampling.samplingVideo, 'video/mp4');
         if (entry.feedManagement?.feedBills) entry.feedManagement.feedBills = bufferToDataUrl(entry.feedManagement.feedBills, 'application/pdf');
         if (entry.financials?.miscBills) entry.financials.miscBills = bufferToDataUrl(entry.financials.miscBills, 'application/pdf');
         if (entry.financials?.electricityBills) entry.financials.electricityBills = bufferToDataUrl(entry.financials.electricityBills, 'application/pdf');
@@ -466,6 +481,148 @@ router.get('/entries/:id', async (req, res) => {
 
         res.json({ success: true, data: entry });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════════════
+// INSURANCES & CLAIMS — list, search, filter, review
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/dashboard/insurances
+router.get('/insurances', async (req, res) => {
+    try {
+        const { status = 'all', search = '', page = 1, limit = 50 } = req.query;
+        const query = {};
+
+        if (status && status !== 'all') {
+            if (status === 'claims_all') {
+                query.$or = [
+                    { 'claim.claimedAt': { $ne: null } },
+                    { status: { $in: ['claim_pending', 'claim_approved', 'claim_rejected', 'claimed'] } }
+                ];
+            } else if (status === 'claim_pending') {
+                query.$or = [
+                    { status: 'claim_pending' },
+                    { 'claim.status': { $in: ['pending', 'under_review'] } }
+                ];
+            } else if (status === 'claim_approved') {
+                query.$or = [
+                    { status: { $in: ['claim_approved', 'claimed'] } },
+                    { 'claim.status': 'approved' }
+                ];
+            } else if (status === 'claim_rejected') {
+                query.$or = [
+                    { status: 'claim_rejected' },
+                    { 'claim.status': 'rejected' }
+                ];
+            } else {
+                query.status = status;
+            }
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        let matchingFarmerIds = [];
+        if (search) {
+            const farmers = await Farmer.find({
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { phone: { $regex: search, $options: 'i' } }
+                ]
+            }).select('_id').lean();
+            matchingFarmerIds = farmers.map(f => f._id);
+        }
+
+        if (search) {
+            const searchOr = [
+                { species: { $regex: search, $options: 'i' } },
+                { insuranceType: { $regex: search, $options: 'i' } },
+                { 'claim.reason': { $regex: search, $options: 'i' } }
+            ];
+            if (matchingFarmerIds.length > 0) {
+                searchOr.push({ farmerId: { $in: matchingFarmerIds } });
+            }
+            if (query.$or) {
+                query.$and = [{ $or: query.$or }, { $or: searchOr }];
+                delete query.$or;
+            } else {
+                query.$or = searchOr;
+            }
+        }
+
+        const [total, insurances] = await Promise.all([
+            Insurance.countDocuments(query),
+            Insurance.find(query)
+                .populate('farmerId', 'name phone aadharNumber address')
+                .populate('pondId', 'name pondNumber dimensionAcres address photo')
+                .populate('farmId', 'name state district mandal village')
+                .sort({ 'claim.claimedAt': -1, createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean()
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / parseInt(limit)),
+                insurances
+            }
+        });
+    } catch (err) {
+        console.error('Error in GET /api/dashboard/insurances:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PATCH /api/dashboard/insurances/:id/claim — Review claim (approve / reject)
+router.patch('/insurances/:id/claim', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { action, settlementAmount, reviewerNotes } = req.body;
+
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ success: false, error: "Action must be 'approve' or 'reject'" });
+        }
+
+        const policy = await Insurance.findById(id);
+        if (!policy) {
+            return res.status(404).json({ success: false, error: 'Policy not found' });
+        }
+
+        if (action === 'approve') {
+            policy.status = 'claim_approved';
+            policy.claim = policy.claim || {};
+            policy.claim.status = 'approved';
+            policy.claim.settlementAmount = Number(settlementAmount) || 0;
+        } else {
+            policy.status = 'claim_rejected';
+            policy.claim = policy.claim || {};
+            policy.claim.status = 'rejected';
+            policy.claim.settlementAmount = 0;
+        }
+
+        policy.claim.reviewerNotes = reviewerNotes || '';
+        policy.claim.reviewedAt = new Date();
+
+        await policy.save();
+
+        const updated = await Insurance.findById(id)
+            .populate('farmerId', 'name phone aadharNumber address')
+            .populate('pondId', 'name pondNumber dimensionAcres address photo')
+            .populate('farmId', 'name state district mandal village')
+            .lean();
+
+        res.json({
+            success: true,
+            message: `Claim successfully ${action === 'approve' ? 'approved' : 'rejected'}.`,
+            data: updated
+        });
+    } catch (err) {
+        console.error('Error in PATCH /api/dashboard/insurances/:id/claim:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
