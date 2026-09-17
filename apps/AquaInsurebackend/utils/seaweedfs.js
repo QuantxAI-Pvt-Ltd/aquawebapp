@@ -165,6 +165,116 @@ async function deleteObject(key, bucket = DEFAULT_BUCKET) {
   return await s3Client.send(command);
 }
 
+/**
+ * Maps mime types to standard file extensions.
+ */
+function mimeToExtension(mimeType = '') {
+  const mime = mimeType.toLowerCase().trim();
+  if (mime.includes('pdf')) return 'pdf';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+  if (mime.includes('png')) return 'png';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('mp4')) return 'mp4';
+  if (mime.includes('webm')) return 'webm';
+  if (mime.includes('quicktime')) return 'mov';
+  return 'bin';
+}
+
+/**
+ * Extracts a Buffer and mimeType from a Base64 string, data URI, or raw Buffer.
+ */
+function parseBase64Media(val) {
+  if (!val) return null;
+  if (typeof val === 'object' && val.url) return { isMediaObject: true, mediaObject: val };
+  if (typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))) return null;
+
+  if (Buffer.isBuffer(val)) {
+    return { buffer: val, mimeType: 'application/octet-stream', ext: 'bin' };
+  }
+
+  if (typeof val === 'string') {
+    let mimeType = 'image/jpeg';
+    let rawBase64 = val;
+
+    const dataUriMatch = val.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/s);
+    if (dataUriMatch) {
+      mimeType = dataUriMatch[1];
+      rawBase64 = dataUriMatch[2];
+    } else {
+      // Basic magic bytes detection for raw Base64 strings
+      if (val.startsWith('JVBERi0')) mimeType = 'application/pdf';
+      else if (val.startsWith('/9j/')) mimeType = 'image/jpeg';
+      else if (val.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+    }
+
+    try {
+      const buffer = Buffer.from(rawBase64, 'base64');
+      if (buffer.length === 0) return null;
+      return {
+        buffer,
+        mimeType,
+        ext: mimeToExtension(mimeType),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Exact codebase-aligned storage hierarchy rooted under farmers/{farmerId}/
+ */
+const StorageHierarchy = {
+  // Farmer Identity & Registration
+  farmerPhoto: (farmerId, ext = 'jpg') =>
+    `farmers/${farmerId}/identity/photo_${Date.now()}.${ext}`,
+  farmerAadhar: (farmerId, ext = 'pdf') =>
+    `farmers/${farmerId}/identity/aadhar_${Date.now()}.${ext}`,
+  farmerPan: (farmerId, ext = 'pdf') =>
+    `farmers/${farmerId}/identity/pan_${Date.now()}.${ext}`,
+  farmerRegCert: (farmerId, ext = 'pdf') =>
+    `farmers/${farmerId}/registration/regCertificate_${Date.now()}.${ext}`,
+
+  // Farm
+  farmPhoto: (farmerId, farmId, ext = 'jpg') =>
+    `farmers/${farmerId}/farms/${farmId}/farmPhoto_${Date.now()}.${ext}`,
+
+  // Pond
+  pondPhoto: (farmerId, farmId, pondId, ext = 'jpg') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/photo_${Date.now()}.${ext}`,
+
+  // OneTimeEntry
+  oneTimePondPrepBills: (farmerId, farmId, pondId, ext = 'pdf') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/onetime/pondPrepBills_${Date.now()}.${ext}`,
+  oneTimePcrCert: (farmerId, farmId, pondId, ext = 'pdf') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/onetime/pcrCertificate_${Date.now()}.${ext}`,
+  oneTimeSeedBills: (farmerId, farmId, pondId, ext = 'pdf') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/onetime/seedBills_${Date.now()}.${ext}`,
+
+  // DailyEntry
+  dailyMedia: (farmerId, farmId, pondId, dayNumber, dateStr, fieldName, ext = 'jpg') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/daily/day_${dayNumber}_${dateStr}/${fieldName}_${Date.now()}.${ext}`,
+
+  // Insurance Claims
+  claimEvidencePhoto: (farmerId, policyId, ext = 'jpg') =>
+    `farmers/${farmerId}/claims/${policyId}/evidence_${Date.now()}.${ext}`,
+};
+
+/**
+ * Uploads a Base64 string / data URI directly to SeaweedFS if provided,
+ * or returns existing MediaObject if already migrated.
+ */
+async function uploadBase64(val, keyGenerator) {
+  const parsed = parseBase64Media(val);
+  if (!parsed) return null;
+  if (parsed.isMediaObject) return parsed.mediaObject;
+
+  const key = typeof keyGenerator === 'function' ? keyGenerator(parsed.ext) : keyGenerator;
+  return await uploadBuffer(parsed.buffer, key, parsed.mimeType);
+}
+
 module.exports = {
   s3Client,
   DEFAULT_BUCKET,
@@ -173,6 +283,10 @@ module.exports = {
   ensureBucket,
   getPublicUrl,
   uploadBuffer,
+  uploadBase64,
+  parseBase64Media,
+  mimeToExtension,
+  StorageHierarchy,
   generatePresignedUploadUrl,
   generatePresignedDownloadUrl,
   getObjectStream,
