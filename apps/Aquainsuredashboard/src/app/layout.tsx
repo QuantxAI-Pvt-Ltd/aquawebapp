@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import Sidebar from '@/components/layout/Sidebar';
-import Topbar from '@/components/layout/Topbar';
+import { ThemeProvider } from '@/components/theme-provider';
+import DashboardShell from '@/components/layout/DashboardShell';
 import './globals.css';
 
 const inter = Inter({
@@ -22,18 +22,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="flex min-h-screen bg-background text-foreground">
-        <TooltipProvider>
-          <Sidebar />
-          {/* Main area offset by sidebar width — uses CSS transition to match sidebar collapse */}
-          <div className="ml-[240px] flex flex-1 flex-col transition-all duration-300 has-[aside.w-\\[68px\\]]:ml-[68px]">
-            <Topbar />
-            <main className="flex-1 overflow-y-auto p-6">
-              {children}
-            </main>
-          </div>
-        </TooltipProvider>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
+      <body className="min-h-screen bg-background text-foreground selection:bg-teal-500/20 selection:text-teal-700 dark:selection:text-teal-300">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <TooltipProvider>
+            <DashboardShell>{children}</DashboardShell>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
