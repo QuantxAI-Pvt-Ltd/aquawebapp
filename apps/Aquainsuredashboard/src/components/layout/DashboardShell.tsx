@@ -24,14 +24,20 @@ const SidebarContext = createContext<SidebarContextType>({
 export const useSidebar = () => useContext(SidebarContext);
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('dashboard_sidebar_collapsed') === 'true';
-    }
-    return false;
-  });
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mounted = useIsMounted();
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dashboard_sidebar_collapsed');
+      if (saved === 'true') {
+        setCollapsed(true);
+      }
+    } catch {
+      // Ignore localStorage read errors in restricted environments
+    }
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {

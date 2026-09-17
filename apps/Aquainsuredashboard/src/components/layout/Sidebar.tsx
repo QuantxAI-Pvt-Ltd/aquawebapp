@@ -117,10 +117,10 @@ export default function Sidebar({ isMobile = false, onMobileNavigate }: SidebarP
             </Link>
           );
 
-          if (isActuallyCollapsed) {
-            return (
-              <Tooltip key={item.href}>
-                <TooltipTrigger render={navLink} />
+          return (
+            <Tooltip key={item.href} disabled={!isActuallyCollapsed}>
+              <TooltipTrigger render={navLink} />
+              {isActuallyCollapsed && (
                 <TooltipContent
                   side="right"
                   sideOffset={10}
@@ -128,11 +128,9 @@ export default function Sidebar({ isMobile = false, onMobileNavigate }: SidebarP
                 >
                   {item.label}
                 </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return <div key={item.href}>{navLink}</div>;
+              )}
+            </Tooltip>
+          );
         })}
       </nav>
 
@@ -173,10 +171,10 @@ export default function Sidebar({ isMobile = false, onMobileNavigate }: SidebarP
               </button>
             );
 
-            if (isActuallyCollapsed) {
-              return (
-                <Tooltip>
-                  <TooltipTrigger render={toggleButton} />
+            return (
+              <Tooltip disabled={!isActuallyCollapsed}>
+                <TooltipTrigger render={toggleButton} />
+                {isActuallyCollapsed && (
                   <TooltipContent
                     side="right"
                     sideOffset={10}
@@ -184,11 +182,9 @@ export default function Sidebar({ isMobile = false, onMobileNavigate }: SidebarP
                   >
                     Expand sidebar
                   </TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            return toggleButton;
+                )}
+              </Tooltip>
+            );
           })()}
         </div>
       )}
