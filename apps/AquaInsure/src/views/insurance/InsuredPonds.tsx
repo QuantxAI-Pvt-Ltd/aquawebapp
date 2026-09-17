@@ -309,7 +309,7 @@ const InsuredPonds = () => {
 
       {/* ── HEADER ── */}
       <div
-        className="px-5 pt-14 pb-8 rounded-b-[2.5rem] relative overflow-hidden"
+        className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
         style={{
           background:
             "linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)",
