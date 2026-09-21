@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { ChevronLeft, User } from "lucide-react";
-import axios from "axios";
+import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -32,7 +32,7 @@ export default function FarmerProfile() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-stone-50 pb-28" style={{ fontFamily: "'Sora', sans-serif" }}>
+        <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]" style={{ fontFamily: "'Sora', sans-serif" }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
             {/* Header */}
@@ -41,7 +41,7 @@ export default function FarmerProfile() {
                 <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
                         <button onClick={() => navigate("/dashboard")}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all">
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation">
                             <ChevronLeft className="w-5 h-5" />
                         </button>
                         <h1 className="text-lg font-bold text-white tracking-tight">{t("dashboard.farmer")}</h1>

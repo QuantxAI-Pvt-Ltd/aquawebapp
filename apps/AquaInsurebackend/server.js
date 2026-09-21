@@ -28,10 +28,10 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// Rate Limiting: Strict Auth limiter for login & registration (15 attempts per 15 minutes)
+// Rate Limiting: Strict Auth limiter for login & registration (15 attempts in prod, 200 in dev)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: process.env.NODE_ENV === 'production' ? 15 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many authentication attempts. Please try again after 15 minutes.' },

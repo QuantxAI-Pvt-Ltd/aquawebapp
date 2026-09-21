@@ -1,6 +1,7 @@
 /**
  * File utility functions for SeaweedFS S3 storage and legacy conversions.
  */
+import { API_BASE_URL } from './api';
 
 export interface MediaObjectResult {
   url: string;
@@ -43,7 +44,7 @@ export async function uploadToSeaweedFS(
 
   try {
     // 1. Request S3 presigned PUT URL
-    const presignRes = await fetch('/api/media/presign-upload', {
+    const presignRes = await fetch(`${API_BASE_URL}/api/media/presign-upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -80,7 +81,7 @@ export async function uploadToSeaweedFS(
     formData.append('file', file);
     formData.append('folder', folder);
 
-    const streamRes = await fetch('/api/media/upload', {
+    const streamRes = await fetch(`${API_BASE_URL}/api/media/upload`, {
       method: 'POST',
       body: formData,
     });

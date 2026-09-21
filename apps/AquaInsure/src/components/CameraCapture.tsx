@@ -102,9 +102,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 z-10 text-white bg-black/40 backdrop-blur-md">
+      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-4 z-10 text-white bg-black/40 backdrop-blur-md">
         <h3 className="font-bold text-lg">{title}</h3>
-        <button onClick={onClose} className="p-2 -mr-2 bg-white/10 rounded-full">
+        <button onClick={onClose} className="p-2 -mr-2 bg-white/10 rounded-full touch-manipulation">
           <X size={24} />
         </button>
       </div>
@@ -143,7 +143,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       </div>
 
       {/* Controls */}
-      <div className="px-6 pt-6 pb-10 bg-gradient-to-t from-black via-black/80 to-transparent">
+      <div className="px-6 pt-6 pb-[max(2.5rem,calc(1.5rem+env(safe-area-inset-bottom,0px)))] bg-gradient-to-t from-black via-black/80 to-transparent">
         <div className="flex items-center justify-between gap-4 max-w-sm mx-auto">
           {capturedImage ? (
             <>

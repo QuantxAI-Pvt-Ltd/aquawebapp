@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Phone, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/lib/api';
 
 const API = '/api/auth';
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -63,40 +63,44 @@ const Login = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-white flex flex-col overflow-hidden"
-      style={{ fontFamily: "'Sora', sans-serif" }}>
-
+    <div
+      className="relative min-h-[100dvh] w-full flex flex-col overflow-hidden bg-white"
+      style={{ fontFamily: "'Sora', sans-serif" }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
         * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 
-        @keyframes shim { 0%{background-position:-200% center} 100%{background-position:200% center} }
+        @keyframes shim {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+
         .cta-btn {
           background: linear-gradient(110deg, #1c6b5a 25%, #2d9b7f 48%, #3ab88f 55%, #1c6b5a 75%);
           background-size: 220% auto;
           animation: shim 3.2s linear infinite;
-          box-shadow: 0 8px 28px -4px rgba(28,107,90,0.35), 0 2px 8px rgba(28,107,90,0.14);
-          transition: filter .2s, transform .15s;
+          box-shadow: 0 6px 24px -4px rgba(28, 107, 90, 0.35);
+          transition: filter 0.2s, transform 0.15s;
         }
-        .cta-btn:hover  { filter: brightness(1.06); }
-        .cta-btn:active { transform: scale(0.975); }
-        .cta-btn:disabled { opacity: 0.6; cursor: not-allowed; animation: none;
-          background: linear-gradient(110deg, #1c6b5a, #2d9b7f); }
+        .cta-btn:hover { filter: brightness(1.06); }
+        .cta-btn:active { transform: scale(0.98); }
+        .cta-btn:disabled { opacity: 0.6; cursor: not-allowed; animation: none; }
 
-        .f-wrap:focus-within .f-box {
-          border-color: rgba(45,155,127,0.50);
-          box-shadow: 0 0 0 3px rgba(45,155,127,0.10);
+        .f-box:focus-within {
+          border-color: rgba(45, 155, 127, 0.55);
+          box-shadow: 0 0 0 3px rgba(45, 155, 127, 0.09);
         }
       `}</style>
 
       {/* CENTERED CONTENT CONTAINER */}
-      <div className="z-10 flex-1 flex flex-col justify-center my-auto py-8 w-full max-w-sm mx-auto">
+      <div className="z-10 flex-1 flex flex-col justify-center px-4 sm:px-0 py-6 sm:py-8 w-full max-w-sm mx-auto">
         {/* HEADER */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.1, ease: EASE }}
-          className="flex flex-col items-center pb-3 px-6"
+          className="flex flex-col items-center pb-3 px-4 sm:px-6"
         >
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -105,11 +109,11 @@ const Login = () => {
             className="text-center"
             style={{ fontFamily: "'DM Serif Display', serif" }}
           >
-            <h1 className="text-[1.5rem] font-normal leading-tight text-stone-800">
+            <h1 className="text-[1.4rem] sm:text-[1.5rem] font-normal leading-tight text-stone-800">
               {t('auth.welcomeHeading')}
             </h1>
             <h1
-              className="text-[1.5rem] font-normal leading-tight"
+              className="text-[1.4rem] sm:text-[1.5rem] font-normal leading-tight"
               style={{
                 background: 'linear-gradient(120deg, #b5813a 0%, #d4973f 50%, #1c6b5a 100%)',
                 WebkitBackgroundClip: 'text',
@@ -136,10 +140,10 @@ const Login = () => {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.42, ease: EASE }}
-          className="flex flex-col px-5 sm:px-0 w-full"
+          className="flex flex-col w-full"
         >
         <div
-          className="rounded-3xl p-5 sm:p-6 flex flex-col gap-5 bg-white border border-stone-100"
+          className="rounded-3xl p-5 sm:p-6 flex flex-col gap-4 sm:gap-5 bg-white border border-stone-100 shadow-sm"
           style={{ boxShadow: '0 8px 40px -8px rgba(28,74,62,0.10), 0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {/* PHONE */}
@@ -159,7 +163,7 @@ const Login = () => {
                   placeholder={t('auth.mobilePlaceholder')}
                   type="tel"
                   maxLength={10}
-                  className="border-0 bg-transparent h-12 pl-3 pr-4 text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-stone-300 text-stone-800"
+                  className="border-0 bg-transparent h-12 pl-3 pr-4 text-base sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-stone-300 text-stone-800"
                 />
               </div>
               {phoneError && (
@@ -184,12 +188,12 @@ const Login = () => {
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
                   placeholder={t('auth.passwordPlaceholder')}
                   type={showPassword ? 'text' : 'password'}
-                  className="border-0 bg-transparent h-12 pl-3 pr-2 text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-stone-300 text-stone-800 flex-1"
+                  className="border-0 bg-transparent h-12 pl-3 pr-2 text-base sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-stone-300 text-stone-800 flex-1"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  className="pr-4 text-stone-400 hover:text-stone-600 transition-colors"
+                  className="w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors touch-manipulation"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

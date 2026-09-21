@@ -48,7 +48,7 @@ const SettingsPage = () => {
 
   return (
     <div
-      className="min-h-screen bg-stone-50 pb-32 overflow-hidden"
+      className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] overflow-hidden"
       style={{ fontFamily: "'Sora', sans-serif" }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
@@ -69,7 +69,7 @@ const SettingsPage = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>

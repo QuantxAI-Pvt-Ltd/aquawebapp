@@ -28,7 +28,7 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import CameraCapture from "@/components/CameraCapture";
-import axios from "axios";
+import axios from "@/lib/api";
 import { fileToBase64 } from "@/lib/fileUtils";
 import { LOCATIONS, STATES } from "@/constants/locations";
 
@@ -296,7 +296,7 @@ const InsuredPonds = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       {cameraOpenFor && (
         <CameraCapture
@@ -330,7 +330,7 @@ const InsuredPonds = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -504,7 +504,7 @@ const InsuredPonds = () => {
                       onChange={(e) =>
                         updateDimension(pd.pondId, e.target.value)
                       }
-                      className="h-12 rounded-xl text-sm pr-16 border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
+                      className="h-12 rounded-xl text-base sm:text-sm pr-16 border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">
                       acres
@@ -609,7 +609,7 @@ const InsuredPonds = () => {
                     placeholder="Village / Place name"
                     value={pd.village}
                     onChange={(e) => updateAddress(pd.pondId, "village", e.target.value)}
-                    className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
+                    className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
                   />
 
                   {/* State dropdown */}
@@ -620,7 +620,7 @@ const InsuredPonds = () => {
                       updateAddress(pd.pondId, "district", "");
                     }}
                   >
-                    <SelectTrigger className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25">
+                    <SelectTrigger className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25">
                       <SelectValue placeholder="Select State" />
                     </SelectTrigger>
                     <SelectContent>
@@ -636,7 +636,7 @@ const InsuredPonds = () => {
                     onValueChange={(v) => updateAddress(pd.pondId, "district", v)}
                     disabled={!pd.state}
                   >
-                    <SelectTrigger className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25">
+                    <SelectTrigger className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25">
                       <SelectValue placeholder={pd.state ? "Select District" : "Select State first"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -651,7 +651,7 @@ const InsuredPonds = () => {
                     placeholder="Taluk / Mandal"
                     value={pd.taluk}
                     onChange={(e) => updateAddress(pd.pondId, "taluk", e.target.value)}
-                    className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
+                    className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
                   />
 
                   {/* Pin Code */}
@@ -661,7 +661,7 @@ const InsuredPonds = () => {
                     inputMode="numeric"
                     maxLength={6}
                     onChange={(e) => updateAddress(pd.pondId, "pinCode", e.target.value.replace(/\D/g, ""))}
-                    className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
+                    className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300"
                   />
                 </div>
               </div>

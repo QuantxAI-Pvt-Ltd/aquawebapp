@@ -30,7 +30,7 @@ const LanguageSelection = () => {
 
   return (
     <div
-      className="relative min-h-screen w-full flex flex-col overflow-hidden bg-white"
+      className="relative min-h-[100dvh] w-full flex flex-col overflow-hidden bg-white pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
       <style>{`
@@ -180,7 +180,7 @@ const LanguageSelection = () => {
         {/* CTA */}
         <motion.button
           onClick={handleContinue}
-          className="cta-btn mt-3 w-full rounded-2xl text-white text-sm sm:text-base font-bold tracking-wide flex items-center justify-center gap-2.5"
+          className="cta-btn mt-3 w-full rounded-2xl text-white text-sm sm:text-base font-bold tracking-wide flex items-center justify-center gap-2.5 touch-manipulation"
           style={{ height: '52px' }}
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}

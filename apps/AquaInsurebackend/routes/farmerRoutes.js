@@ -145,6 +145,9 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
     try {
         const data = req.body;
         const farmerId = req.params.farmerId;
+        if (!mongoose.Types.ObjectId.isValid(farmerId)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmer ID format' });
+        }
 
         // Verify that authenticated user owns this profile or has admin role
         if (req.user.farmerId && req.user.farmerId.toString() !== farmerId && req.user.role !== 'admin') {
@@ -195,6 +198,9 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
 // @desc    Get a single farmer's profile
 router.get('/:farmerId', async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.farmerId)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmer ID format' });
+        }
         const farmer = await Farmer.findById(req.params.farmerId)
             .select('-identity.aadharFile -identity.panFile -identity.photo -registration.regCertificate');
         if (!farmer) return res.status(404).json({ success: false, error: 'Farmer not found' });

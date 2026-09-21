@@ -134,12 +134,12 @@ const Dashboard = () => {
       `}</style>
 
       <div
-        className="min-h-screen bg-stone-50 flex flex-col relative overflow-hidden"
-        style={{ fontFamily: "'Sora', sans-serif", paddingBottom: "96px" }}
+        className="min-h-[100dvh] bg-stone-50 flex flex-col relative overflow-hidden"
+        style={{ fontFamily: "'Sora', sans-serif", paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom, 0px))" }}
       >
         {/* HEADER */}
         <div
-          className="header-clip relative overflow-hidden z-10 px-6 pt-8 pb-7"
+          className="header-clip relative overflow-hidden z-10 px-5 sm:px-6 pt-7 sm:pt-8 pb-6 sm:pb-7"
           style={{
             background: "linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)",
             boxShadow: "0 8px 32px -6px rgba(28,74,62,0.28)",
@@ -151,14 +151,14 @@ const Dashboard = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.85, delay: 0.15, ease: EASE }}
             >
-              <p className="text-white/55 text-[10px] font-semibold uppercase tracking-[0.22em] mb-1">
+              <p className="text-white/60 text-[10px] font-semibold uppercase tracking-[0.22em] mb-1">
                 {t("dashboard.welcome")}
               </p>
               <h1
                 className="leading-tight text-white"
                 style={{
                   fontFamily: "'DM Serif Display', serif",
-                  fontSize: "clamp(1.7rem, 7vw, 2.3rem)",
+                  fontSize: "clamp(1.5rem, 6.5vw, 2.2rem)",
                   fontWeight: 400,
                   letterSpacing: "-0.01em",
                 }}
@@ -174,7 +174,7 @@ const Dashboard = () => {
         </div>
 
         {/* SECTIONS */}
-        <div className="relative z-10 flex-1 px-4 sm:px-5 pt-5 pb-2 space-y-5">
+        <div className="relative z-10 flex-1 px-3.5 sm:px-5 pt-4 sm:pt-5 pb-2 space-y-4 sm:space-y-5">
 
           {[
             {
@@ -187,11 +187,11 @@ const Dashboard = () => {
             },
             {
               title: "Record Keeping",
-              cards: dashboardCards.slice(4, 7),
+              cards: dashboardCards.slice(4, 8),
               sectionBg: "rgba(28,107,90,0.06)",
               sectionBorder: "rgba(28,107,90,0.18)",
               titleColor: "#1c6b5a",
-              gridCols: "grid-cols-3",
+              gridCols: "grid-cols-2",
             },
           ].map((section, sIdx) => (
             <div key={section.title}

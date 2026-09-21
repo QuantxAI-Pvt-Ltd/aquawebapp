@@ -25,9 +25,11 @@ const allowedDevOrigins = rawDevOrigins
   ? rawDevOrigins.split(',').map((o) => o.trim()).filter(Boolean)
   : ['10.47.51.139', '10.63.178.139', 'localhost'];
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  ...(isDev ? {} : { output: 'export' }),
   distDir: './dist',
   basePath: '/aquainsure',
   images: {
@@ -35,6 +37,18 @@ const nextConfig = {
   },
   trailingSlash: true,
   allowedDevOrigins,
+  ...(isDev
+    ? {
+        async rewrites() {
+          return [
+            {
+              source: '/api/:path*',
+              destination: 'http://localhost:5001/api/:path*',
+            },
+          ];
+        },
+      }
+    : {}),
 };
 
 export default nextConfig;

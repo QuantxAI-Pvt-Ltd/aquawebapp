@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Phone, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/lib/api';
 
 const API = '/api/auth';
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -58,7 +58,7 @@ const Signup = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col"
+      className="min-h-[100dvh] w-full flex flex-col"
       style={{ fontFamily: "'Sora', sans-serif", background: '#f7f6f3' }}
     >
       <style>{`
@@ -87,25 +87,25 @@ const Signup = () => {
         }
       `}</style>
 
-      <div className="flex-1 flex flex-col justify-center px-5 py-8 w-full max-w-sm mx-auto my-auto">
+      <div className="flex-1 flex flex-col justify-center px-4 sm:px-5 py-6 sm:py-8 w-full max-w-sm mx-auto">
         {/* HEADER */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-5 sm:mb-6"
         >
           <h1
-            className="text-3xl text-stone-800 mb-1"
+            className="text-2xl sm:text-3xl text-stone-800 mb-1"
             style={{ fontFamily: "'DM Serif Display', serif" }}
           >
             {t('auth.signupHeading')}
           </h1>
-          <p className="text-sm text-stone-400">{t('auth.signupSubtitle')}</p>
+          <p className="text-xs sm:text-sm text-stone-400">{t('auth.signupSubtitle')}</p>
         </motion.div>
 
         {/* CARD */}
-        <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden">
-          <div className="p-5 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden shadow-sm">
+          <div className="p-4 sm:p-5 flex flex-col gap-4">
 
             {/* PHONE */}
             <div className="flex flex-col gap-1.5">
@@ -120,7 +120,7 @@ const Signup = () => {
                   placeholder={t('auth.mobilePlaceholder')}
                   type="tel"
                   maxLength={10}
-                  className="bg-transparent h-11 pl-3 pr-4 text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0"
+                  className="bg-transparent h-12 pl-3 pr-4 text-base sm:text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0"
                 />
               </div>
               {errors.phone && <p className="text-xs font-medium pl-1 text-red-500">{errors.phone}</p>}
@@ -138,7 +138,7 @@ const Signup = () => {
                   onChange={e => setEmail(e.target.value)}
                   placeholder={t('auth.emailPlaceholder')}
                   type="email"
-                  className="bg-transparent h-11 pl-3 pr-4 text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0"
+                  className="bg-transparent h-12 pl-3 pr-4 text-base sm:text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -155,9 +155,13 @@ const Signup = () => {
                   onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })); }}
                   type={showPassword ? 'text' : 'password'}
                   placeholder={t('auth.passwordPlaceholder')}
-                  className="bg-transparent h-11 pl-3 pr-2 text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0 flex-1"
+                  className="bg-transparent h-12 pl-3 pr-2 text-base sm:text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0 flex-1"
                 />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="pr-3 text-stone-400 hover:text-stone-600">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 touch-manipulation"
+                >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -176,9 +180,13 @@ const Signup = () => {
                   onChange={e => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
                   type={showConfirm ? 'text' : 'password'}
                   placeholder={t('auth.confirmPasswordPlaceholder')}
-                  className="bg-transparent h-11 pl-3 pr-2 text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0 flex-1"
+                  className="bg-transparent h-12 pl-3 pr-2 text-base sm:text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0 flex-1"
                 />
-                <button type="button" onClick={() => setShowConfirm(v => !v)} className="pr-3 text-stone-400 hover:text-stone-600">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(v => !v)}
+                  className="w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 touch-manipulation"
+                >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>

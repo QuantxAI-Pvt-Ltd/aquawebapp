@@ -17,10 +17,10 @@ const BottomNav = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-[400px]">
+    <div className="fixed bottom-[max(1rem,calc(0.75rem+env(safe-area-inset-bottom,0px)))] left-1/2 -translate-x-1/2 z-50 w-[calc(100%-1.5rem)] sm:w-[calc(100%-2rem)] max-w-[400px]">
       <nav
-        className="bg-white border border-stone-100 rounded-[2rem] px-3 py-2.5"
-        style={{ boxShadow: '0 8px 32px rgba(28,74,62,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}
+        className="bg-white/95 backdrop-blur-md border border-stone-200/80 rounded-[2rem] px-2 sm:px-3 py-2"
+        style={{ boxShadow: '0 10px 35px rgba(28,74,62,0.12), 0 2px 8px rgba(0,0,0,0.05)' }}
       >
         <div className="flex items-center justify-between">
           {navItems.map((item) => {
@@ -30,13 +30,14 @@ const BottomNav = () => {
             return (
               <button
                 key={item.path}
+                type="button"
                 onClick={() => navigate(item.path)}
-                className="relative flex flex-col items-center flex-1 py-1 transition-all duration-200 active:scale-95"
+                className="relative flex flex-col items-center flex-1 py-1 min-h-[44px] justify-center transition-all duration-150 active:scale-95 touch-manipulation"
               >
                 <div
                   className={cn(
-                    'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200',
-                    isActive ? 'bg-teal-50' : 'hover:bg-stone-50'
+                    'flex flex-col items-center gap-0.5 px-2.5 sm:px-3 py-1.5 rounded-xl transition-colors duration-150',
+                    isActive ? 'bg-teal-50/90 text-teal-800' : 'hover:bg-stone-50 text-stone-400'
                   )}
                 >
                   <Icon

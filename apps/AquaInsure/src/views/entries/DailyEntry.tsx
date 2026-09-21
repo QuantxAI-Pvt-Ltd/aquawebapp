@@ -11,7 +11,7 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { fileToBase64, uploadToSeaweedFS } from "@/lib/fileUtils";
-import axios from "axios";
+import axios from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 
 const DailyEntry = () => {
@@ -318,7 +318,7 @@ const DailyEntry = () => {
   );
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
       

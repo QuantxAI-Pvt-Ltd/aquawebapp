@@ -20,7 +20,7 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { fileToBase64 } from "@/lib/fileUtils";
-import axios from "axios";
+import axios, { API_BASE_URL } from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 import { LOCATIONS, STATES } from "@/constants/locations";
 
@@ -249,7 +249,7 @@ const FarmerRegistration = () => {
     try {
       const formData = new FormData();
       formData.append("aadhaar", file);
-      const res = await fetch("/api/farmers/ocr/aadhaar", {
+      const res = await fetch(`${API_BASE_URL}/api/farmers/ocr/aadhaar`, {
         method: "POST",
         body: formData,
       });
@@ -280,7 +280,7 @@ const FarmerRegistration = () => {
         {...register(name)}
         placeholder={placeholder}
         type={type}
-        className="h-12 rounded-xl text-sm pr-11 placeholder:text-stone-300"
+        className="h-12 rounded-xl text-base sm:text-sm pr-11 placeholder:text-stone-300"
       />
       <button
         type="button"
@@ -340,7 +340,7 @@ const FarmerRegistration = () => {
   );
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

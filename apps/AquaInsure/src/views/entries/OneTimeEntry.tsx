@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { fileToBase64 } from "@/lib/fileUtils";
-import axios from "axios";
+import axios from "@/lib/api";
 
 const YesNo = ({ label, field, value, onChange }: { label: string; field: string; value: any; onChange: (key: string, v: any) => void }) => {
   const { t } = useTranslation();
@@ -113,7 +113,7 @@ const OneTimeEntry = () => {
 
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-32 overflow-x-hidden"
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden"
       style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

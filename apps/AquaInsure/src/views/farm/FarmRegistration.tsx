@@ -20,7 +20,7 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { fileToBase64 } from "@/lib/fileUtils";
-import axios from "axios";
+import axios from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 import { LOCATIONS, STATES } from "@/constants/locations";
 
@@ -212,10 +212,10 @@ export default function FarmRegistration() {
     }
   };
 
-  const inputClasses = "h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300";
+  const inputClasses = "h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300";
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24 text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

@@ -6,7 +6,7 @@ import { ChevronLeft, Search, Clock, Printer, FileSpreadsheet, Layers, RefreshCw
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import BottomNav from '@/components/BottomNav';
-import axios from 'axios';
+import axios, { API_BASE_URL } from '@/lib/api';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -120,7 +120,7 @@ const Reports = () => {
       if (from) params.append('from', from);
       if (to) params.append('to', to);
 
-      const response = await fetch(`/api/export/excel?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/export/excel?${params.toString()}`, {
         method: 'GET',
       });
 
@@ -160,7 +160,7 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-screen pb-32 overflow-x-hidden print:bg-white print:pb-0"
+    <div className="min-h-[100dvh] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden print:bg-white print:pb-0"
       style={{
         fontFamily: "'Outfit', sans-serif",
         background: 'linear-gradient(160deg, #f0fdf9 0%, #ecfdf5 50%, #f8fafc 100%)',
@@ -233,7 +233,7 @@ const Reports = () => {
             placeholder={`Search by date, pond, or day...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-field pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="search-field pl-10 h-12 text-base sm:text-sm border-none focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -304,7 +304,7 @@ const Reports = () => {
                       <Calendar size={10} /> {label}
                     </label>
                     <Input type="date" value={value} onChange={(e) => setter(e.target.value)}
-                      className="h-10 rounded-xl border-0 focus-visible:ring-0 text-xs font-medium"
+                      className="h-11 rounded-xl border-0 focus-visible:ring-0 text-base sm:text-sm font-medium"
                       style={{ background: 'rgba(248,250,252,0.90)', border: '1.5px solid rgba(20,184,166,0.18)', color: '#1e293b' }} />
                   </div>
                 ))}

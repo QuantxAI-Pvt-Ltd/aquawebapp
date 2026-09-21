@@ -20,7 +20,7 @@ import {
   Waves,
   FileText
 } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
 import { fileToBase64 } from '@/lib/fileUtils';
 
@@ -167,7 +167,7 @@ export default function ClaimsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-28" style={{ fontFamily: "'Sora', sans-serif" }}>
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]" style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
       {/* Header */}
@@ -182,7 +182,7 @@ export default function ClaimsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/dashboard')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -211,7 +211,7 @@ export default function ClaimsPage() {
               }
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition shadow-sm touch-manipulation"
           >
             <Plus size={16} />
             <span>File Claim</span>
@@ -224,7 +224,7 @@ export default function ClaimsPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 rounded-lg capitalize transition-all ${
+              className={`flex-1 py-2 rounded-lg capitalize transition-all touch-manipulation ${
                 activeTab === tab
                   ? 'bg-white text-teal-800 shadow-sm font-bold'
                   : 'text-stone-500 hover:text-stone-800'
@@ -448,7 +448,7 @@ export default function ClaimsPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ ease: EASE, duration: 0.3 }}
-              className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 shadow-2xl"
+              className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] shadow-2xl"
             >
               <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
                 <div className="flex items-center gap-2">
@@ -493,7 +493,7 @@ export default function ClaimsPage() {
                       value={selectedPolicyId}
                       onChange={(e) => setSelectedPolicyId(e.target.value)}
                       required
-                      className="w-full text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                     >
                       {activePolicies.map((p) => (
                         <option key={p._id} value={p._id}>
@@ -511,7 +511,7 @@ export default function ClaimsPage() {
                     <select
                       value={claimReason}
                       onChange={(e) => setClaimReason(e.target.value)}
-                      className="w-full text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                     >
                       <option value="mass_mortality">Sudden Mass Mortality</option>
                       <option value="disease_outbreak">Disease Outbreak (WSSV / EHP / EMS)</option>
@@ -555,7 +555,7 @@ export default function ClaimsPage() {
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Describe what you observed in the pond (e.g. erratic swimming, check-tray mortality count, color change)..."
-                      className="w-full text-xs bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      className="w-full text-base sm:text-xs bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                     />
                   </div>
 
@@ -576,7 +576,7 @@ export default function ClaimsPage() {
                         </button>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50 hover:bg-stone-100 cursor-pointer transition">
+                      <label className="flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50 hover:bg-stone-100 cursor-pointer transition touch-manipulation">
                         <Camera size={22} className="text-teal-600" />
                         <span className="text-xs font-semibold text-stone-700">Take Photo or Upload Evidence</span>
                         <span className="text-[10px] text-stone-400">JPG, PNG up to 10MB</span>
@@ -596,7 +596,7 @@ export default function ClaimsPage() {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation"
                     >
                       {submitting ? (
                         <>

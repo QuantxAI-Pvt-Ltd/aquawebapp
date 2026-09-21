@@ -25,7 +25,7 @@ const SplashScreen = () => {
 
   return (
     <div
-      className="relative min-h-screen w-full bg-white flex flex-col items-center justify-between overflow-hidden select-none"
+      className="relative min-h-[100dvh] w-full bg-white flex flex-col items-center justify-between overflow-hidden select-none"
       style={{ fontFamily: "'Sora', sans-serif" }}
     >
       <style>{`

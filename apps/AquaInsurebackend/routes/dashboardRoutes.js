@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Farmer = require('../models/Farmer');
 const Farm = require('../models/Farm');
@@ -117,6 +118,9 @@ router.get('/farmers', async (req, res) => {
 // GET /api/dashboard/farmers/:id — single farmer with full detail including SeaweedFS media pointers
 router.get('/farmers/:id', async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmer ID format' });
+        }
         const farmer = await Farmer.findById(req.params.id).lean();
         if (!farmer) return res.status(404).json({ success: false, error: 'Farmer not found' });
 
@@ -176,7 +180,7 @@ router.get('/entries', async (req, res) => {
         // Attach farmer name to each entry via pond's farmerId
         const enriched = await Promise.all(entries.map(async (e) => {
             let farmerName = 'Unknown';
-            if (e.pondId?.farmerId) {
+            if (e.pondId?.farmerId && mongoose.Types.ObjectId.isValid(e.pondId.farmerId)) {
                 const farmer = await Farmer.findById(e.pondId.farmerId).select('name phone').lean();
                 if (farmer) farmerName = farmer.name;
                 e.farmerPhone = farmer?.phone;
@@ -258,7 +262,7 @@ router.get('/images/list', async (req, res) => {
                     .sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean();
                 for (const e of entries) {
                     let farmerName = 'Unknown';
-                    if (e.pondId?.farmerId) {
+                    if (e.pondId?.farmerId && mongoose.Types.ObjectId.isValid(e.pondId.farmerId)) {
                         const farmer = await Farmer.findById(e.pondId.farmerId).select('name').lean();
                         if (farmer) farmerName = farmer.name;
                     }
@@ -426,7 +430,7 @@ router.get('/analytics/top-farmers', async (req, res) => {
         const results = [];
         for (const pf of pondsByFarmer) {
             const count = await DailyEntry.countDocuments({ pondId: { $in: pf.pondIds } });
-            if (count > 0) {
+            if (count > 0 && pf._id && mongoose.Types.ObjectId.isValid(pf._id)) {
                 const farmer = await Farmer.findById(pf._id).select('name phone').lean();
                 results.push({ farmerId: pf._id, name: farmer?.name || 'Unknown', phone: farmer?.phone, entryCount: count });
             }
