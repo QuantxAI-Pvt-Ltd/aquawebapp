@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, Upload, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { fileToBase64 } from "@/lib/fileUtils";
@@ -163,7 +162,7 @@ const OneTimeEntry = () => {
 
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-clip"
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col"
       style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -195,13 +194,9 @@ const OneTimeEntry = () => {
 
       <div className="px-4 mt-5 space-y-4">
         {loading ? (
-          <div className="bg-white rounded-3xl p-5 border border-stone-100 shadow-sm space-y-4">
-            <Skeleton className="h-6 w-36 bg-stone-200/80" />
-            <div className="space-y-3">
-              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
-              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
-              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
-            </div>
+          <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
+            <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
+            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
           </div>
         ) : !hasPonds ? (
           <div>

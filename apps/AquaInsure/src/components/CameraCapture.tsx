@@ -120,11 +120,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             <Button onClick={startCamera}>{t("common.retry") || "Retry"}</Button>
           </div>
         ) : capturedImage ? (
-          <img 
-            src={capturedImage} 
-            alt="Captured" 
-            className="w-full h-full object-contain"
-          />
+          <img src={capturedImage} alt="Captured preview" className="w-full h-full object-cover" />
         ) : (
           <>
             <video 
@@ -144,18 +140,12 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         <div className="flex items-center justify-between gap-4 max-w-sm mx-auto">
           {capturedImage ? (
             <>
-              <button 
-                onClick={retake}
-                className="flex flex-col items-center gap-1 text-white/80 hover:text-white"
-              >
+              <button>
                 <RotateCcw size={24} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">{t("common.retake") || "Retake"}</span>
               </button>
               
-              <button 
-                onClick={confirmPhoto}
-                className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-full font-bold shadow-lg"
-              >
+              <button>
                 <Check size={28} />
                 <span>{t("common.usePhoto") || "Use Photo"}</span>
               </button>
@@ -164,17 +154,11 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             <>
               <div className="w-16" /> {/* Placeholder for mobile symmetry */}
               
-              <button 
-                onClick={takePhoto}
-                className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1.5 focus:outline-none"
-              >
+              <button>
                 <div className="w-full h-full rounded-full bg-white transition-opacity active:opacity-60" />
               </button>
 
-              <button 
-                onClick={switchCamera}
-                className="w-16 flex items-center justify-center text-white/80 hover:text-white"
-              >
+              <button>
                 <RefreshCw size={24} />
               </button>
             </>
@@ -188,3 +172,4 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 };
 
 export default CameraCapture;
+
