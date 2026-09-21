@@ -31,7 +31,7 @@ const SettingsPage = () => {
     {
       icon: User,
       label: t('settings.editProfile'),
-      action: () => navigate('/farmer-registration'),
+      action: () => navigate('/farmer-registration?mode=edit'),
       destructive: false,
       iconBg: 'bg-amber-50 border-amber-100',
       iconColor: 'text-amber-600',

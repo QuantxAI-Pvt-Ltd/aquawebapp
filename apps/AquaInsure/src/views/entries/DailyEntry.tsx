@@ -166,7 +166,12 @@ const DailyEntry = () => {
     if (!pondId || String(pondId).length < 24) return;
     
     // Check if there is actual input data (not empty) before hitting the DB continually
-    if (Object.keys(data).length === 0) return;
+    const hasData = Object.entries(data).some(([k, v]) => {
+      if (v === undefined || v === null || v === '' || v === false) return false;
+      if (k === 'proportionateGrowth' && v === 'no') return false;
+      return true;
+    });
+    if (!hasData) return;
 
     const payload = {
         pondId: pondId,
@@ -223,10 +228,13 @@ const DailyEntry = () => {
 
   // Day color: green=completed, amber=partial, grey=pending — based on DB
   const getDayStatus = (day: number) => {
-    const entry = dbEntries.find((e: any) => e.dayNumber === day);
+    const pond = ponds[pondIndex];
+    const pondId = pond?._id || pond?.pondId;
+    const entry = dbEntries.find((e: any) => e.dayNumber === day && (!pondId || e.pondId === pondId));
     if (!entry) return 'pending';
     const filled = [entry.sampling, entry.feedManagement, entry.financials, entry.waterQuality, entry.shrimpHealth]
       .filter(s => s && Object.values(s).some(v => v != null && v !== '' && v !== false)).length;
+    if (filled === 0) return 'pending';
     return filled >= 4 ? 'completed' : 'partial';
   };
 

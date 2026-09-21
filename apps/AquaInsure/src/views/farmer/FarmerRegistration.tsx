@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,6 +60,8 @@ type FarmerForm = z.infer<typeof farmerSchema>;
 
 const FarmerRegistration = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isEditMode = new URLSearchParams(location.search).get('mode') === 'edit';
   const { t } = useTranslation();
 
   const [step, setStep] = useState(0);
@@ -107,11 +109,11 @@ const FarmerRegistration = () => {
     }
   });
 
-  // Guard: if registration is already complete, skip back to daily entry.
+  // Guard: if registration is already complete and not editing, skip back to daily entry.
   // Rehydrate draft and session safely on client after initial mount to eliminate SSR mismatch.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (localStorage.getItem('aqua-reg-complete') === '1') {
+    if (!isEditMode && localStorage.getItem('aqua-reg-complete') === '1') {
       navigate('/entries/daily', { replace: true });
       return;
     }
@@ -120,17 +122,55 @@ const FarmerRegistration = () => {
       const sess = JSON.parse(localStorage.getItem('aqua-session') || '{}');
       setSession(sess);
 
-      const draftStr = localStorage.getItem("draft_farmer");
-      if (draftStr) {
-        const draft = JSON.parse(draftStr);
-        reset({ ...draft, phone: sess.phone || draft.phone || '' });
-      } else if (sess.phone) {
-        setValue('phone', sess.phone);
+      if (isEditMode && sess.farmerId) {
+        axios.get(`/api/farmers/${sess.farmerId}`)
+          .then((res) => {
+            if (res.data?.success && res.data?.data) {
+              const f = res.data.data;
+              reset({
+                name: f.name || '',
+                fatherName: f.fatherName || '',
+                phone: f.phone || sess.phone || '',
+                gender: f.gender || undefined,
+                isScSt: !!f.isScSt,
+                dob: f.dob ? f.dob.split('T')[0] : '',
+                community: f.community || '',
+                village: f.address?.village || '',
+                taluk: f.address?.taluk || '',
+                district: f.address?.district || '',
+                state: f.address?.state || '',
+                pinCode: f.address?.pinCode || '',
+                regType: f.registration?.regType || undefined,
+                regNumber: f.registration?.regNumber || '',
+                aadharNumber: f.identity?.aadharNumber || '',
+                hasPan: f.identity?.hasPan ? 'yes' : 'no',
+                panNumber: f.identity?.panNumber || '',
+                accountHolderName: f.bankDetails?.accountHolderName || '',
+                bankName: f.bankDetails?.bankName || '',
+                branch: f.bankDetails?.branch || '',
+                accountType: f.bankDetails?.accountType || undefined,
+                accountNumber: f.bankDetails?.accountNumber || '',
+                ifscCode: f.bankDetails?.ifscCode || ''
+              });
+            }
+          })
+          .catch((err) => {
+            console.error('Error hydrating farmer for edit:', err);
+            toast.error('Failed to load profile details');
+          });
+      } else {
+        const draftStr = localStorage.getItem("draft_farmer");
+        if (draftStr) {
+          const draft = JSON.parse(draftStr);
+          reset({ ...draft, phone: sess.phone || draft.phone || '' });
+        } else if (sess.phone) {
+          setValue('phone', sess.phone);
+        }
       }
     } catch (e) {
       console.error('Error hydrating draft_farmer:', e);
     }
-  }, [navigate, reset, setValue]);
+  }, [navigate, reset, setValue, isEditMode]);
 
   const formValues = watch();
 
@@ -258,8 +298,12 @@ const FarmerRegistration = () => {
         localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name: data.name }));
         localStorage.removeItem("draft_farmer"); // clear draft on success
         toast.dismiss('farmer-save');
-        toast.success(t("farmer.saved"));
-        navigate("/farm-registration");
+        toast.success(isEditMode ? 'Profile updated successfully' : t("farmer.saved"));
+        if (isEditMode) {
+          navigate("/settings");
+        } else {
+          navigate("/farm-registration");
+        }
       }
     } catch (error: any) {
       toast.dismiss('farmer-save');
@@ -403,13 +447,13 @@ const FarmerRegistration = () => {
         <div className="flex items-center justify-between relative z-10 mb-5">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)}
+              onClick={() => step > 0 ? setStep(step - 1) : (isEditMode ? navigate('/settings') : navigate(-1))}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold text-white tracking-tight">
-              {t("farmer.title")}
+              {isEditMode ? "Edit Profile" : t("farmer.title")}
             </h1>
           </div>
           <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
@@ -727,7 +771,7 @@ const FarmerRegistration = () => {
                   boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
                 }}
               >
-                {t("farmer.save")}
+                {isEditMode ? "Save Changes" : t("farmer.save")}
               </Button>
             )}
           </div>

@@ -23,11 +23,8 @@ const BottomNav = () => {
   }
 
   return (
-    <div className="fixed bottom-[max(1rem,calc(0.75rem+env(safe-area-inset-bottom,0px)))] left-1/2 -translate-x-1/2 z-50 w-[calc(100%-1.5rem)] sm:w-[calc(100%-2rem)] max-w-[400px]">
-      <nav
-        className="bg-white/95 backdrop-blur-md border border-stone-200/80 rounded-[2rem] px-2 sm:px-3 py-2"
-        style={{ boxShadow: '0 10px 35px rgba(28,74,62,0.12), 0 2px 8px rgba(0,0,0,0.05)' }}
-      >
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full sm:max-w-[440px] bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200/90 dark:border-stone-800 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <nav className="px-2 sm:px-3 py-1.5">
         <div className="flex items-center justify-between">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;

@@ -13,9 +13,17 @@ export interface MediaObjectResult {
 /**
  * Converts a standard browser File object into a Base64 string (legacy fallback).
  */
-export const fileToBase64 = (file: File | null | undefined): Promise<string | null> => {
+export const fileToBase64 = (file: File | string | null | undefined): Promise<string | null> => {
   return new Promise((resolve, reject) => {
     if (!file) {
+      resolve(null);
+      return;
+    }
+    if (typeof file === 'string') {
+      resolve(file);
+      return;
+    }
+    if (!(file instanceof Blob)) {
       resolve(null);
       return;
     }
