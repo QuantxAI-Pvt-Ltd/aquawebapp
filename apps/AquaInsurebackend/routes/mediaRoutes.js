@@ -24,7 +24,8 @@ function generateKey(folder = 'general', filename = 'file') {
   const randomStr = Math.random().toString(36).substring(2, 8);
   const ext = path.extname(filename) || '';
   const base = path.basename(filename, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `aquainsure/${folder}/${timestamp}_${randomStr}_${base}${ext}`;
+  const cleanFolder = folder.replace(/^\/+/, '').replace(/^aquainsure\/?/, '').replace(/\/+$/, '');
+  return `${cleanFolder}/${timestamp}_${randomStr}_${base}${ext}`;
 }
 
 /**

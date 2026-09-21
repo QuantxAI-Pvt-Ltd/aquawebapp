@@ -245,14 +245,21 @@ const DailyEntry = () => {
         return;
       }
 
-      // Upload media files to SeaweedFS distributed storage
-      const samplingVideoData = await uploadToSeaweedFS(data.samplingVideo, 'sampling-videos');
-      const feedBillsData = await uploadToSeaweedFS(data.feedBills, 'feed-bills');
-      const miscBillsData = await uploadToSeaweedFS(data.miscBills, 'misc-bills');
-      const electricityBillsData = await uploadToSeaweedFS(data.electricityBills, 'electricity-bills');
-      const waterReportData = await uploadToSeaweedFS(data.waterReport, 'water-reports');
-      const shrimpPhotoData = await uploadToSeaweedFS(data.shrimpPhoto, 'shrimp-photos');
-      const labReportData = await uploadToSeaweedFS(data.labReport, 'lab-reports');
+      const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
+      const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+      const farmerId = session.farmerId || 'unknown';
+      const farmId = farmData.farmId || 'unknown';
+      const dateStr = new Date().toISOString().split('T')[0];
+      const dailyFolder = `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/daily/day_${selectedDay}_${dateStr}`;
+
+      // Upload media files to SeaweedFS distributed storage under specific farmer hierarchy
+      const samplingVideoData = await uploadToSeaweedFS(data.samplingVideo, `${dailyFolder}/sampling-videos`);
+      const feedBillsData = await uploadToSeaweedFS(data.feedBills, `${dailyFolder}/feed-bills`);
+      const miscBillsData = await uploadToSeaweedFS(data.miscBills, `${dailyFolder}/misc-bills`);
+      const electricityBillsData = await uploadToSeaweedFS(data.electricityBills, `${dailyFolder}/electricity-bills`);
+      const waterReportData = await uploadToSeaweedFS(data.waterReport, `${dailyFolder}/water-reports`);
+      const shrimpPhotoData = await uploadToSeaweedFS(data.shrimpPhoto, `${dailyFolder}/shrimp-photos`);
+      const labReportData = await uploadToSeaweedFS(data.labReport, `${dailyFolder}/lab-reports`);
 
       const payload = {
         pondId: pondId,
