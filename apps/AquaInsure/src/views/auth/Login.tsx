@@ -39,9 +39,9 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/login`, { phone, password });
-      const { token, farmerId, isNewFarmer, name } = res.data;
+      const { token, farmerId, isNewFarmer, onboardingStep, isProfileComplete, name, farmData } = res.data;
 
-      // Clear ALL previous session state so stale flags don't affect new users
+      // Clear previous session drafts
       localStorage.removeItem('shrimpguard-farmer');
       localStorage.removeItem('aqua-farm');
       localStorage.removeItem('aqua-reg-complete');
@@ -50,11 +50,35 @@ const Login = () => {
       localStorage.removeItem('draft_farm_infra');
       localStorage.removeItem('draft_insurance_form');
       localStorage.removeItem('draft_insurance_ponds');
+
       localStorage.setItem('aqua-session', JSON.stringify({ phone, farmerId, token }));
-      if (!isNewFarmer && name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
+      if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
+      if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
+      localStorage.setItem('aqua-reg-complete', isProfileComplete ? '1' : '0');
 
       toast.success(t('auth.loginSuccess'));
-      navigate(isNewFarmer ? '/farmer-registration' : '/dashboard', { replace: true });
+
+      // Route directly to the pending onboarding step
+      if (!isProfileComplete) {
+        switch (onboardingStep) {
+          case 'farmer_registration':
+            navigate('/farmer-registration', { replace: true });
+            break;
+          case 'farm_registration':
+            navigate('/farm-registration', { replace: true });
+            break;
+          case 'insurance_registration':
+            navigate('/insurance-registration', { replace: true });
+            break;
+          case 'insured_ponds':
+            navigate('/insured-ponds', { replace: true });
+            break;
+          default:
+            navigate('/farmer-registration', { replace: true });
+        }
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || t('common.error'));
     } finally {

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { ChevronLeft, Upload } from "lucide-react";
+import { ChevronLeft, Upload, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -42,9 +42,59 @@ const OneTimeEntry = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  const [loading, setLoading] = useState(true);
+  const [hasPonds, setHasPonds] = useState(false);
+
   // Start with clean state — file fields (File objects) cannot be serialized
   // to localStorage, so we never persist or load them from there.
   const [data, setData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const regComplete = localStorage.getItem('aqua-reg-complete');
+    if (regComplete !== '1') {
+      axios.get('/api/auth/status')
+        .then(res => {
+          if (res.data?.success && !res.data.isProfileComplete && res.data.onboardingStep) {
+            switch (res.data.onboardingStep) {
+              case 'farmer_registration':
+                navigate('/farmer-registration', { replace: true });
+                return;
+              case 'farm_registration':
+                navigate('/farm-registration', { replace: true });
+                return;
+              case 'insurance_registration':
+                navigate('/insurance-registration', { replace: true });
+                return;
+              case 'insured_ponds':
+                navigate('/insured-ponds', { replace: true });
+                return;
+              default:
+                navigate('/farmer-registration', { replace: true });
+                return;
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
+    if (session.farmerId) {
+      axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`)
+        .then(res => {
+          const ponds = res.data?.data || [];
+          setHasPonds(ponds.length > 0);
+        })
+        .catch(() => {
+          const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+          setHasPonds(Boolean(farmData.ponds?.length));
+        })
+        .finally(() => setLoading(false));
+    } else {
+      const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+      setHasPonds(Boolean(farmData.ponds?.length));
+      setLoading(false);
+    }
+  }, [navigate]);
 
   const updateField = (key: string, value: any) => {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -144,80 +194,111 @@ const OneTimeEntry = () => {
       </div>
 
       <div className="px-4 mt-5 space-y-4">
+        {loading ? (
+          <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
+            <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
+            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
+          </div>
+        ) : !hasPonds ? (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm text-center flex flex-col items-center gap-4 mt-2"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-inner">
+              <Waves className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-800">
+                No Insured Ponds Found
+              </h3>
+              <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
+                You must register your farm and insure your ponds before logging one-time documentation.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate('/farm-registration')}
+              className="w-full max-w-xs h-11 rounded-xl bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-800 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-700/20"
+            >
+              Complete Farm Registration →
+            </Button>
+          </motion.div>
+        ) : (
+          <>
+            {/* Farm Registration */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
+            >
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
+                {t("entries.farmRegistration")}
+              </h3>
+              <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
+                <Upload size={16} className="text-teal-600" />
+                <span className="truncate text-stone-500 font-medium">
+                  {data.regCertificate ? (data.regCertificate as File).name : t("entries.uploadRegCertificate")}
+                </span>
+                <input type="file" className="hidden" onChange={(e) => updateField("regCertificate", e.target.files?.[0])} />
+              </label>
+            </motion.div>
 
-        {/* Farm Registration */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
-            {t("entries.farmRegistration")}
-          </h3>
-          <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
-            <Upload size={16} className="text-teal-600" />
-            <span className="truncate text-stone-500 font-medium">
-              {data.regCertificate ? (data.regCertificate as File).name : t("entries.uploadRegCertificate")}
-            </span>
-            <input type="file" className="hidden" onChange={(e) => updateField("regCertificate", e.target.files?.[0])} />
-          </label>
-        </motion.div>
+            {/* Pond Preparation */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
+            >
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
+                {t("entries.pondPrep")}
+              </h3>
+              <YesNo label={t("entries.followedPractices")} field="followedPractices" value={data.followedPractices} onChange={updateField} />
+              <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
+                <Upload size={16} className="text-teal-600" />
+                <span className="truncate text-stone-500 font-medium">
+                  {data.pondPrepBills ? (data.pondPrepBills as File).name : t("entries.uploadBills")}
+                </span>
+                <input type="file" className="hidden" onChange={(e) => updateField("pondPrepBills", e.target.files?.[0])} />
+              </label>
+            </motion.div>
 
-        {/* Pond Preparation */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
-            {t("entries.pondPrep")}
-          </h3>
-          <YesNo label={t("entries.followedPractices")} field="followedPractices" value={data.followedPractices} onChange={updateField} />
-          <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
-            <Upload size={16} className="text-teal-600" />
-            <span className="truncate text-stone-500 font-medium">
-              {data.pondPrepBills ? (data.pondPrepBills as File).name : t("entries.uploadBills")}
-            </span>
-            <input type="file" className="hidden" onChange={(e) => updateField("pondPrepBills", e.target.files?.[0])} />
-          </label>
-        </motion.div>
+            {/* Seed Selection */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
+            >
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
+                {t("entries.seedSelection")}
+              </h3>
+              <YesNo label={t("entries.pcrTesting")} field="pcrTesting" value={data.pcrTesting} onChange={updateField} />
+              {[
+                { key: 'pcrCertificate', label: t("entries.uploadPCR") },
+                { key: 'seedBills', label: t("entries.uploadBills") },
+              ].map(({ key, label }) => (
+                <label key={key} className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
+                  <Upload size={16} className="text-teal-600" />
+                  <span className="truncate text-stone-500 font-medium">
+                    {data[key] ? (data[key] as File).name : label}
+                  </span>
+                  <input type="file" className="hidden" onChange={(e) => updateField(key, e.target.files?.[0])} />
+                </label>
+              ))}
+            </motion.div>
 
-        {/* Seed Selection */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
-            {t("entries.seedSelection")}
-          </h3>
-          <YesNo label={t("entries.pcrTesting")} field="pcrTesting" value={data.pcrTesting} onChange={updateField} />
-          {[
-            { key: 'pcrCertificate', label: t("entries.uploadPCR") },
-            { key: 'seedBills', label: t("entries.uploadBills") },
-          ].map(({ key, label }) => (
-            <label key={key} className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
-              <Upload size={16} className="text-teal-600" />
-              <span className="truncate text-stone-500 font-medium">
-                {data[key] ? (data[key] as File).name : label}
-              </span>
-              <input type="file" className="hidden" onChange={(e) => updateField(key, e.target.files?.[0])} />
-            </label>
-          ))}
-        </motion.div>
-
-        <Button
-          onClick={save}
-          className="w-full h-12 rounded-xl text-white font-bold"
-          style={{
-            background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
-            boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
-          }}
-        >
-          {t("common.save")}
-        </Button>
-
+            <Button
+              onClick={save}
+              className="w-full h-12 rounded-xl text-white font-bold"
+              style={{
+                background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
+                boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
+              }}
+            >
+              {t("common.save")}
+            </Button>
+          </>
+        )}
       </div>
 
       <BottomNav />

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
@@ -12,6 +13,7 @@ import {
   ShieldAlert
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
+import axios from "@/lib/api";
 
 const dashboardCards = [
   // — Farmer Registration section (warm amber / beige) —
@@ -111,6 +113,49 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const sessionStr = localStorage.getItem('aqua-session');
+    if (!sessionStr) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    const regComplete = localStorage.getItem('aqua-reg-complete');
+    if (regComplete !== '1') {
+      axios.get('/api/auth/status')
+        .then((res) => {
+          if (res.data.success) {
+            const { isProfileComplete, onboardingStep, farmData, name } = res.data;
+            if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
+            if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
+            localStorage.setItem('aqua-reg-complete', isProfileComplete ? '1' : '0');
+
+            if (!isProfileComplete) {
+              switch (onboardingStep) {
+                case 'farmer_registration':
+                  navigate('/farmer-registration', { replace: true });
+                  break;
+                case 'farm_registration':
+                  navigate('/farm-registration', { replace: true });
+                  break;
+                case 'insurance_registration':
+                  navigate('/insurance-registration', { replace: true });
+                  break;
+                case 'insured_ponds':
+                  navigate('/insured-ponds', { replace: true });
+                  break;
+                default:
+                  navigate('/farmer-registration', { replace: true });
+              }
+            }
+          }
+        })
+        .catch(() => {
+          navigate('/farmer-registration', { replace: true });
+        });
+    }
+  }, [navigate]);
 
   const farmer = JSON.parse(localStorage.getItem("shrimpguard-farmer") || "{}");
   const displayName = farmer?.name || t("dashboard.farmerDefault");

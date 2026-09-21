@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import axios from '@/lib/api';
 
 const FLUID_EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -16,11 +17,75 @@ const SplashScreen = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
+    let ignore = false;
+
+    const checkSessionAndNavigate = async () => {
+      try {
+        const sessionStr = localStorage.getItem('aqua-session');
+        if (!sessionStr) {
+          navigate('/language', { replace: true });
+          return;
+        }
+
+        const session = JSON.parse(sessionStr);
+        if (!session?.token) {
+          navigate('/language', { replace: true });
+          return;
+        }
+
+        const res = await axios.get('/api/auth/status');
+        if (ignore) return;
+
+        if (res.data.success) {
+          const { isProfileComplete, onboardingStep, farmData, name } = res.data;
+          if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
+          if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
+          localStorage.setItem('aqua-reg-complete', isProfileComplete ? '1' : '0');
+
+          if (!isProfileComplete) {
+            switch (onboardingStep) {
+              case 'farmer_registration':
+                navigate('/farmer-registration', { replace: true });
+                break;
+              case 'farm_registration':
+                navigate('/farm-registration', { replace: true });
+                break;
+              case 'insurance_registration':
+                navigate('/insurance-registration', { replace: true });
+                break;
+              case 'insured_ponds':
+                navigate('/insured-ponds', { replace: true });
+                break;
+              default:
+                navigate('/farmer-registration', { replace: true });
+            }
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
+        } else {
+          navigate('/login', { replace: true });
+        }
+      } catch (err) {
+        if (!ignore) {
+          const isComplete = localStorage.getItem('aqua-reg-complete') === '1';
+          const session = localStorage.getItem('aqua-session');
+          if (session) {
+            navigate(isComplete ? '/dashboard' : '/farmer-registration', { replace: true });
+          } else {
+            navigate('/language', { replace: true });
+          }
+        }
+      }
+    };
+
     const timer = setTimeout(() => {
-      const user = localStorage.getItem('shrimpguard-user');
-      navigate(user ? '/dashboard' : '/language', { replace: true });
-    }, 3500);
-    return () => clearTimeout(timer);
+      checkSessionAndNavigate();
+    }, 2800);
+
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
   }, [navigate]);
 
   return (

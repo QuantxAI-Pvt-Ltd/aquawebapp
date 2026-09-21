@@ -16,6 +16,12 @@ const BottomNav = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  // Hide BottomNav during onboarding until full profile registration is completed
+  const regComplete = typeof window !== 'undefined' ? localStorage.getItem('aqua-reg-complete') : '1';
+  if (regComplete !== '1') {
+    return null;
+  }
+
   return (
     <div className="fixed bottom-[max(1rem,calc(0.75rem+env(safe-area-inset-bottom,0px)))] left-1/2 -translate-x-1/2 z-50 w-[calc(100%-1.5rem)] sm:w-[calc(100%-2rem)] max-w-[400px]">
       <nav

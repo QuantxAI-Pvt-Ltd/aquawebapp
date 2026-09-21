@@ -27,6 +27,8 @@ const DailyEntry = () => {
   const [dbEntries, setDbEntries] = useState<any[]>([]); // entries for current pond from DB
   const [insurances, setInsurances] = useState<any[]>([]);
 
+  const [loadingPonds, setLoadingPonds] = useState(true);
+
   const update = (k: string, v: any) => setData(prev => ({ ...prev, [k]: v }));
 
   const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
@@ -36,6 +38,35 @@ const DailyEntry = () => {
   useEffect(() => {
     if (!session.farmerId) { navigate('/login', { replace: true }); return; }
 
+    const regComplete = localStorage.getItem('aqua-reg-complete');
+    if (regComplete !== '1') {
+      axios.get('/api/auth/status')
+        .then((res) => {
+          if (res.data.success && !res.data.isProfileComplete) {
+            const step = res.data.onboardingStep;
+            switch (step) {
+              case 'farmer_registration':
+                navigate('/farmer-registration', { replace: true });
+                return;
+              case 'farm_registration':
+                navigate('/farm-registration', { replace: true });
+                return;
+              case 'insurance_registration':
+                navigate('/insurance-registration', { replace: true });
+                return;
+              case 'insured_ponds':
+                navigate('/insured-ponds', { replace: true });
+                return;
+              default:
+                navigate('/farmer-registration', { replace: true });
+                return;
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    setLoadingPonds(true);
     Promise.all([
       axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`),
       axios.get(`/api/insurances?farmerId=${session.farmerId}`),
@@ -58,7 +89,8 @@ const DailyEntry = () => {
         : allPonds; // fallback: show all if no insurance exists yet
 
       setPonds(filtered);
-    }).catch(() => toast.error('Could not load pond data'));
+    }).catch(() => toast.error('Could not load pond data'))
+      .finally(() => setLoadingPonds(false));
   }, []);
 
   // Fetch entries for the currently selected pond from DB (for day colors)
@@ -299,7 +331,7 @@ const DailyEntry = () => {
   const pondInsurance = insurances.find((ins: any) => 
     ins.pondId === pondIdToMatch || (ins.insuredPondIds && ins.insuredPondIds.includes(pondIdToMatch))
   );
-  const maxDays = pondInsurance?.insurancePeriodDays || 150;
+  const maxDays = pondInsurance?.insurancePeriodDays ? Number(pondInsurance.insurancePeriodDays) : (pond ? 120 : 0);
 
   const renderSectionCard = (Icon: any, title: string, children: React.ReactNode) => (
     <motion.div
@@ -358,14 +390,44 @@ const DailyEntry = () => {
       </div>
 
       <div className="px-4 mt-4 space-y-4">
+        {loadingPonds ? (
+          <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
+            <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
+            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
+          </div>
+        ) : ponds.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm text-center flex flex-col items-center gap-4 mt-2"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-inner">
+              <Waves className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-800">
+                No Insured Ponds Found
+              </h3>
+              <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
+                You must register your farm and insure your ponds before logging daily water quality and feeding records.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate('/farm-registration')}
+              className="w-full max-w-xs h-11 rounded-xl bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-800 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-700/20"
+            >
+              Complete Farm Registration →
+            </Button>
+          </motion.div>
+        ) : (
+          <>
+            {/* POND SELECTOR — photo cards */}
+            {(() => {
+              const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+              const localPonds: any[] = farmData.ponds || [];
 
-        {/* POND SELECTOR — photo cards */}
-        {(() => {
-          const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
-          const localPonds: any[] = farmData.ponds || [];
-
-          return (
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+              return (
+                <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
               {ponds.map((p, i) => {
                 const localPond = localPonds.find((lp: any) =>
                   (lp._id || lp.pondId) === (p._id || p.pondId)
@@ -750,7 +812,9 @@ const DailyEntry = () => {
             </Button>
           </div>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
       {/* ── POND PREVIEW MODAL (mobile bottom-sheet) ── */}
       {pondPreviewOpen && (() => {

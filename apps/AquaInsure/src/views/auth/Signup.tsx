@@ -45,6 +45,7 @@ const Signup = () => {
 
       localStorage.removeItem('shrimpguard-farmer');
       localStorage.removeItem('aqua-farm');
+      localStorage.setItem('aqua-reg-complete', '0');
       localStorage.setItem('aqua-session', JSON.stringify({ phone, farmerId, token }));
 
       toast.success(t('auth.signupSuccess'));
