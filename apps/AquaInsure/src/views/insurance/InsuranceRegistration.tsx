@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,11 +35,11 @@ const InsuranceRegistration = () => {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors }
+    formState: { errors, isSubmitting }
   } = useForm<InsuranceForm>({
     resolver: zodResolver(insuranceSchema as any),
     defaultValues: (() => {
-      const draftStr = localStorage.getItem("draft_insurance_form");
+      const draftStr = typeof window !== 'undefined' ? localStorage.getItem("draft_insurance_form") : null;
       if (draftStr) {
         try { return JSON.parse(draftStr); } catch(e) {}
       }
@@ -51,33 +51,48 @@ const InsuranceRegistration = () => {
 
   // Guard: if registration is already complete, skip back to daily entry
   useEffect(() => {
-    if (localStorage.getItem('aqua-reg-complete') === '1') {
+    if (typeof window !== 'undefined' && localStorage.getItem('aqua-reg-complete') === '1') {
       navigate('/entries/daily', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
-    localStorage.setItem("draft_insurance_form", JSON.stringify(formValues));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("draft_insurance_form", JSON.stringify(formValues));
+    }
   }, [formValues]);
 
   const stockingDate = watch('stockingDate');
 
   // Load ponds from farm data saved in localStorage
-  const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+  const farmData = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('aqua-farm') || '{}') : {};
   const allPonds: any[] = farmData.ponds || [];
   const totalPonds = allPonds.length;
 
   // Track which ponds are selected for insurance
   const [selectedPonds, setSelectedPonds] = useState<string[]>(() => {
-    const draftStr = localStorage.getItem("draft_insurance_ponds");
+    const draftStr = typeof window !== 'undefined' ? localStorage.getItem("draft_insurance_ponds") : null;
     if (draftStr) {
       try { return JSON.parse(draftStr); } catch(e) {}
     }
-    return [];
+    // Auto-select all available ponds if no previous draft exists
+    return allPonds.map((p: any) => p._id || p.pondId).filter(Boolean);
   });
 
+  // Auto-select ponds if list was empty and ponds become available
   useEffect(() => {
-    localStorage.setItem("draft_insurance_ponds", JSON.stringify(selectedPonds));
+    if (selectedPonds.length === 0 && allPonds.length > 0) {
+      const allIds = allPonds.map((p: any) => p._id || p.pondId).filter(Boolean);
+      if (allIds.length > 0) {
+        setSelectedPonds(allIds);
+      }
+    }
+  }, [allPonds.length]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("draft_insurance_ponds", JSON.stringify(selectedPonds));
+    }
   }, [selectedPonds]);
 
   const { syncStatus } = useAutoSave([formValues, selectedPonds]);
@@ -94,6 +109,15 @@ const InsuranceRegistration = () => {
   const plannedHarvestDate =
     stockingDate ? format(addDays(new Date(stockingDate), 180), 'yyyy-MM-dd') : '';
 
+  const onError = (formErrors: any) => {
+    console.warn("Insurance form validation errors:", formErrors);
+    const firstKey = Object.keys(formErrors)[0];
+    if (firstKey) {
+      const errorKey = formErrors[firstKey]?.message;
+      toast.error(t(errorKey) || "Please fill in all required fields.");
+    }
+  };
+
   const onSubmit = async (data: InsuranceForm) => {
     try {
       const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
@@ -105,17 +129,17 @@ const InsuranceRegistration = () => {
         return;
       }
 
-      const farmData = JSON.parse(farmDataStr);
-      let farmId = farmData.farmId;
-      const ponds = farmData.ponds;
+      const parsedFarm = JSON.parse(farmDataStr);
+      let farmId = parsedFarm.farmId;
+      const ponds = parsedFarm.ponds;
 
       if (!farmId || farmId.length < 24) {
-        toast.error("Invalid Farm ID. Please go back to Farm Registration and Save it again to generate a valid MongoDB ID.");
+        toast.error("Invalid Farm ID. Please go back to Farm Registration and Save it again.");
         return;
       }
 
       if (!ponds || ponds.length === 0) {
-        toast.error("No ponds registered for this farm.");
+        toast.error("No ponds registered for this farm. Please complete Farm Registration first.");
         return;
       }
 
@@ -126,7 +150,7 @@ const InsuranceRegistration = () => {
 
       toast.loading(t("common.saving"), { id: 'insurance-save' });
 
-      const firstPondId = ponds[0]._id || ponds[0].pondId;
+      const firstPondId = selectedPonds[0] || ponds[0]._id || ponds[0].pondId;
 
       if (!firstPondId || String(firstPondId).length < 24) {
         toast.dismiss('insurance-save');
@@ -136,6 +160,7 @@ const InsuranceRegistration = () => {
 
       const payload = {
         ...data,
+        stockingDensity: Number(data.stockingDensity),
         insurancePeriodDays: Number(data.insurancePeriod),
         pondId: firstPondId,
         farmerId,
@@ -149,8 +174,8 @@ const InsuranceRegistration = () => {
 
       if (res.data.success) {
         // Save selected ponds in localStorage under aqua-farm for Daily Entry display
-        farmData.insuredPondIds = selectedPonds;
-        localStorage.setItem("aqua-farm", JSON.stringify(farmData));
+        parsedFarm.insuredPondIds = selectedPonds;
+        localStorage.setItem("aqua-farm", JSON.stringify(parsedFarm));
 
         toast.dismiss('insurance-save');
         toast.success(t("insurance.saved"));
@@ -183,6 +208,7 @@ const InsuranceRegistration = () => {
         <div className="flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate(-1)}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
             >
@@ -198,7 +224,7 @@ const InsuranceRegistration = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="px-4 mt-5 space-y-4">
+      <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 mt-5 space-y-4">
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -222,8 +248,11 @@ const InsuranceRegistration = () => {
             <Input
               {...register('stockingDate')}
               type="date"
-              className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/30 focus-visible:border-teal-500"
+              className={`h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/30 focus-visible:border-teal-500 ${errors.stockingDate ? 'border-red-400 bg-red-50/20' : ''}`}
             />
+            {errors.stockingDate && (
+              <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.stockingDate.message as string)}</p>
+            )}
           </div>
 
           {/* STOCKING DENSITY */}
@@ -235,8 +264,11 @@ const InsuranceRegistration = () => {
               {...register('stockingDensity')}
               placeholder={t('insurance.stockingDensity')}
               type="number"
-              className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/30 focus-visible:border-teal-500"
+              className={`h-12 rounded-xl text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/30 focus-visible:border-teal-500 ${errors.stockingDensity ? 'border-red-400 bg-red-50/20' : ''}`}
             />
+            {errors.stockingDensity && (
+              <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.stockingDensity.message as string)}</p>
+            )}
           </div>
 
           {/* HARVEST DATE AUTO CALC */}
@@ -262,10 +294,10 @@ const InsuranceRegistration = () => {
               {t('insurance.type')}
             </label>
             <Select
-              onValueChange={(v) => setValue('insuranceType', v)}
+              onValueChange={(v) => setValue('insuranceType', v, { shouldValidate: true, shouldDirty: true })}
               value={watch('insuranceType')}
             >
-              <SelectTrigger className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50">
+              <SelectTrigger className={`h-12 rounded-xl text-sm border-stone-200 bg-stone-50 ${errors.insuranceType ? 'border-red-400 bg-red-50/20' : ''}`}>
                 <SelectValue placeholder={t('insurance.type')} />
               </SelectTrigger>
               <SelectContent>
@@ -273,6 +305,9 @@ const InsuranceRegistration = () => {
                 <SelectItem value="comprehensive">{t('insurance.comprehensive')}</SelectItem>
               </SelectContent>
             </Select>
+            {errors.insuranceType && (
+              <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.insuranceType.message as string)}</p>
+            )}
           </div>
 
           {/* INSURANCE PERIOD */}
@@ -281,10 +316,10 @@ const InsuranceRegistration = () => {
               {t('insurance.period')}
             </label>
             <Select
-              onValueChange={(v) => setValue('insurancePeriod', v)}
+              onValueChange={(v) => setValue('insurancePeriod', v, { shouldValidate: true, shouldDirty: true })}
               value={watch('insurancePeriod')}
             >
-              <SelectTrigger className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50">
+              <SelectTrigger className={`h-12 rounded-xl text-sm border-stone-200 bg-stone-50 ${errors.insurancePeriod ? 'border-red-400 bg-red-50/20' : ''}`}>
                 <SelectValue placeholder={t('insurance.period')} />
               </SelectTrigger>
               <SelectContent>
@@ -295,6 +330,9 @@ const InsuranceRegistration = () => {
                 ))}
               </SelectContent>
             </Select>
+            {errors.insurancePeriod && (
+              <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.insurancePeriod.message as string)}</p>
+            )}
           </div>
 
           {/* PONDS UNDER INSURANCE */}
@@ -303,7 +341,7 @@ const InsuranceRegistration = () => {
               Ponds Under Insurance
             </label>
             {totalPonds === 0 ? (
-              <p className="text-xs text-red-400 pl-1">No ponds found. Please complete Farm Registration first.</p>
+              <p className="text-xs text-red-400 pl-1 font-medium">No ponds found. Please complete Farm Registration first.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {allPonds.map((p: any, i: number) => {
@@ -330,9 +368,13 @@ const InsuranceRegistration = () => {
                 })}
               </div>
             )}
-            {selectedPonds.length > 0 && (
+            {selectedPonds.length > 0 ? (
               <p className="text-[10px] text-teal-600 pl-1 font-medium">
                 {selectedPonds.length} pond{selectedPonds.length > 1 ? 's' : ''} selected for insurance
+              </p>
+            ) : (
+              <p className="text-[10px] text-amber-600 pl-1 font-medium">
+                Please select at least one pond to insure
               </p>
             )}
           </div>
@@ -343,10 +385,10 @@ const InsuranceRegistration = () => {
               {t('insurance.species')}
             </label>
             <Select
-              onValueChange={(v) => setValue('species', v)}
+              onValueChange={(v) => setValue('species', v, { shouldValidate: true, shouldDirty: true })}
               value={watch('species')}
             >
-              <SelectTrigger className="h-12 rounded-xl text-sm border-stone-200 bg-stone-50">
+              <SelectTrigger className={`h-12 rounded-xl text-sm border-stone-200 bg-stone-50 ${errors.species ? 'border-red-400 bg-red-50/20' : ''}`}>
                 <SelectValue placeholder={t('insurance.species')} />
               </SelectTrigger>
               <SelectContent>
@@ -354,19 +396,30 @@ const InsuranceRegistration = () => {
                 <SelectItem value="tiger">{t('insurance.tiger')}</SelectItem>
               </SelectContent>
             </Select>
+            {errors.species && (
+              <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.species.message as string)}</p>
+            )}
           </div>
         </motion.div>
 
         {/* SAVE BUTTON */}
         <Button
           type="submit"
-          className="w-full h-12 rounded-xl text-sm font-bold text-white"
+          disabled={isSubmitting}
+          className="w-full h-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2"
           style={{
             background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
             boxShadow: '0 6px 24px -4px rgba(28,107,90,0.30)',
           }}
         >
-          {t('insurance.save')}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{t('common.saving')}</span>
+            </>
+          ) : (
+            t('insurance.save')
+          )}
         </Button>
 
       </form>
