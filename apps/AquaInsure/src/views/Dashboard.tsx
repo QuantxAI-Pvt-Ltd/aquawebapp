@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
@@ -150,8 +150,15 @@ const Dashboard = () => {
     }
   }, [navigate]);
 
-  const farmer = JSON.parse(localStorage.getItem("shrimpguard-farmer") || "{}");
-  const displayName = farmer?.name || t("dashboard.farmerDefault");
+  const [displayName, setDisplayName] = useState<string>('Farmer');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const farmer = JSON.parse(localStorage.getItem("shrimpguard-farmer") || "{}");
+      if (farmer?.name) setDisplayName(farmer.name);
+    } catch (e) {}
+  }, []);
 
   return (
     <>
@@ -193,6 +200,7 @@ const Dashboard = () => {
                 {t("dashboard.welcome")}
               </p>
               <h1
+                suppressHydrationWarning
                 className="leading-tight text-white"
                 style={{
                   fontFamily: "'DM Serif Display', serif",
