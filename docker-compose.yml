@@ -1,19 +1,22 @@
-services:
-  seaweedfs:
-    image: chrislusf/seaweedfs:latest
-    container_name: aquainsure-seaweedfs
-    restart: unless-stopped
-    ports:
-      - "8333:8333"   # S3 Gateway
-      - "8888:8888"   # Filer HTTP API
-      - "9333:9333"   # SeaweedFS Master
-      - "8085:8085"   # Volume Server (remapped from 8080)
-    command: "server -dir=/data -s3 -filer -ip=localhost -volume.port=8085 -s3.port=8333"
-    environment:
-      - WEED_S3_ENABLED=true
-    volumes:
-      - seaweedfs_data:/data
-
-volumes:
-  seaweedfs_data:
-    driver: local
+# SeaweedFS is managed via a local installation on the host machine (running on port 9333).
+# If Dockerized SeaweedFS is needed for another environment, uncomment below:
+#
+# services:
+#   seaweedfs:
+#     image: chrislusf/seaweedfs:latest
+#     container_name: aquainsure-seaweedfs
+#     restart: unless-stopped
+#     ports:
+#       - "8333:8333"   # S3 Gateway
+#       - "8888:8888"   # Filer HTTP API
+#       - "9333:9333"   # SeaweedFS Master
+#       - "8085:8085"   # Volume Server (remapped from 8080)
+#     command: "server -dir=/data -s3 -filer -ip=localhost -volume.port=8085 -s3.port=8333"
+#     environment:
+#       - WEED_S3_ENABLED=true
+#     volumes:
+#       - seaweedfs_data:/data
+# 
+# volumes:
+#   seaweedfs_data:
+#     driver: local
