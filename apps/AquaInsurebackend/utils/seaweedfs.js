@@ -28,6 +28,8 @@ const s3Client = new S3Client({
     secretAccessKey: SECRET_KEY,
   },
   forcePathStyle: true, // Required for SeaweedFS S3 gateway
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 let bucketInitPromise = null;
@@ -171,16 +173,41 @@ async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', 
 }
 
 /**
- * Generates an upload URL or fallback endpoint.
+ * Generates an S3 presigned PUT URL allowing clients to upload directly to SeaweedFS.
  */
 async function generatePresignedUploadUrl(key, mimeType = 'application/octet-stream', expiresInSeconds = 900, bucket = DEFAULT_BUCKET) {
-  return {
-    uploadUrl: `/api/media/upload`,
-    key,
-    bucket,
-    finalUrl: `/api/media/stream?key=${encodeURIComponent(key)}`,
-    expiresIn: expiresInSeconds,
-  };
+  try {
+    await ensureBucket(bucket);
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: mimeType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: expiresInSeconds,
+      unhoistableHeaders: new Set(),
+    });
+
+    return {
+      uploadUrl,
+      key,
+      bucket,
+      finalUrl: getPublicUrl(key, bucket),
+      expiresIn: expiresInSeconds,
+    };
+  } catch (err) {
+    console.warn('[SeaweedFS] Presigned S3 generation failed, using backend proxy URL:', err.message);
+    const backendUrl = process.env.BACKEND_PUBLIC_URL || 'http://localhost:5001';
+    return {
+      uploadUrl: `${backendUrl}/api/media/upload`,
+      key,
+      bucket,
+      finalUrl: getPublicUrl(key, bucket),
+      expiresIn: expiresInSeconds,
+    };
+  }
 }
 
 /**

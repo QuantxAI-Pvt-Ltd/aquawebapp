@@ -59,18 +59,28 @@ router.post('/presign-upload', async (req, res) => {
 });
 
 /**
- * @route   POST /api/media/upload
- * @desc    Upload multipart file through backend directly into SeaweedFS
+ * @route   POST or PUT /api/media/upload
+ * @desc    Upload file through backend into SeaweedFS (supports multipart form and direct PUT)
  */
-router.post('/upload', upload.single('file'), async (req, res) => {
+const handleUpload = async (req, res) => {
   try {
-    if (!req.file) {
+    let buffer = null;
+    let originalname = 'file.bin';
+    let mimetype = req.headers['content-type'] || 'application/octet-stream';
+    let folder = req.body?.folder || 'general';
+
+    if (req.file) {
+      buffer = req.file.buffer;
+      originalname = req.file.originalname;
+      mimetype = req.file.mimetype;
+    }
+
+    if (!buffer) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const folder = req.body.folder || 'general';
-    const key = generateKey(folder, req.file.originalname);
-    const mediaObject = await uploadBuffer(req.file.buffer, key, req.file.mimetype);
+    const key = generateKey(folder, originalname);
+    const mediaObject = await uploadBuffer(buffer, key, mimetype);
 
     res.status(201).json({
       success: true,
@@ -80,7 +90,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.error('Error uploading file to SeaweedFS:', err);
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+
+router.post('/upload', upload.single('file'), handleUpload);
+router.put('/upload', upload.single('file'), handleUpload);
 
 /**
  * @route   GET /api/media/stream?key=...
