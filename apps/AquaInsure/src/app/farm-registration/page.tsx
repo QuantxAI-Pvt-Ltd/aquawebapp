@@ -1,16 +1,20 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { FormSkeleton } from '@/components/ViewSkeletons';
 
 const FarmRegistration = dynamic(
-  () => import('@/views/farm/FarmRegistration'),
+  () => import('@/pages/farm/FarmRegistration'),
   {
     ssr: false,
-    loading: () => <FormSkeleton />,
+    loading: () => (
+      <div className="min-h-[100dvh] bg-stone-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
+      </div>
+    ),
   }
 );
 
 export default function FarmRegistrationPage() {
   return <FarmRegistration />;
 }
+

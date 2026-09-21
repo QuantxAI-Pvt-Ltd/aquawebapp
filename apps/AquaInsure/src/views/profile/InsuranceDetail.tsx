@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
-import { Skeleton } from "@/components/ui/skeleton";
 import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -191,9 +190,9 @@ export default function InsuranceDetail() {
                 </div>
 
                 {loading ? (
-                    <div className="space-y-3">
-                        <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
-                        <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
+                    <div className="flex flex-col items-center justify-center py-16 text-stone-400">
+                        <Clock className="w-8 h-8 animate-spin text-teal-600 mb-2" />
+                        <p className="text-sm">Loading coverage details...</p>
                     </div>
                 ) : viewMode === "policies" ? (
                     /* POLICIES VIEW */
