@@ -9,18 +9,34 @@ const base64ToBuffer = (base64Str) => {
     return Buffer.from(base64Data, 'base64');
 };
 
-const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
+const { uploadBase64, parseBase64Media, StorageHierarchy } = require('../utils/seaweedfs');
 const mongoose = require('mongoose');
 
 const safeUploadBase64 = async (val, keyFn) => {
     if (!val) return null;
+    if (typeof val === 'object' && val.url) return val;
     try {
         const res = await uploadBase64(val, keyFn);
-        if (res) return res;
+        if (res && res.url) return res;
     } catch (err) {
-        console.warn('[SeaweedFS] Farm upload failed, fallback to buffer:', err.message);
+        console.warn('[SeaweedFS] Farm upload failed, fallback to inline MediaObject:', err.message);
     }
-    return base64ToBuffer(val);
+    const parsed = parseBase64Media(val);
+    if (parsed && parsed.buffer) {
+        const key = typeof keyFn === 'function' ? keyFn(parsed.ext || 'bin') : 'fallback';
+        const dataUrl = typeof val === 'string' && val.startsWith('data:')
+            ? val
+            : `data:${parsed.mimeType || 'application/octet-stream'};base64,${parsed.buffer.toString('base64')}`;
+        return {
+            key,
+            bucket: 'aquainsure-media',
+            url: dataUrl,
+            mimeType: parsed.mimeType || 'application/octet-stream',
+            size: parsed.buffer.length,
+            uploadedAt: new Date()
+        };
+    }
+    return null;
 };
 
 const { requireAuth } = require('../middleware/auth');

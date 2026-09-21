@@ -85,18 +85,34 @@ router.post('/ocr/aadhaar', upload.single('aadhaar'), async (req, res) => {
     }
 });
 
-const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
+const { uploadBase64, parseBase64Media, StorageHierarchy } = require('../utils/seaweedfs');
 const mongoose = require('mongoose');
 
 const safeUploadBase64 = async (val, keyFn) => {
     if (!val) return null;
+    if (typeof val === 'object' && val.url) return val;
     try {
         const res = await uploadBase64(val, keyFn);
-        if (res) return res;
+        if (res && res.url) return res;
     } catch (err) {
-        console.warn('[SeaweedFS] Farmer upload failed, fallback to buffer:', err.message);
+        console.warn('[SeaweedFS] Farmer upload failed, fallback to inline MediaObject:', err.message);
     }
-    return base64ToBuffer(val);
+    const parsed = parseBase64Media(val);
+    if (parsed && parsed.buffer) {
+        const key = typeof keyFn === 'function' ? keyFn(parsed.ext || 'bin') : 'fallback';
+        const dataUrl = typeof val === 'string' && val.startsWith('data:')
+            ? val
+            : `data:${parsed.mimeType || 'application/octet-stream'};base64,${parsed.buffer.toString('base64')}`;
+        return {
+            key,
+            bucket: 'aquainsure-media',
+            url: dataUrl,
+            mimeType: parsed.mimeType || 'application/octet-stream',
+            size: parsed.buffer.length,
+            uploadedAt: new Date()
+        };
+    }
+    return null;
 };
 
 // @route   POST /api/farmers
@@ -128,6 +144,15 @@ router.post('/', async (req, res) => {
                 photo: photoObj
             }
         };
+
+        if (farmerData.identity) {
+            if (!farmerData.identity.aadharNumber || String(farmerData.identity.aadharNumber).trim() === '') {
+                delete farmerData.identity.aadharNumber;
+            }
+            if (!farmerData.identity.panNumber || String(farmerData.identity.panNumber).trim() === '') {
+                delete farmerData.identity.panNumber;
+            }
+        }
 
         const farmer = await Farmer.create(farmerData);
         res.status(201).json({ success: true, data: farmer });
@@ -175,6 +200,13 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
                 panFile: panObj !== null ? panObj : undefined,
                 photo: photoObj !== null ? photoObj : undefined
             };
+            if (!updateData.identity.aadharNumber || String(updateData.identity.aadharNumber).trim() === '') {
+                delete updateData.identity.aadharNumber;
+                updateData.$unset = { ...updateData.$unset, 'identity.aadharNumber': 1 };
+            }
+            if (!updateData.identity.panNumber || String(updateData.identity.panNumber).trim() === '') {
+                delete updateData.identity.panNumber;
+            }
         }
 
         const farmer = await Farmer.findByIdAndUpdate(

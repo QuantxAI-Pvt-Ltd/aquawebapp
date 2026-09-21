@@ -177,20 +177,25 @@ const FarmerRegistration = () => {
       const photoBase64 = await fileToBase64(data.photo);
 
       const payload = {
-        ...data,
+        name: data.name,
+        fatherName: data.fatherName,
+        phone: data.phone,
+        dob: data.dob,
+        community: data.community,
         gender: data.gender,
+        isScSt: data.isScSt,
         registration: {
           regType: data.regType,
-          regNumber: data.regNumber,
-          regCertificate: regCertificateBase64
+          regNumber: data.regNumber?.trim() || undefined,
+          regCertificate: regCertificateBase64 || null
         },
         identity: {
-          aadharNumber: data.aadharNumber,
-          aadharFile: aadharFileBase64,
+          aadharNumber: data.aadharNumber?.trim() || undefined,
+          aadharFile: aadharFileBase64 || null,
           hasPan: data.hasPan === "yes",
-          panNumber: data.panNumber,
-          panFile: panFileBase64,
-          photo: photoBase64
+          panNumber: data.panNumber?.trim() || undefined,
+          panFile: panFileBase64 || null,
+          photo: photoBase64 || null
         },
         address: {
           village: data.village,
