@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
 import { ChevronLeft, Upload, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { fileToBase64 } from "@/lib/fileUtils";
@@ -45,7 +45,7 @@ const OneTimeEntry = () => {
   const [loading, setLoading] = useState(true);
   const [hasPonds, setHasPonds] = useState(false);
 
-  // Start with clean state — file fields (File objects) cannot be serialized
+  // Start with clean state â€” file fields (File objects) cannot be serialized
   // to localStorage, so we never persist or load them from there.
   const [data, setData] = useState<Record<string, any>>({});
 
@@ -163,7 +163,7 @@ const OneTimeEntry = () => {
 
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden"
+    <div className="min-h-[100dvh] bg-stone-50 pb-4 overflow-x-clip"
       style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -195,16 +195,16 @@ const OneTimeEntry = () => {
 
       <div className="px-4 mt-5 space-y-4">
         {loading ? (
-          <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
-            <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
-            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
+          <div className="bg-white rounded-3xl p-5 border border-stone-100 shadow-sm space-y-4">
+            <Skeleton className="h-6 w-36 bg-stone-200/80" />
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
+              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
+              <Skeleton className="h-10 w-full rounded-xl bg-stone-100" />
+            </div>
           </div>
         ) : !hasPonds ? (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm text-center flex flex-col items-center gap-4 mt-2"
-          >
+          <div>
             <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-inner">
               <Waves className="w-8 h-8" />
             </div>
@@ -220,17 +220,13 @@ const OneTimeEntry = () => {
               onClick={() => navigate('/farm-registration')}
               className="w-full max-w-xs h-11 rounded-xl bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-800 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-700/20"
             >
-              Complete Farm Registration →
+              Complete Farm Registration â†’
             </Button>
-          </motion.div>
+          </div>
         ) : (
           <>
             {/* Farm Registration */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-            >
+            <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
                 {t("entries.farmRegistration")}
               </h3>
@@ -241,14 +237,10 @@ const OneTimeEntry = () => {
                 </span>
                 <input type="file" className="hidden" onChange={(e) => updateField("regCertificate", e.target.files?.[0])} />
               </label>
-            </motion.div>
+            </div>
 
             {/* Pond Preparation */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-            >
+            <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
                 {t("entries.pondPrep")}
               </h3>
@@ -260,15 +252,10 @@ const OneTimeEntry = () => {
                 </span>
                 <input type="file" className="hidden" onChange={(e) => updateField("pondPrepBills", e.target.files?.[0])} />
               </label>
-            </motion.div>
+            </div>
 
             {/* Seed Selection */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="bg-white rounded-2xl p-5 space-y-1 border border-stone-100 shadow-sm"
-            >
+            <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
                 {t("entries.seedSelection")}
               </h3>
@@ -285,7 +272,7 @@ const OneTimeEntry = () => {
                   <input type="file" className="hidden" onChange={(e) => updateField(key, e.target.files?.[0])} />
                 </label>
               ))}
-            </motion.div>
+            </div>
 
             <Button
               onClick={save}

@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, Mic, Upload, ScanLine, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,7 +230,7 @@ const FarmerRegistration = () => {
     setStep((prev) => prev + 1);
   };
 
-  // FIX: was "/insurance-registration" — skipped Farm Registration entirely
+  // FIX: was "/insurance-registration" â€” skipped Farm Registration entirely
   const onSubmit = async (data: FarmerForm) => {
     try {
       toast.loading(t("common.saving"), { id: 'farmer-save' });
@@ -472,7 +471,7 @@ const FarmerRegistration = () => {
                     ? "bg-white text-teal-700 shadow-lg"
                     : "bg-white/15 text-white/45 border border-white/15"
                   }`}>
-                  {i < step ? '✓' : i + 1}
+                  {i < step ? 'âœ“' : i + 1}
                 </div>
                 <p className={`text-[8px] uppercase font-bold tracking-widest whitespace-nowrap ${i <= step ? "text-white" : "text-white/35"
                   }`}>
@@ -489,22 +488,16 @@ const FarmerRegistration = () => {
 
       <div className="px-4 mt-5 relative z-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <AnimatePresence mode="wait">
+          
 
             {/* STEP 1 - Basic Details */}
             {step === 0 && (
-              <motion.div
-                key="step1"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
-              >
+              <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepBasic")}
                 </h3>
 
-                {/* ── AADHAAR QUICK SCAN (top of step 1) ── */}
+                {/* â”€â”€ AADHAAR QUICK SCAN (top of step 1) â”€â”€ */}
                 <div className="space-y-2 pb-1 border-b border-stone-100">
                   <div className="flex items-center gap-2">
                     <ScanLine size={14} className="text-teal-600" />
@@ -512,7 +505,7 @@ const FarmerRegistration = () => {
                     <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">Auto-fill</span>
                   </div>
                   <p className="text-[10px] text-stone-400 leading-snug">
-                    Upload your Aadhaar card — name &amp; gender will be filled automatically
+                    Upload your Aadhaar card â€” name &amp; gender will be filled automatically
                   </p>
 
                   <label
@@ -536,9 +529,9 @@ const FarmerRegistration = () => {
                         aadharOcrDone ? "text-teal-700" : aadharOcrLoading ? "text-amber-600" : "text-stone-400"
                       }`}>
                         {aadharOcrLoading
-                          ? "Reading Aadhaar…"
+                          ? "Reading Aadhaarâ€¦"
                           : aadharOcrDone
-                          ? (watch("aadharFile") instanceof File ? (watch("aadharFile") as File).name : "Aadhaar scanned ✓")
+                          ? (watch("aadharFile") instanceof File ? (watch("aadharFile") as File).name : "Aadhaar scanned âœ“")
                           : "Tap to scan Aadhaar card"}
                       </span>
                     </div>
@@ -558,7 +551,7 @@ const FarmerRegistration = () => {
                   {aadharOcrLoading && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
                       <Loader2 size={12} className="text-amber-500 animate-spin shrink-0" />
-                      <p className="text-[10px] text-amber-700 font-medium">Scanning Aadhaar with OCR…</p>
+                      <p className="text-[10px] text-amber-700 font-medium">Scanning Aadhaar with OCRâ€¦</p>
                     </div>
                   )}
                   {aadharOcrDone && (
@@ -598,18 +591,12 @@ const FarmerRegistration = () => {
                   (file) => setValue("photo", file),
                   true
                 )}
-              </motion.div>
+              </div>
             )}
 
             {/* STEP 2 - Address Details */}
             {step === 1 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
-              >
+              <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepAddress")}
                 </h3>
@@ -659,18 +646,12 @@ const FarmerRegistration = () => {
                 {renderField("taluk", t("farmer.taluk"))}
 
                 {renderField("pinCode", t("farmer.pinCode"), "tel")}
-              </motion.div>
+              </div>
             )}
 
             {/* STEP 3 - Identity & Bank */}
             {step === 2 && (
-              <motion.div
-                key="step3"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
-              >
+              <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepIdentity")}
                 </h3>
@@ -713,7 +694,7 @@ const FarmerRegistration = () => {
                   </>
                 )}
 
-                {/* FIX: was hardcoded "Bank Details" — now uses t("farmer.bankDetails") */}
+                {/* FIX: was hardcoded "Bank Details" â€” now uses t("farmer.bankDetails") */}
                 <div className="pt-2 border-t border-stone-100">
                   <p className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">
                     {t("farmer.bankDetails")}
@@ -735,9 +716,9 @@ const FarmerRegistration = () => {
                     {renderField("ifscCode", t("farmer.ifscCode"))}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+          
 
           <div className="flex gap-3">
             {step > 0 && (

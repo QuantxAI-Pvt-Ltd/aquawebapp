@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
 import { ChevronLeft, Landmark, Droplets, X } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
@@ -70,8 +69,7 @@ export default function FarmDetail() {
                     <p className="text-center text-sm text-stone-400 pt-10">No farms registered yet.</p>
                 ) : (
                     farms.map((farm, i) => (
-                        <motion.div key={farm._id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
-                            transition={{ ease: EASE, duration: 0.5, delay: i * 0.07 }}>
+                        <div>
 
                             {/* Farm header card */}
                             {(() => {
@@ -150,7 +148,7 @@ export default function FarmDetail() {
                                     ))}
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
                     ))
                 )}
             </div>
@@ -177,3 +175,4 @@ export default function FarmDetail() {
         </div>
     );
 }
+

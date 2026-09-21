@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
 import {
     ChevronLeft,
     ShieldCheck,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -191,9 +191,9 @@ export default function InsuranceDetail() {
                 </div>
 
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-stone-400">
-                        <Clock className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-                        <p className="text-sm">Loading coverage details...</p>
+                    <div className="space-y-3">
+                        <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
+                        <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
                     </div>
                 ) : viewMode === "policies" ? (
                     /* POLICIES VIEW */
@@ -213,8 +213,7 @@ export default function InsuranceDetail() {
                             const canClaim = policy.status === "active";
 
                             return (
-                                <motion.div key={policy._id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
-                                    transition={{ ease: EASE, duration: 0.5, delay: i * 0.07 }} className="mb-4">
+                                <div>
 
                                     {/* Policy header */}
                                     <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3">
@@ -224,7 +223,7 @@ export default function InsuranceDetail() {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-stone-800 capitalize">
-                                                    {policy.pondId?.name ? `${policy.pondId.name} · ` : ""}
+                                                    {policy.pondId?.name ? `${policy.pondId.name} Â· ` : ""}
                                                     {policy.insuranceType} Policy
                                                 </p>
                                                 <p className="text-xs text-stone-400">{policy.species}</p>
@@ -244,7 +243,7 @@ export default function InsuranceDetail() {
                                         <p className="text-[9px] uppercase font-black tracking-[0.18em] mb-3 text-teal-600">Culture Details</p>
                                         <div className="grid grid-cols-2 gap-3">
                                             {row("Stocking Date", policy.stockingDate ? new Date(policy.stockingDate).toLocaleDateString() : null)}
-                                            {row("Stocking Density", policy.stockingDensity ? `${policy.stockingDensity} PL/m²` : null)}
+                                            {row("Stocking Density", policy.stockingDensity ? `${policy.stockingDensity} PL/mÂ²` : null)}
                                             {row("Species", policy.species)}
                                             {row("Duration", policy.insurancePeriodDays ? `${policy.insurancePeriodDays} days` : null)}
                                         </div>
@@ -299,7 +298,7 @@ export default function InsuranceDetail() {
                                             <p className="text-xs text-stone-400">Policy expired on {policy.maxHarvestDate ? new Date(policy.maxHarvestDate).toLocaleDateString() : 'term'}</p>
                                         )}
                                     </div>
-                                </motion.div>
+                                </div>
                             );
                         })
                     )
@@ -317,15 +316,13 @@ export default function InsuranceDetail() {
                             const isRejected = c?.status === "rejected";
 
                             return (
-                                <motion.div key={item._id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-                                    transition={{ ease: EASE, duration: 0.4, delay: idx * 0.06 }}
-                                    className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3.5">
+                                <div>
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
                                             <h4 className="text-sm font-bold text-stone-800">
                                                 {item.pondId?.name || `Pond ${item.pondId?.pondNumber || ''}`}
                                             </h4>
-                                            <p className="text-[11px] text-stone-400">{item.species} · {item.insuranceType} Policy</p>
+                                            <p className="text-[11px] text-stone-400">{item.species} Â· {item.insuranceType} Policy</p>
                                         </div>
                                         <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${
                                             isApproved ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
@@ -350,7 +347,7 @@ export default function InsuranceDetail() {
                                     {isApproved && (
                                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between text-xs font-bold text-emerald-800 mb-2">
                                             <span>Approved Settlement</span>
-                                            <span className="text-sm">₹{Number(c?.settlementAmount || 0).toLocaleString('en-IN')}</span>
+                                            <span className="text-sm">â‚¹{Number(c?.settlementAmount || 0).toLocaleString('en-IN')}</span>
                                         </div>
                                     )}
 
@@ -376,7 +373,7 @@ export default function InsuranceDetail() {
                                             </div>
                                         ) : null;
                                     })()}
-                                </motion.div>
+                                </div>
                             );
                         })
                     )
@@ -384,16 +381,10 @@ export default function InsuranceDetail() {
             </div>
 
             {/* Quick Claim Modal */}
-            <AnimatePresence>
+            
                 {activeClaimPolicy && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs">
-                        <motion.div
-                            initial={{ y: '100%' }}
-                            animate={{ y: 0 }}
-                            exit={{ y: '100%' }}
-                            transition={{ ease: EASE, duration: 0.3 }}
-                            className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] shadow-2xl"
-                        >
+                        <div>
                             <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
                                 <div className="flex items-center gap-2">
                                     <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
@@ -402,7 +393,7 @@ export default function InsuranceDetail() {
                                     <div>
                                         <h3 className="text-sm font-bold text-stone-800">File Insurance Claim</h3>
                                         <p className="text-[11px] text-stone-400">
-                                            {activeClaimPolicy.pondId?.name || `Pond ${activeClaimPolicy.pondId?.pondNumber || ''}`} · {activeClaimPolicy.species}
+                                            {activeClaimPolicy.pondId?.name || `Pond ${activeClaimPolicy.pondId?.pondNumber || ''}`} Â· {activeClaimPolicy.species}
                                         </p>
                                     </div>
                                 </div>
@@ -510,13 +501,13 @@ export default function InsuranceDetail() {
                                     </button>
                                 </div>
                             </form>
-                        </motion.div>
+                        </div>
                     </div>
                 )}
-            </AnimatePresence>
+            
 
             {/* Image Zoom Preview Modal */}
-            <AnimatePresence>
+            
                 {previewImage && (
                     <div
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
@@ -533,9 +524,10 @@ export default function InsuranceDetail() {
                         </div>
                     </div>
                 )}
-            </AnimatePresence>
+            
 
             <BottomNav />
         </div>
     );
 }
+

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion } from 'framer-motion';
 import { ChevronLeft, ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -226,9 +225,7 @@ const InsuranceRegistration = () => {
 
       <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 mt-5 space-y-4">
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="bg-white rounded-2xl p-5 space-y-4 border border-stone-100 shadow-sm"
         >
           <div className="flex items-center gap-2 mb-1">
@@ -400,7 +397,7 @@ const InsuranceRegistration = () => {
               <p className="text-xs text-red-500 font-medium pl-0.5">{t(errors.species.message as string)}</p>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* SAVE BUTTON */}
         <Button

@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
 import { ChevronLeft, Globe, User, LogOut, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BottomNav from '@/components/BottomNav';
@@ -48,7 +47,7 @@ const SettingsPage = () => {
 
   return (
     <div
-      className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] overflow-hidden"
+      className="min-h-[100dvh] bg-stone-50 pb-4 overflow-x-clip flex flex-col"
       style={{ fontFamily: "'Sora', sans-serif" }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
@@ -85,11 +84,7 @@ const SettingsPage = () => {
 
       {/* SETTINGS LIST */}
       <div className="px-4 mt-5">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm"
-        >
+        <div className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm">
           {items.map((item, idx) => (
             <button
               key={idx}
@@ -122,17 +117,12 @@ const SettingsPage = () => {
               />
             </button>
           ))}
-        </motion.div>
+        </div>
 
         {/* App version / copyright */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-          className="text-center text-[9px] font-medium mt-6 tracking-wide text-stone-300"
-        >
+        <p className="text-center text-[9px] font-medium mt-6 tracking-wide text-stone-300">
           © 2025 Aqua AInsure · All rights reserved
-        </motion.p>
+        </p>
       </div>
 
       <BottomNav />

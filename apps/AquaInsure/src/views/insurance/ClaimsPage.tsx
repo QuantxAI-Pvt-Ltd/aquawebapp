@@ -1,9 +1,7 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   ChevronLeft,
   ShieldAlert,
@@ -15,16 +13,12 @@ import {
   Plus,
   Camera,
   X,
-  IndianRupee,
-  Calendar,
   Waves,
   FileText
 } from 'lucide-react';
 import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
 import { fileToBase64, resolveMediaUrl } from '@/lib/fileUtils';
-
-const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface ClaimPolicy {
   _id: string;
@@ -237,9 +231,9 @@ export default function ClaimsPage() {
 
         {/* Claims List */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-stone-400">
-            <Clock className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-            <p className="text-sm">Loading claims...</p>
+          <div className="space-y-3">
+            <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
+            <Skeleton className="h-32 rounded-2xl bg-white border border-stone-100 shadow-sm" />
           </div>
         ) : filteredClaims.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 border border-stone-100 text-center shadow-sm">
@@ -265,17 +259,14 @@ export default function ClaimsPage() {
             )}
           </div>
         ) : (
-          filteredClaims.map((item, idx) => {
+          filteredClaims.map((item) => {
             const claim = item.claim;
             const cStatus = claim?.status || 'pending';
             const evidenceUrl = resolveMediaUrl(claim?.evidencePhoto);
 
             return (
-              <motion.div
+              <div
                 key={item._id}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ease: EASE, duration: 0.4, delay: idx * 0.05 }}
                 className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3.5 relative overflow-hidden"
               >
                 {/* Status bar accent */}
@@ -433,207 +424,198 @@ export default function ClaimsPage() {
                     </button>
                   </div>
                 )}
-              </motion.div>
+              </div>
             );
           })
         )}
       </div>
 
       {/* Claim Submission Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs">
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ ease: EASE, duration: 0.3 }}
-              className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] shadow-2xl"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-                    <ShieldAlert size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-800">File Insurance Claim</h3>
-                    <p className="text-[11px] text-stone-400">Step 1 of 1 · Incident Notice</p>
-                  </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                  <ShieldAlert size={18} />
                 </div>
+                <div>
+                  <h3 className="text-sm font-bold text-stone-800">File Insurance Claim</h3>
+                  <p className="text-[11px] text-stone-400">Step 1 of 1 · Incident Notice</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center hover:bg-stone-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {activePolicies.length === 0 ? (
+              <div className="text-center py-6">
+                <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-stone-800">No Active Policies</p>
+                <p className="text-xs text-stone-500 mt-1 mb-4">
+                  You do not currently have any active insurance policies eligible for filing a claim.
+                </p>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center hover:bg-stone-200"
+                  className="px-4 py-2 bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl"
                 >
-                  <X size={16} />
+                  Close
                 </button>
               </div>
-
-              {activePolicies.length === 0 ? (
-                <div className="text-center py-6">
-                  <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-stone-800">No Active Policies</p>
-                  <p className="text-xs text-stone-500 mt-1 mb-4">
-                    You do not currently have any active insurance policies eligible for filing a claim.
-                  </p>
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl"
+            ) : (
+              <form onSubmit={handleFileClaim} className="space-y-4">
+                {/* Select Insured Policy */}
+                <div>
+                  <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
+                    Select Insured Pond Policy
+                  </label>
+                  <select
+                    value={selectedPolicyId}
+                    onChange={(e) => setSelectedPolicyId(e.target.value)}
+                    required
+                    className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                   >
-                    Close
+                    <option value="">Choose active policy...</option>
+                    {activePolicies.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.pondId?.name || `Pond ${p.pondId?.pondNumber || ''}`} ({p.insuranceType.toUpperCase()} · {p.species})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Primary Cause */}
+                <div>
+                  <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
+                    Primary Cause of Loss
+                  </label>
+                  <select
+                    value={claimReason}
+                    onChange={(e) => setClaimReason(e.target.value)}
+                    className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                  >
+                    <option value="mass_mortality">Sudden Mass Mortality</option>
+                    <option value="disease_outbreak">Disease Outbreak (WSSV / EHP / EMS)</option>
+                    <option value="water_toxicity">Water Quality Crash / Toxic Spike</option>
+                    <option value="flooding_calamity">Flooding / Heavy Storm Influx</option>
+                    <option value="other">Other Accidental Loss</option>
+                  </select>
+                </div>
+
+                {/* Estimated Loss % */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">
+                      Estimated Mortality / Crop Loss
+                    </label>
+                    <span className="text-xs font-extrabold text-teal-700">{lossPercent}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={lossPercent}
+                    onChange={(e) => setLossPercent(Number(e.target.value))}
+                    className="w-full accent-teal-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-stone-400 font-semibold px-0.5">
+                    <span>10% (Partial)</span>
+                    <span>50%</span>
+                    <span>100% (Total)</span>
+                  </div>
+                </div>
+
+                {/* Observations */}
+                <div>
+                  <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
+                    Incident Observations
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe what you observed in the pond (e.g. erratic swimming, check-tray mortality count, color change)..."
+                    className="w-full text-base sm:text-xs bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                  />
+                </div>
+
+                {/* Photo Evidence */}
+                <div>
+                  <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
+                    Photo Evidence (Check Tray / Shrimp / Pond)
+                  </label>
+                  {photoPreview ? (
+                    <div className="relative rounded-xl overflow-hidden border border-stone-200 h-32 bg-stone-100 flex items-center justify-center">
+                      <img src={resolveMediaUrl(photoPreview) || photoPreview} alt="Evidence Preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotoPreview(null)}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50 hover:bg-stone-100 cursor-pointer transition touch-manipulation">
+                      <Camera size={22} className="text-teal-600" />
+                      <span className="text-xs font-semibold text-stone-700">Take Photo or Upload Evidence</span>
+                      <span className="text-[10px] text-stone-400">JPG, PNG up to 10MB</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation"
+                  >
+                    {submitting ? (
+                      <>
+                        <Clock size={16} className="animate-spin" />
+                        <span>Submitting Claim...</span>
+                      </>
+                    ) : (
+                      <span>Submit Claim for Inspection</span>
+                    )}
                   </button>
                 </div>
-              ) : (
-                <form onSubmit={handleFileClaim} className="space-y-4">
-                  {/* Select Insured Policy */}
-                  <div>
-                    <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Select Insured Pond Policy
-                    </label>
-                    <select
-                      value={selectedPolicyId}
-                      onChange={(e) => setSelectedPolicyId(e.target.value)}
-                      required
-                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
-                    >
-                      {activePolicies.map((p) => (
-                        <option key={p._id} value={p._id}>
-                          {p.pondId?.name || `Pond ${p.pondId?.pondNumber || ''}`} ({p.insuranceType.toUpperCase()} · {p.species})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Primary Cause */}
-                  <div>
-                    <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Primary Cause of Loss
-                    </label>
-                    <select
-                      value={claimReason}
-                      onChange={(e) => setClaimReason(e.target.value)}
-                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
-                    >
-                      <option value="mass_mortality">Sudden Mass Mortality</option>
-                      <option value="disease_outbreak">Disease Outbreak (WSSV / EHP / EMS)</option>
-                      <option value="water_toxicity">Water Quality Crash / Toxic Spike</option>
-                      <option value="flooding_calamity">Flooding / Heavy Storm Influx</option>
-                      <option value="other">Other Accidental Loss</option>
-                    </select>
-                  </div>
-
-                  {/* Estimated Loss % */}
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">
-                        Estimated Mortality / Crop Loss
-                      </label>
-                      <span className="text-xs font-extrabold text-teal-700">{lossPercent}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      step="5"
-                      value={lossPercent}
-                      onChange={(e) => setLossPercent(Number(e.target.value))}
-                      className="w-full accent-teal-600"
-                    />
-                    <div className="flex justify-between text-[10px] text-stone-400 font-semibold px-0.5">
-                      <span>10% (Partial)</span>
-                      <span>50%</span>
-                      <span>100% (Total)</span>
-                    </div>
-                  </div>
-
-                  {/* Observations */}
-                  <div>
-                    <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Incident Observations
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Describe what you observed in the pond (e.g. erratic swimming, check-tray mortality count, color change)..."
-                      className="w-full text-base sm:text-xs bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
-                    />
-                  </div>
-
-                  {/* Photo Evidence */}
-                  <div>
-                    <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Photo Evidence (Check Tray / Shrimp / Pond)
-                    </label>
-                    {photoPreview ? (
-                      <div className="relative rounded-xl overflow-hidden border border-stone-200 h-32 bg-stone-100 flex items-center justify-center">
-                        <img src={resolveMediaUrl(photoPreview) || photoPreview} alt="Evidence Preview" className="h-full w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setPhotoPreview(null)}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50 hover:bg-stone-100 cursor-pointer transition touch-manipulation">
-                        <Camera size={22} className="text-teal-600" />
-                        <span className="text-xs font-semibold text-stone-700">Take Photo or Upload Evidence</span>
-                        <span className="text-[10px] text-stone-400">JPG, PNG up to 10MB</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handlePhotoSelect}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation"
-                    >
-                      {submitting ? (
-                        <>
-                          <Clock size={16} className="animate-spin" />
-                          <span>Submitting Claim...</span>
-                        </>
-                      ) : (
-                        <span>Submit Claim for Inspection</span>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </motion.div>
+              </form>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* Image Zoom Preview Modal */}
-      <AnimatePresence>
-        {previewImage && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            onClick={() => setPreviewImage(null)}
-          >
-            <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
-              >
-                <X size={18} />
-              </button>
-              <img src={resolveMediaUrl(previewImage) || previewImage} alt="Evidence" className="max-h-[80vh] w-auto object-contain mx-auto" />
-            </div>
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
+            >
+              <X size={18} />
+            </button>
+            <img src={resolveMediaUrl(previewImage) || previewImage} alt="Evidence" className="max-h-[80vh] w-auto object-contain mx-auto" />
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       <BottomNav />
     </div>

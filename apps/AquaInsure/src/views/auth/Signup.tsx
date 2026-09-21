@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
 import { Phone, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import axios from '@/lib/api';
 
 const API = '/api/auth';
-const EASE = [0.16, 1, 0.3, 1] as const;
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -41,17 +39,19 @@ const Signup = () => {
         email: email || undefined,
         password,
       });
-      const { token, farmerId } = res.data;
 
-      localStorage.removeItem('shrimpguard-farmer');
-      localStorage.removeItem('aqua-farm');
-      localStorage.setItem('aqua-reg-complete', '0');
-      localStorage.setItem('aqua-session', JSON.stringify({ phone, farmerId, token }));
-
-      toast.success(t('auth.signupSuccess'));
-      navigate('/farmer-registration', { replace: true });
+      if (res.data.success) {
+        toast.success(t('auth.signupSuccess'));
+        localStorage.setItem('shrimpguard-user', JSON.stringify({ phone, token: res.data.token }));
+        localStorage.setItem('aqua-session', JSON.stringify({ phone, farmerId: res.data.farmerId, token: res.data.token }));
+        navigate('/farmer-registration');
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.error'));
+      const errorMsg = err.response?.data?.error || t('auth.signupFailed');
+      toast.error(errorMsg);
+      if (err.response?.status === 409) {
+        setErrors({ phone: t('auth.errors.mobileAlreadyRegistered') });
+      }
     } finally {
       setLoading(false);
     }
@@ -59,55 +59,76 @@ const Signup = () => {
 
   return (
     <div
-      className="min-h-[100dvh] w-full flex flex-col"
-      style={{ fontFamily: "'Sora', sans-serif", background: '#f7f6f3' }}
+      className="min-h-[100dvh] flex flex-col justify-between relative overflow-hidden bg-stone-50"
+      style={{ fontFamily: "'Sora', sans-serif" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+        * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 
-        @keyframes shim {
-          0% { background-position:-220% center }
-          100% { background-position:220% center }
+        .cta-btn {
+          background: linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%);
+          box-shadow: 0 6px 28px -4px rgba(28,107,90,0.38), 0 2px 8px rgba(0,0,0,0.06);
+          cursor: pointer;
         }
+        .cta-btn:active { transform: scale(0.98); }
 
-        .cta-btn{
-          background:linear-gradient(110deg,#1c6b5a 25%,#2d9b7f 48%,#3ab88f 55%,#1c6b5a 75%);
-          background-size:220% auto;
-          animation:shim 3.2s linear infinite;
-          box-shadow:0 6px 24px -4px rgba(28,107,90,0.32);
-          transition: filter .2s, transform .15s;
-        }
-        .cta-btn:hover { filter: brightness(1.06); }
-        .cta-btn:active { transform: scale(0.975); }
-        .cta-btn:disabled { opacity: 0.6; cursor: not-allowed; animation: none; }
-
-        .f-box:focus-within{
-          border-color:rgba(45,155,127,0.55);
-          box-shadow:0 0 0 3px rgba(45,155,127,0.09);
-          background:#fff;
+        .f-box:focus-within {
+          border-color: #1c6b5a !important;
+          box-shadow: 0 0 0 3px rgba(28,107,90,0.12);
         }
       `}</style>
 
-      <div className="flex-1 flex flex-col justify-center px-4 sm:px-5 py-6 sm:py-8 w-full max-w-sm mx-auto">
-        {/* HEADER */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-5 sm:mb-6"
-        >
-          <h1
-            className="text-2xl sm:text-3xl text-stone-800 mb-1"
+      {/* Decorative background glow */}
+      <div
+        className="absolute top-0 left-0 right-0 h-64 pointer-events-none opacity-40"
+        style={{
+          background: 'radial-gradient(ellipse at 50% -20%, #2d9b7f 0%, #1c4a3e 50%, transparent 80%)',
+        }}
+      />
+
+      <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto px-5 py-8 relative z-10">
+        {/* LOGO & HEADING */}
+        <div className="flex flex-col items-center mb-6">
+          <div
+            className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4 shadow-xl shadow-teal-900/10 border border-white/60"
+            style={{
+              background: 'linear-gradient(135deg, #1c6b5a 0%, #2d9b7f 100%)',
+            }}
+          >
+            <span className="text-2xl font-black text-white tracking-tighter">AI</span>
+          </div>
+
+          <div
+            className="text-center"
             style={{ fontFamily: "'DM Serif Display', serif" }}
           >
-            {t('auth.signupHeading')}
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-400">{t('auth.signupSubtitle')}</p>
-        </motion.div>
+            <h1 className="text-[1.4rem] sm:text-[1.5rem] font-normal leading-tight text-stone-800">
+              {t('auth.signupHeading')}
+            </h1>
+            <h1
+              className="text-[1.4rem] sm:text-[1.5rem] font-normal leading-tight"
+              style={{
+                background: 'linear-gradient(120deg, #b5813a 0%, #d4973f 50%, #1c6b5a 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+              {t('auth.createAccount')}
+            </h1>
+          </div>
 
-        {/* CARD */}
-        <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden shadow-sm">
-          <div className="p-4 sm:p-5 flex flex-col gap-4">
+          <p className="text-xs font-medium mt-2 text-center text-stone-400">
+            {t('app.tagline')}
+          </p>
+        </div>
 
+        {/* FORM CARD */}
+        <div className="bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden"
+          style={{ boxShadow: '0 8px 40px -8px rgba(28,74,62,0.10), 0 2px 12px rgba(0,0,0,0.04)' }}
+        >
+          <div className="p-5 sm:p-6 flex flex-col gap-4">
             {/* PHONE */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider pl-1 text-stone-500">
@@ -202,11 +223,7 @@ const Signup = () => {
               className="cta-btn mt-1 w-full h-12 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2"
             >
               {loading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                />
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
                   <span>{t('auth.createAccount')}</span>

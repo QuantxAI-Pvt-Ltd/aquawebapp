@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
 import {
   User,
   Landmark,
@@ -69,64 +68,62 @@ const dashboardCards = [
     accent: "#1c6b5a",
     bg: "rgba(28,107,90,0.08)",
     border: "rgba(28,107,90,0.20)",
-    glow: "rgba(28,107,90,0.10)",
-    iconBg: "#f0faf6",
-  },
-  // — Record Keeping section (teal / green) —
-  {
-    icon: ClipboardList,
-    labelKey: "dashboard.oneTime",
-    descKey: "dashboard.descOneTime",
-    path: "/entries/one-time",
-    accent: "#1c6b5a",
-    bg: "rgba(28,107,90,0.08)",
-    border: "rgba(28,107,90,0.20)",
     glow: "rgba(28,107,90,0.12)",
-    iconBg: "#f0faf6",
+    iconBg: "#f4fbf9",
   },
   {
     icon: CalendarDays,
     labelKey: "dashboard.daily",
     descKey: "dashboard.descDaily",
     path: "/entries/daily",
-    accent: "#2d9b7f",
-    bg: "rgba(45,155,127,0.08)",
-    border: "rgba(45,155,127,0.20)",
-    glow: "rgba(45,155,127,0.12)",
-    iconBg: "#edfaf4",
+    accent: "#1c6b5a",
+    bg: "rgba(28,107,90,0.08)",
+    border: "rgba(28,107,90,0.20)",
+    glow: "rgba(28,107,90,0.12)",
+    iconBg: "#f4fbf9",
+  },
+  {
+    icon: ClipboardList,
+    labelKey: "dashboard.oneTime",
+    descKey: "dashboard.descOneTime",
+    path: "/entries/one-time",
+    accent: "#245749",
+    bg: "rgba(36,87,73,0.08)",
+    border: "rgba(36,87,73,0.20)",
+    glow: "rgba(36,87,73,0.10)",
+    iconBg: "#f6faf9",
   },
   {
     icon: BarChart3,
     labelKey: "dashboard.reports",
     descKey: "dashboard.descReports",
     path: "/reports",
-    accent: "#0f766e",
-    bg: "rgba(15,118,110,0.08)",
-    border: "rgba(15,118,110,0.20)",
-    glow: "rgba(15,118,110,0.10)",
-    iconBg: "#f0f9f7",
+    accent: "#2d9b7f",
+    bg: "rgba(45,155,127,0.08)",
+    border: "rgba(45,155,127,0.20)",
+    glow: "rgba(45,155,127,0.12)",
+    iconBg: "#f4fbf9",
   },
 ];
-
-const EASE = [0.16, 1, 0.3, 1] as const;
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  // Guard: if user is logged in, check profile completion status.
+  // Resume multi-stage onboarding if profile is incomplete.
   useEffect(() => {
-    const sessionStr = localStorage.getItem('aqua-session');
-    if (!sessionStr) {
+    const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
+    if (!session.token && !session.farmerId) {
       navigate('/login', { replace: true });
       return;
     }
 
-    const regComplete = localStorage.getItem('aqua-reg-complete');
-    if (regComplete !== '1') {
-      axios.get('/api/auth/status')
+    if (session.farmerId) {
+      axios.get(`/api/farmers/${session.farmerId}/profile-status`)
         .then((res) => {
-          if (res.data.success) {
-            const { isProfileComplete, onboardingStep, farmData, name } = res.data;
+          if (res.data?.success) {
+            const { isProfileComplete, onboardingStep, name, farmData } = res.data.data;
             if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
             if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
             localStorage.setItem('aqua-reg-complete', isProfileComplete ? '1' : '0');
@@ -167,11 +164,9 @@ const Dashboard = () => {
         * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 
         .dash-card {
-          transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s;
           cursor: pointer;
         }
-        .dash-card:hover  { transform: translateY(-2px); }
-        .dash-card:active { transform: scale(0.96); }
+        .dash-card:active { transform: scale(0.98); }
 
         .header-clip {
           border-radius: 0 0 2.5rem 2.5rem;
@@ -179,8 +174,8 @@ const Dashboard = () => {
       `}</style>
 
       <div
-        className="min-h-[100dvh] bg-stone-50 flex flex-col relative overflow-hidden"
-        style={{ fontFamily: "'Sora', sans-serif", paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom, 0px))" }}
+        className="min-h-[100dvh] bg-stone-50 flex flex-col relative overflow-x-clip pb-4"
+        style={{ fontFamily: "'Sora', sans-serif" }}
       >
         {/* HEADER */}
         <div
@@ -191,11 +186,7 @@ const Dashboard = () => {
           }}
         >
           <div className="flex items-start justify-between relative z-10">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.85, delay: 0.15, ease: EASE }}
-            >
+            <div>
               <p className="text-white/60 text-[10px] font-semibold uppercase tracking-[0.22em] mb-1">
                 {t("dashboard.welcome")}
               </p>
@@ -210,7 +201,7 @@ const Dashboard = () => {
               >
                 {displayName}
               </h1>
-            </motion.div>
+            </div>
 
             <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 shrink-0 mt-1">
               Aqua <span className="text-amber-300">AI</span>nsure
@@ -238,32 +229,26 @@ const Dashboard = () => {
               titleColor: "#1c6b5a",
               gridCols: "grid-cols-2",
             },
-          ].map((section, sIdx) => (
+          ].map((section) => (
             <div key={section.title}
               className="rounded-2xl p-3"
               style={{ background: section.sectionBg, border: `1.5px solid ${section.sectionBorder}` }}
             >
               {/* Section title */}
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.30 + sIdx * 0.15, ease: EASE }}
+              <p
                 className="text-[10px] uppercase font-bold tracking-[0.18em] mb-3 pl-1"
                 style={{ color: section.titleColor }}
               >
                 {section.title}
-              </motion.p>
+              </p>
 
-              {/* 3-card row */}
+              {/* 2-card row */}
               <div className={`grid ${section.gridCols} gap-3`}>
-                {section.cards.map((card, idx) => (
-                  <motion.div
+                {section.cards.map((card) => (
+                  <div
                     key={card.path}
                     className="dash-card"
                     onClick={() => navigate(card.path)}
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.42 + sIdx * 0.18 + idx * 0.07, duration: 0.55, ease: EASE }}
                   >
                     <div
                       className="rounded-2xl p-3 sm:p-4 flex flex-col items-start gap-2.5 bg-white h-full"
@@ -290,23 +275,17 @@ const Dashboard = () => {
                         {t(card.descKey)}
                       </p>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
 
-        {/* COPYRIGHT — FIX: was t("app.copyright") which doesn't exist in any JSON */}
-        {/* Now uses t("auth.copyright") which exists in all language files         */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-          className="relative z-10 text-center text-[8px] sm:text-[9px] font-medium py-3 tracking-wide text-stone-300"
-        >
+        {/* COPYRIGHT */}
+        <p className="relative z-10 text-center text-[8px] sm:text-[9px] font-medium py-3 tracking-wide text-stone-300">
           {t("auth.copyright")}
-        </motion.p>
+        </p>
 
         <BottomNav />
       </div>

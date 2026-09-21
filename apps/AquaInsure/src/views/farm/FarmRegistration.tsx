@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import { ChevronLeft, MapPin, Camera, Upload, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -269,11 +268,7 @@ export default function FarmRegistration() {
 
       <div className="px-4 mt-5 space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
-          >
+          <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
               {t("farm.locationDetails") || "Location Details"}
             </h2>
@@ -352,14 +347,9 @@ export default function FarmRegistration() {
                 )}
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl p-5 space-y-4 border border-stone-100 shadow-sm"
-          >
+          <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
               {t("farm.farmDetails") || "Farm Details"}
             </h2>
@@ -413,15 +403,10 @@ export default function FarmRegistration() {
 
 
             </div>
-          </motion.div>
+          </div>
 
           {/* Farm Photo */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
-          >
+          <div>
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
                 {t("farm.uploadPhoto") || "Farm Overview Photo"}
@@ -481,14 +466,9 @@ export default function FarmRegistration() {
                 </label>
               </div>
             )}
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl p-5 space-y-2 border border-stone-100 shadow-sm"
-          >
+          <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
               {t("farm.infrastructure")}
             </h2>
@@ -533,7 +513,7 @@ export default function FarmRegistration() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
           <Button
             type="submit"

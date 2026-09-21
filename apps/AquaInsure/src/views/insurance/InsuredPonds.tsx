@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
   Camera,
@@ -362,20 +361,16 @@ const InsuredPonds = () => {
             </span>
           </div>
           <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full rounded-full"
+            <div
+              className="h-full rounded-full transition-all duration-300"
               style={{
                 background: "linear-gradient(90deg, #f59e0b, #fbbf24)",
-              }}
-              initial={{ width: 0 }}
-              animate={{
                 width: `${
                   totalPonds > 0
                     ? (completedCount / totalPonds) * 100
                     : 0
                 }%`,
               }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
             />
           </div>
         </div>
@@ -383,9 +378,7 @@ const InsuredPonds = () => {
 
       <div className="px-4 mt-5 space-y-4">
         {/* Info banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="flex items-start gap-3 px-4 py-3.5 bg-teal-50 border border-teal-100 rounded-2xl"
         >
           <div className="w-7 h-7 rounded-lg bg-teal-100 border border-teal-200 flex items-center justify-center shrink-0 mt-0.5">
@@ -403,13 +396,11 @@ const InsuredPonds = () => {
                 : "Enter the size in acres and optionally capture a photo for each pond."}
             </p>
           </div>
-        </motion.div>
+        </div>
 
         {/* No ponds state */}
         {totalPonds === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+          <div
             className="flex flex-col items-center justify-center py-16 gap-4"
           >
             <div className="w-20 h-20 rounded-3xl bg-stone-100 flex items-center justify-center">
@@ -425,19 +416,15 @@ const InsuredPonds = () => {
             >
               Go Back
             </Button>
-          </motion.div>
+          </div>
         )}
 
         {/* Pond cards */}
-        <AnimatePresence>
-          {Object.values(pondDetails).map((pd, idx) => (
-            <motion.div
-              key={pd.pondId}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06 }}
-              className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden"
-            >
+        {Object.values(pondDetails).map((pd) => (
+          <div
+            key={pd.pondId}
+            className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden"
+          >
               {/* Card header */}
               <div
                 className="flex items-center justify-between px-5 py-3.5 border-b border-stone-50"
@@ -665,15 +652,12 @@ const InsuredPonds = () => {
                   />
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
 
         {/* Summary card */}
         {totalPonds > 0 && completedCount === totalPonds && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <div
             className="flex items-center gap-3 px-4 py-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl"
           >
             <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
@@ -695,7 +679,7 @@ const InsuredPonds = () => {
                 across {totalPonds} ponds
               </p>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {/* Hint for required field */}

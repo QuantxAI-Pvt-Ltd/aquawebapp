@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
 import { ChevronLeft, User, FileText, X } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
@@ -60,7 +59,7 @@ export default function FarmerProfile() {
                 ) : !farmer ? (
                     <p className="text-center text-sm text-stone-400 pt-10">No profile found.</p>
                 ) : (
-                    <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE, duration: 0.5 }}>
+                    <div>
 
                         {/* Avatar */}
                         {(() => {
@@ -170,7 +169,7 @@ export default function FarmerProfile() {
                             {row("Account Holder", farmer.bankDetails?.accountHolderName)}
                         </Section>
 
-                    </motion.div>
+                    </div>
                 )}
             </div>
 
@@ -207,3 +206,4 @@ function Section({ title, accent, children }: { title: string; accent: string; c
         </div>
     );
 }
+

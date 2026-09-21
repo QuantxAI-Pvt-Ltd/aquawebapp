@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, X, RefreshCw, Check, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import { useTranslation } from 'react-i18next';
 
@@ -121,12 +120,10 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             <Button onClick={startCamera}>{t("common.retry") || "Retry"}</Button>
           </div>
         ) : capturedImage ? (
-          <motion.img 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <img 
             src={capturedImage} 
-            className="w-full h-full object-cover" 
             alt="Captured" 
+            className="w-full h-full object-contain"
           />
         ) : (
           <>
@@ -147,46 +144,39 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         <div className="flex items-center justify-between gap-4 max-w-sm mx-auto">
           {capturedImage ? (
             <>
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button 
                 onClick={retake}
-                className="w-16 h-16 rounded-full bg-white/10 flex flex-col items-center justify-center gap-1 text-white border border-white/10"
+                className="flex flex-col items-center gap-1 text-white/80 hover:text-white"
               >
                 <RotateCcw size={24} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">{t("common.retake") || "Retake"}</span>
-              </motion.button>
+              </button>
               
-              <motion.button
-                whileTap={{ scale: 0.95 }}
+              <button 
                 onClick={confirmPhoto}
-                className="flex-1 h-16 rounded-full bg-teal-500 flex items-center justify-center gap-3 text-white font-bold"
-                style={{
-                  boxShadow: '0 8px 32px -4px rgba(45, 155, 127, 0.4)'
-                }}
+                className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-full font-bold shadow-lg"
               >
                 <Check size={28} />
                 <span>{t("common.usePhoto") || "Use Photo"}</span>
-              </motion.button>
+              </button>
             </>
           ) : (
             <>
               <div className="w-16" /> {/* Placeholder for mobile symmetry */}
               
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button 
                 onClick={takePhoto}
-                className="w-20 h-20 rounded-full border-4 border-white p-1 bg-transparent"
+                className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1.5 focus:outline-none"
               >
                 <div className="w-full h-full rounded-full bg-white transition-opacity active:opacity-60" />
-              </motion.button>
+              </button>
 
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button 
                 onClick={switchCamera}
-                className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white border border-white/10"
+                className="w-16 flex items-center justify-center text-white/80 hover:text-white"
               >
                 <RefreshCw size={24} />
-              </motion.button>
+              </button>
             </>
           )}
         </div>

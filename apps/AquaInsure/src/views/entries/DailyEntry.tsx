@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
 import { ChevronLeft, Upload, Activity, Utensils, Users, Droplets, HeartPulse, PieChart, BarChart3, X, MapPin, Maximize2, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
@@ -349,11 +349,7 @@ const DailyEntry = () => {
   const maxDays = pondInsurance?.insurancePeriodDays ? Number(pondInsurance.insurancePeriodDays) : (pond ? 120 : 0);
 
   const renderSectionCard = (Icon: any, title: string, children: React.ReactNode) => (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-4 space-y-3 border border-stone-100 shadow-sm"
-    >
+    <div className="bg-white rounded-2xl p-4 space-y-3 border border-stone-100 shadow-sm">
       <h3 className="text-sm font-bold flex items-center gap-2 text-stone-700">
         <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center">
           <Icon size={14} className="text-teal-600" />
@@ -361,11 +357,11 @@ const DailyEntry = () => {
         {title}
       </h3>
       {children}
-    </motion.div>
+    </div>
   );
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-4 text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
       
@@ -406,16 +402,22 @@ const DailyEntry = () => {
 
       <div className="px-4 mt-4 space-y-4">
         {loadingPonds ? (
-          <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
-            <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
-            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
+          <div className="space-y-4">
+            <div className="flex gap-2 overflow-hidden py-1">
+              <Skeleton className="h-16 w-36 rounded-2xl shrink-0 bg-stone-200/80" />
+              <Skeleton className="h-16 w-36 rounded-2xl shrink-0 bg-stone-200/80" />
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm space-y-3">
+              <Skeleton className="h-4 w-32 bg-stone-200/80" />
+              <div className="grid grid-cols-10 gap-1.5">
+                {Array.from({ length: 40 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-lg bg-stone-100" />
+                ))}
+              </div>
+            </div>
           </div>
         ) : ponds.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm text-center flex flex-col items-center gap-4 mt-2"
-          >
+          <div className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm text-center flex flex-col items-center gap-4 mt-2">
             <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-inner">
               <Waves className="w-8 h-8" />
             </div>
@@ -433,7 +435,7 @@ const DailyEntry = () => {
             >
               Complete Farm Registration →
             </Button>
-          </motion.div>
+          </div>
         ) : (
           <>
             {/* POND SELECTOR — photo cards */}
@@ -849,9 +851,7 @@ const DailyEntry = () => {
         return (
           <>
             {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+            <div
               onClick={() => setPondPreviewOpen(false)}
               className="fixed inset-0 z-[55]"
               style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
@@ -861,12 +861,9 @@ const DailyEntry = () => {
             <div
               className="fixed bottom-0 left-0 right-0 z-[60] flex justify-center items-end pointer-events-none"
             >
-              {/* Sheet — slide-up animation only, no position transform */}
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="w-full max-w-[480px] flex flex-col rounded-t-3xl overflow-hidden pointer-events-auto"
+              {/* Sheet */}
+              <div
+                className="w-full max-w-[480px] flex flex-col rounded-t-3xl overflow-hidden pointer-events-auto shadow-2xl"
                 style={{ maxHeight: '80vh', background: '#fff' }}
               >
               {/* Drag handle */}
@@ -978,7 +975,7 @@ const DailyEntry = () => {
                   Close
                 </button>
               </div>
-              </motion.div>
+              </div>
             </div>
           </>
         );
