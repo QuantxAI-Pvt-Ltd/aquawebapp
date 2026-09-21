@@ -42,40 +42,7 @@ export async function uploadToSeaweedFS(
 ): Promise<MediaObjectResult | null> {
   if (!file) return null;
 
-  try {
-    // 1. Request S3 presigned PUT URL
-    const presignRes = await fetch(`${API_BASE_URL}/api/media/presign-upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filename: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        folder,
-      }),
-    });
-
-    if (presignRes.ok) {
-      const { data } = await presignRes.json();
-      const putRes = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body: file,
-      });
-
-      if (putRes.ok) {
-        return {
-          url: data.finalUrl,
-          key: data.key,
-          mimeType: file.type,
-          size: file.size,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('[SeaweedFS] Direct S3 upload failed, attempting streaming fallback:', err);
-  }
-
-  // 2. Fallback to multipart stream through backend
+  // 1. Upload multipart stream through backend (avoids direct browser-to-storage CORS preflight issues)
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -88,13 +55,20 @@ export async function uploadToSeaweedFS(
 
     if (streamRes.ok) {
       const { data } = await streamRes.json();
-      return data;
+      if (data && (data.url || data.key)) {
+        return {
+          url: data.url || `/api/media/stream?key=${encodeURIComponent(data.key)}`,
+          key: data.key,
+          mimeType: data.mimeType || file.type,
+          size: data.size || file.size,
+        };
+      }
     }
   } catch (err) {
-    console.error('[SeaweedFS] Backend upload fallback failed:', err);
+    console.warn('[SeaweedFS] Backend upload proxy failed:', err);
   }
 
-  // 3. Fallback to base64 if storage is completely unreachable
+  // 2. Fallback to base64 if backend storage is completely unreachable
   const b64 = await fileToBase64(file);
   return b64 ? { url: b64, key: '', mimeType: file.type, size: file.size } : null;
 }

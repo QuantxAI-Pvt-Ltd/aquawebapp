@@ -60,7 +60,7 @@ app.use(cors({
 }));
 
 // Built-in middleware with configurable limit
-const bodyLimit = process.env.BODY_PARSER_LIMIT || '50mb';
+const bodyLimit = process.env.BODY_PARSER_LIMIT || '150mb';
 app.use(express.json({ limit: bodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
 
