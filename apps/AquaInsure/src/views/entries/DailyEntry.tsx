@@ -361,7 +361,7 @@ const DailyEntry = () => {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-4 text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
       

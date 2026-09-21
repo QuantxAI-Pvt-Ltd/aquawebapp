@@ -28,8 +28,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body className="min-h-[100dvh] bg-stone-50 sm:bg-stone-200/50 dark:bg-stone-950 font-sans antialiased text-stone-900 selection:bg-teal-100 selection:text-teal-900 flex justify-center items-stretch sm:items-start sm:py-6 sm:px-4">
-        <div className="w-full sm:max-w-[440px] min-h-[100dvh] sm:min-h-[844px] bg-stone-50 dark:bg-stone-900 sm:shadow-2xl sm:border sm:border-stone-300/70 dark:sm:border-stone-800 relative flex flex-col overflow-x-clip">
+      <body className="min-h-[100dvh] bg-stone-100 dark:bg-stone-950 font-sans antialiased text-stone-900 selection:bg-teal-100 selection:text-teal-900 flex justify-center">
+        <div className="w-full sm:max-w-[440px] min-h-[100dvh] bg-stone-50 dark:bg-stone-900 sm:shadow-2xl sm:border-x sm:border-stone-300/70 dark:sm:border-stone-800 relative flex flex-col">
           <Providers>{children}</Providers>
         </div>
       </body>

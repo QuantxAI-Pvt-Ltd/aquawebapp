@@ -22,8 +22,8 @@ const BottomNav = () => {
   }
 
   return (
-    <div className="sticky bottom-0 z-50 w-full mt-auto bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200/90 dark:border-stone-800 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-      <nav className="h-[54px] px-2 flex items-center justify-between">
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full sm:max-w-[440px] bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200/90 dark:border-stone-800 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <nav className="h-[56px] px-3 flex items-center justify-around">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;

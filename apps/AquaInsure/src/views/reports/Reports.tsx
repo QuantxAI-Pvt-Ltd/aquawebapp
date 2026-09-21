@@ -154,7 +154,7 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] pb-4 overflow-x-clip print:bg-white print:pb-0"
+    <div className="min-h-[100dvh] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-clip print:bg-white print:pb-0"
       style={{
         fontFamily: "'Outfit', sans-serif",
         background: 'linear-gradient(160deg, #f0fdf9 0%, #ecfdf5 50%, #f8fafc 100%)',

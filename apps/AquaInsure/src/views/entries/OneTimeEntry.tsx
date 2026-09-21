@@ -163,7 +163,7 @@ const OneTimeEntry = () => {
 
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-4 overflow-x-clip"
+    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-clip"
       style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

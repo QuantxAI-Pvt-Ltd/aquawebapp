@@ -174,7 +174,7 @@ const Dashboard = () => {
       `}</style>
 
       <div
-        className="min-h-[100dvh] bg-stone-50 flex flex-col relative overflow-x-clip pb-4"
+        className="min-h-[100dvh] bg-stone-50 flex flex-col relative overflow-x-clip pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
         style={{ fontFamily: "'Sora', sans-serif" }}
       >
         {/* HEADER */}
