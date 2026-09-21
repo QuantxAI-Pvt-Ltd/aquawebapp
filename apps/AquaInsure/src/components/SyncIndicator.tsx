@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Cloud, CloudUpload, CheckCircle2, Loader2, HardDriveDownload } from "lucide-react";
+import { Cloud, Loader2, HardDriveDownload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export type SyncStatus = 'idle' | 'saving' | 'saved_local' | 'saved_cloud';
@@ -15,33 +15,65 @@ export default function SyncIndicator({ status }: SyncIndicatorProps) {
     <AnimatePresence>
       {status !== 'idle' && (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-white/90 backdrop-blur-md shadow-sm border border-stone-100 rounded-full py-1.5 px-4 flex items-center gap-2"
+          layout
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.92 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="fixed top-[max(2.25rem,calc(env(safe-area-inset-top,0px)+1.25rem))] right-4 sm:right-6 z-50 pointer-events-none select-none flex items-center px-3 py-1 rounded-full bg-stone-900/85 text-white shadow-lg shadow-black/15 backdrop-blur-md border border-white/15"
         >
-          {status === 'saving' && (
-            <>
-              <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
-              <span className="text-xs font-medium text-stone-600">Saving...</span>
-            </>
-          )}
-          
-          {status === 'saved_local' && (
-            <>
-              <HardDriveDownload className="w-4 h-4 text-teal-600" />
-              <span className="text-xs font-medium text-stone-600">Saved to device</span>
-            </>
-          )}
+          <AnimatePresence mode="wait">
+            {status === 'saving' && (
+              <motion.div
+                key="saving"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1.5"
+              >
+                <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin flex-shrink-0" />
+                <span className="text-[11px] font-semibold tracking-tight text-stone-200">
+                  {t('common.saving', 'Saving...')}
+                </span>
+              </motion.div>
+            )}
 
-          {status === 'saved_cloud' && (
-            <>
-              <Cloud className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-medium text-stone-600">Saved to cloud</span>
-            </>
-          )}
+            {status === 'saved_local' && (
+              <motion.div
+                key="saved_local"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1.5"
+              >
+                <HardDriveDownload className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                <span className="text-[11px] font-semibold tracking-tight text-stone-200">
+                  {t('common.savedToDevice', 'Saved to device')}
+                </span>
+              </motion.div>
+            )}
+
+            {status === 'saved_cloud' && (
+              <motion.div
+                key="saved_cloud"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1.5"
+              >
+                <Cloud className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                <span className="text-[11px] font-semibold tracking-tight text-stone-200">
+                  {t('common.savedToCloud', 'Saved to cloud')}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
+

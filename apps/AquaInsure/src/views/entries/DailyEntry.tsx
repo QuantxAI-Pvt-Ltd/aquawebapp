@@ -383,7 +383,7 @@ const DailyEntry = () => {
               {t("entries.daily")}
             </h1>
           </div>
-          <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
+          <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
             Aqua <span className="text-amber-300">AI</span>nsure
           </span>
         </div>
