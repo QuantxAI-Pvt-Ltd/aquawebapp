@@ -190,19 +190,18 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
         if (data.registration) {
             updateData.registration = {
                 ...data.registration,
-                regCertificate: regCertObj !== null ? regCertObj : undefined
+                regCertificate: regCertObj !== null ? regCertObj : (data.registration.regCertificate || null)
             };
         }
         if (data.identity) {
             updateData.identity = {
                 ...data.identity,
-                aadharFile: aadharObj !== null ? aadharObj : undefined,
-                panFile: panObj !== null ? panObj : undefined,
-                photo: photoObj !== null ? photoObj : undefined
+                aadharFile: aadharObj !== null ? aadharObj : (data.identity.aadharFile || null),
+                panFile: panObj !== null ? panObj : (data.identity.panFile || null),
+                photo: photoObj !== null ? photoObj : (data.identity.photo || null)
             };
             if (!updateData.identity.aadharNumber || String(updateData.identity.aadharNumber).trim() === '') {
                 delete updateData.identity.aadharNumber;
-                updateData.$unset = { ...updateData.$unset, 'identity.aadharNumber': 1 };
             }
             if (!updateData.identity.panNumber || String(updateData.identity.panNumber).trim() === '') {
                 delete updateData.identity.panNumber;
@@ -212,7 +211,7 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
         const farmer = await Farmer.findByIdAndUpdate(
             farmerId,
             { $set: updateData },
-            { new: true, runValidators: false }
+            { returnDocument: 'after', runValidators: false }
         );
 
         if (!farmer) {
