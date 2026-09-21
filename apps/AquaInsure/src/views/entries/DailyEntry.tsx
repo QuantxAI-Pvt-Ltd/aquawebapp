@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { fileToBase64, uploadToSeaweedFS } from "@/lib/fileUtils";
+import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import axios from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 
@@ -450,7 +450,7 @@ const DailyEntry = () => {
                   >
                     {photo ? (
                       <img
-                        src={photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`}
+                        src={resolveMediaUrl(photo) || ''}
                         alt={`Pond ${p.pondNumber || i + 1}`}
                         className="absolute inset-0 w-full h-full object-cover"
                       />
@@ -509,7 +509,7 @@ const DailyEntry = () => {
               style={{ height: '88px' }}
             >
               <img
-                src={photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`}
+                src={resolveMediaUrl(photo) || ''}
                 alt={`Pond ${activePond.pondNumber || pondIndex + 1}`}
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -517,7 +517,7 @@ const DailyEntry = () => {
               <div className="relative z-10 flex items-center gap-3 px-4 py-3.5">
                 <div className="w-11 h-11 rounded-xl border-2 border-white/30 overflow-hidden shrink-0">
                   <img
-                    src={photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`}
+                    src={resolveMediaUrl(photo) || ''}
                     alt=""
                     className="w-full h-full object-cover"
                   />
@@ -829,9 +829,7 @@ const DailyEntry = () => {
         const photo = activePond.photo || null;
         const acres = localPond?.dimensionAcres ?? activePond.dimensionAcres ?? null;
         const addr = localPond?.address || activePond.address || {};
-        const srcUrl = photo
-          ? (photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`)
-          : null;
+        const srcUrl = resolveMediaUrl(photo);
 
         return (
           <>

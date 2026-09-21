@@ -232,9 +232,39 @@ router.get('/:farmerId', async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(req.params.farmerId)) {
             return res.status(400).json({ success: false, error: 'Invalid farmer ID format' });
         }
-        const farmer = await Farmer.findById(req.params.farmerId)
-            .select('-identity.aadharFile -identity.panFile -identity.photo -registration.regCertificate');
+        const farmer = await Farmer.findById(req.params.farmerId).lean();
         if (!farmer) return res.status(404).json({ success: false, error: 'Farmer not found' });
+
+        const resolveField = (field) => {
+            if (!field) return null;
+            if (typeof field === 'object' && field.url) return field.url;
+            if (typeof field === 'string') {
+                if (field.startsWith('http://') || field.startsWith('https://') || field.startsWith('/') || field.startsWith('data:')) {
+                    return field;
+                }
+                if (field.includes('/') || field.includes(',')) {
+                    return `/api/media/stream?key=${encodeURIComponent(field)}`;
+                }
+                return `data:image/jpeg;base64,${field}`;
+            }
+            if (field.buffer && Buffer.isBuffer(field.buffer)) {
+                return `data:image/jpeg;base64,${field.buffer.toString('base64')}`;
+            }
+            if (Buffer.isBuffer(field)) {
+                return `data:image/jpeg;base64,${field.toString('base64')}`;
+            }
+            return null;
+        };
+
+        if (farmer.identity) {
+            farmer.identity.photo = resolveField(farmer.identity.photo);
+            farmer.identity.aadharFile = resolveField(farmer.identity.aadharFile);
+            farmer.identity.panFile = resolveField(farmer.identity.panFile);
+        }
+        if (farmer.registration) {
+            farmer.registration.regCertificate = resolveField(farmer.registration.regCertificate);
+        }
+
         res.status(200).json({ success: true, data: farmer });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

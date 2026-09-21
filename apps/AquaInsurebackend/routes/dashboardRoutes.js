@@ -12,8 +12,13 @@ const OneTimeEntry = require('../models/OneTimeEntry');
 const bufferToDataUrl = (media, mime = 'image/jpeg') => {
     if (!media) return null;
     if (typeof media === 'object' && media.url) return media.url;
-    if (typeof media === 'string' && (media.startsWith('http://') || media.startsWith('https://') || media.startsWith('/'))) {
-        return media;
+    if (typeof media === 'string') {
+        if (media.startsWith('http://') || media.startsWith('https://') || media.startsWith('/') || media.startsWith('data:')) {
+            return media;
+        }
+        if (media.includes('/') || media.includes(',')) {
+            return `/api/media/stream?key=${encodeURIComponent(media)}`;
+        }
     }
     let raw;
     if (media.buffer && Buffer.isBuffer(media.buffer)) raw = media.buffer;

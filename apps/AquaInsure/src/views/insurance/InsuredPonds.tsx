@@ -29,7 +29,7 @@ import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import CameraCapture from "@/components/CameraCapture";
 import axios from "@/lib/api";
-import { fileToBase64 } from "@/lib/fileUtils";
+import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
 import { LOCATIONS, STATES } from "@/constants/locations";
 
 interface PondDetail {
@@ -86,7 +86,7 @@ const InsuredPonds = () => {
           pondNumber: p.pondNumber || i + 1,
           dimensionAcres: draftDetail?.dimensionAcres ?? p.dimensionAcres ?? "",
           photo: null,
-          photoPreview: null,
+          photoPreview: p.photo ? resolveMediaUrl(p.photo) : null,
           village: draftDetail?.village ?? p.address?.village ?? "",
           taluk: draftDetail?.taluk ?? p.address?.taluk ?? "",
           district: draftDetail?.district ?? p.address?.district ?? "",
@@ -198,7 +198,7 @@ const InsuredPonds = () => {
           pondId: pd.pondId,
           pondNumber: pd.pondNumber,
           dimensionAcres: parseFloat(pd.dimensionAcres),
-          photo: pd.photo ? await fileToBase64(pd.photo) : null,
+          photo: pd.photo ? await fileToBase64(pd.photo) : (pd.photoPreview ? pd.photoPreview : null),
           address: {
             village: pd.village,
             taluk: pd.taluk,
@@ -535,7 +535,7 @@ const InsuredPonds = () => {
                   {pd.photoPreview ? (
                     <div className="relative rounded-xl overflow-hidden border border-stone-100">
                       <img
-                        src={pd.photoPreview}
+                        src={resolveMediaUrl(pd.photoPreview) || pd.photoPreview}
                         alt={`Pond ${pd.pondNumber}`}
                         className="w-full h-40 object-cover"
                       />

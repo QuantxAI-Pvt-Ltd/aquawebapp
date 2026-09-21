@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { ChevronLeft, User } from "lucide-react";
+import { ChevronLeft, User, FileText, X } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import { resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -21,6 +22,7 @@ export default function FarmerProfile() {
     const { t } = useTranslation();
     const [farmer, setFarmer] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
     useEffect(() => {
         const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
@@ -61,15 +63,30 @@ export default function FarmerProfile() {
                     <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE, duration: 0.5 }}>
 
                         {/* Avatar */}
-                        <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-4">
-                            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                                <User size={24} className="text-amber-500" />
-                            </div>
-                            <div>
-                                <p className="text-base font-bold text-stone-800">{farmer.name}</p>
-                                <p className="text-xs text-stone-400">{farmer.phone}</p>
-                            </div>
-                        </div>
+                        {(() => {
+                            const photoUrl = resolveMediaUrl(farmer.identity?.photo);
+                            return (
+                                <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-4">
+                                    {photoUrl ? (
+                                        <div className="w-14 h-14 rounded-2xl overflow-hidden border border-amber-100 shrink-0 shadow-xs cursor-pointer" onClick={() => setPreviewDoc(photoUrl)}>
+                                            <img
+                                                src={photoUrl}
+                                                alt={farmer.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                                            <User size={24} className="text-amber-500" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-base font-bold text-stone-800">{farmer.name}</p>
+                                        <p className="text-xs text-stone-400">{farmer.phone}</p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* Basic */}
                         <Section title="Basic Details" accent="#b5813a">
@@ -90,9 +107,57 @@ export default function FarmerProfile() {
                         </Section>
 
                         {/* Identity */}
-                        <Section title="Identity" accent="#a67030">
+                        <Section title="Identity & KYC Documents" accent="#a67030">
                             {row("Aadhar Number", farmer.identity?.aadharNumber)}
                             {row("PAN Number", farmer.identity?.panNumber)}
+                            {farmer.identity?.aadharFile && (() => {
+                                const url = resolveMediaUrl(farmer.identity.aadharFile);
+                                return url ? (
+                                    <div className="flex flex-col gap-0.5">
+                                        <p className="text-[9px] uppercase font-bold tracking-[0.14em] text-stone-400">Aadhaar Doc</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewDoc(url)}
+                                            className="text-xs text-amber-700 font-bold flex items-center gap-1 hover:underline"
+                                        >
+                                            <FileText size={12} />
+                                            <span>View Aadhaar</span>
+                                        </button>
+                                    </div>
+                                ) : null;
+                            })()}
+                            {farmer.identity?.panFile && (() => {
+                                const url = resolveMediaUrl(farmer.identity.panFile);
+                                return url ? (
+                                    <div className="flex flex-col gap-0.5">
+                                        <p className="text-[9px] uppercase font-bold tracking-[0.14em] text-stone-400">PAN Doc</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewDoc(url)}
+                                            className="text-xs text-amber-700 font-bold flex items-center gap-1 hover:underline"
+                                        >
+                                            <FileText size={12} />
+                                            <span>View PAN</span>
+                                        </button>
+                                    </div>
+                                ) : null;
+                            })()}
+                            {farmer.registration?.regCertificate && (() => {
+                                const url = resolveMediaUrl(farmer.registration.regCertificate);
+                                return url ? (
+                                    <div className="flex flex-col gap-0.5">
+                                        <p className="text-[9px] uppercase font-bold tracking-[0.14em] text-stone-400">Reg Certificate</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewDoc(url)}
+                                            className="text-xs text-amber-700 font-bold flex items-center gap-1 hover:underline"
+                                        >
+                                            <FileText size={12} />
+                                            <span>View Certificate</span>
+                                        </button>
+                                    </div>
+                                ) : null;
+                            })()}
                         </Section>
 
                         {/* Bank */}
@@ -108,6 +173,25 @@ export default function FarmerProfile() {
                     </motion.div>
                 )}
             </div>
+
+            {/* Document / Photo Preview Modal */}
+            {previewDoc && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+                    onClick={() => setPreviewDoc(null)}
+                >
+                    <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+                        <button
+                            onClick={() => setPreviewDoc(null)}
+                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
+                        >
+                            <X size={18} />
+                        </button>
+                        <img src={previewDoc} alt="Document" className="max-h-[80vh] w-auto object-contain mx-auto" />
+                    </div>
+                </div>
+            )}
+
             <BottomNav />
         </div>
     );

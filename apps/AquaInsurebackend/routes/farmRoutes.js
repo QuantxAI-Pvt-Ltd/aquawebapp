@@ -99,20 +99,22 @@ router.get('/ponds', async (req, res) => {
         if (!farmerId) return res.status(400).json({ success: false, error: 'farmerId required' });
         const ponds = await Pond.find({ farmerId }).sort({ pondNumber: 1 }).lean();
 
-        // Convert photo: SeaweedFS MediaObject URL or Buffer → base64 data URL
+        // Convert photo: SeaweedFS MediaObject URL or Buffer → accessible URL
         const pondsWithPhoto = ponds.map(p => {
             let photoUrl = null;
             if (p.photo) {
                 if (typeof p.photo === 'object' && p.photo.url) {
                     photoUrl = p.photo.url;
-                } else if (typeof p.photo === 'string' && (p.photo.startsWith('http://') || p.photo.startsWith('https://') || p.photo.startsWith('data:'))) {
+                } else if (typeof p.photo === 'string' && (p.photo.startsWith('http://') || p.photo.startsWith('https://') || p.photo.startsWith('/') || p.photo.startsWith('data:'))) {
                     photoUrl = p.photo;
+                } else if (typeof p.photo === 'string' && (p.photo.includes('/') || p.photo.includes(','))) {
+                    photoUrl = `/api/media/stream?key=${encodeURIComponent(p.photo)}`;
                 } else if (p.photo.buffer && Buffer.isBuffer(p.photo.buffer)) {
                     photoUrl = `data:image/jpeg;base64,${p.photo.buffer.toString('base64')}`;
                 } else if (Buffer.isBuffer(p.photo)) {
                     photoUrl = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
-                } else {
-                    photoUrl = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
+                } else if (typeof p.photo === 'string') {
+                    photoUrl = p.photo.startsWith('data:') ? p.photo : `data:image/jpeg;base64,${p.photo}`;
                 }
             }
             return {
@@ -131,8 +133,30 @@ router.get('/ponds', async (req, res) => {
 // @desc    Get all farms for a specific farmer (useful for frontend context)
 router.get('/:farmerId', async (req, res) => {
     try {
-        const farms = await Farm.find({ farmerId: req.params.farmerId });
-        res.status(200).json({ success: true, data: farms });
+        const farms = await Farm.find({ farmerId: req.params.farmerId }).lean();
+        const resolvedFarms = farms.map(farm => {
+            let farmPhotoUrl = null;
+            if (farm.farmPhoto) {
+                if (typeof farm.farmPhoto === 'object' && farm.farmPhoto.url) {
+                    farmPhotoUrl = farm.farmPhoto.url;
+                } else if (typeof farm.farmPhoto === 'string' && (farm.farmPhoto.startsWith('http://') || farm.farmPhoto.startsWith('https://') || farm.farmPhoto.startsWith('/') || farm.farmPhoto.startsWith('data:'))) {
+                    farmPhotoUrl = farm.farmPhoto;
+                } else if (typeof farm.farmPhoto === 'string' && (farm.farmPhoto.includes('/') || farm.farmPhoto.includes(','))) {
+                    farmPhotoUrl = `/api/media/stream?key=${encodeURIComponent(farm.farmPhoto)}`;
+                } else if (farm.farmPhoto.buffer && Buffer.isBuffer(farm.farmPhoto.buffer)) {
+                    farmPhotoUrl = `data:image/jpeg;base64,${farm.farmPhoto.buffer.toString('base64')}`;
+                } else if (Buffer.isBuffer(farm.farmPhoto)) {
+                    farmPhotoUrl = `data:image/jpeg;base64,${farm.farmPhoto.toString('base64')}`;
+                } else if (typeof farm.farmPhoto === 'string') {
+                    farmPhotoUrl = farm.farmPhoto.startsWith('data:') ? farm.farmPhoto : `data:image/jpeg;base64,${farm.farmPhoto}`;
+                }
+            }
+            return {
+                ...farm,
+                farmPhoto: farmPhotoUrl || farm.farmPhoto
+            };
+        });
+        res.status(200).json({ success: true, data: resolvedFarms });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

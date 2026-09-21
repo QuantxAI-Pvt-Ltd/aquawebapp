@@ -13,9 +13,9 @@ const {
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const SEAWEEDFS_MASTER_ENDPOINT = process.env.SEAWEEDFS_MASTER_ENDPOINT || 'http://localhost:9333';
-const S3_ENDPOINT = process.env.SEAWEEDFS_S3_ENDPOINT || 'http://localhost:9333';
+const S3_ENDPOINT = process.env.SEAWEEDFS_S3_ENDPOINT || 'http://localhost:8333';
 const FILER_ENDPOINT = process.env.SEAWEEDFS_FILER_ENDPOINT || 'http://localhost:8888';
-const DEFAULT_BUCKET = process.env.SEAWEEDFS_BUCKET || 'aquainsure-media';
+const DEFAULT_BUCKET = process.env.SEAWEEDFS_BUCKET || 'aquainsure';
 const REGION = process.env.SEAWEEDFS_REGION || 'us-east-1';
 const ACCESS_KEY = process.env.SEAWEEDFS_ACCESS_KEY || 'any_key';
 const SECRET_KEY = process.env.SEAWEEDFS_SECRET_KEY || 'any_secret';
@@ -121,25 +121,7 @@ async function uploadToSeaweedFSMaster(buffer, filename = 'file.bin', mimeType =
  * @param {string} [bucket]
  */
 async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', bucket = DEFAULT_BUCKET) {
-  // 1. Primary: Native SeaweedFS Master upload
-  try {
-    const filename = key ? path.basename(key) : 'media.bin';
-    const result = await uploadToSeaweedFSMaster(buffer, filename, mimeType);
-    if (result && result.fid) {
-      return {
-        key: result.fid,
-        bucket,
-        url: `/api/media/stream?key=${encodeURIComponent(result.fid)}`,
-        mimeType,
-        size: buffer.length,
-        uploadedAt: new Date(),
-      };
-    }
-  } catch (err) {
-    console.warn('[SeaweedFS] Native master upload failed, attempting S3:', err.message);
-  }
-
-  // 2. Secondary: S3 Gateway
+  // 1. Primary: S3 Gateway upload directly to SeaweedFS S3 bucket
   try {
     await ensureBucket(bucket);
     const command = new PutObjectCommand({
@@ -158,7 +140,25 @@ async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', 
       uploadedAt: new Date(),
     };
   } catch (s3Err) {
-    console.warn('[SeaweedFS] S3 upload failed:', s3Err.message);
+    console.warn('[SeaweedFS] S3 upload failed, attempting native master fallback:', s3Err.message);
+  }
+
+  // 2. Secondary: Native SeaweedFS Master upload fallback (/submit)
+  try {
+    const filename = key ? path.basename(key) : 'media.bin';
+    const result = await uploadToSeaweedFSMaster(buffer, filename, mimeType);
+    if (result && result.fid) {
+      return {
+        key: result.fid,
+        bucket,
+        url: `/api/media/stream?key=${encodeURIComponent(result.fid)}`,
+        mimeType,
+        size: buffer.length,
+        uploadedAt: new Date(),
+      };
+    }
+  } catch (masterErr) {
+    console.warn('[SeaweedFS] Native master upload fallback failed:', masterErr.message);
   }
 
   // 3. Fallback: inline data URI

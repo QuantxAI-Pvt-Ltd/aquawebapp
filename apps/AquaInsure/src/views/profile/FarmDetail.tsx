@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { ChevronLeft, Landmark, Droplets } from "lucide-react";
+import { ChevronLeft, Landmark, Droplets, X } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import { resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -22,6 +23,7 @@ export default function FarmDetail() {
     const [farms, setFarms] = useState<any[]>([]);
     const [ponds, setPonds] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [previewImg, setPreviewImg] = useState<string | null>(null);
 
     useEffect(() => {
         const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
@@ -72,15 +74,33 @@ export default function FarmDetail() {
                             transition={{ ease: EASE, duration: 0.5, delay: i * 0.07 }}>
 
                             {/* Farm header card */}
-                            <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-amber-100 shadow-sm mb-3">
-                                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                                    <Landmark size={20} className="text-amber-500" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-stone-800">Farm {i + 1}</p>
-                                    <p className="text-xs text-stone-400">{farm.location?.place}, {farm.location?.district}</p>
-                                </div>
-                            </div>
+                            {(() => {
+                                const photoUrl = resolveMediaUrl(farm.farmPhoto);
+                                return (
+                                    <div className="bg-white rounded-2xl overflow-hidden border border-amber-100 shadow-sm mb-3">
+                                        {photoUrl && (
+                                            <div className="w-full h-36 relative overflow-hidden cursor-pointer" onClick={() => setPreviewImg(photoUrl)}>
+                                                <img src={photoUrl} alt="Farm Overview" className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                                                <div className="absolute bottom-2.5 left-3.5 text-white">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-md">Farm Photo</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-4 p-4">
+                                            {!photoUrl && (
+                                                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                                                    <Landmark size={20} className="text-amber-500" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="text-sm font-bold text-stone-800">Farm {i + 1}</p>
+                                                <p className="text-xs text-stone-400">{farm.location?.place}, {farm.location?.district}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3">
                                 <p className="text-[9px] uppercase font-black tracking-[0.18em] mb-3 text-amber-600">Location</p>
@@ -134,6 +154,25 @@ export default function FarmDetail() {
                     ))
                 )}
             </div>
+
+            {/* Farm Photo Zoom Preview Modal */}
+            {previewImg && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+                    onClick={() => setPreviewImg(null)}
+                >
+                    <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+                        <button
+                            onClick={() => setPreviewImg(null)}
+                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
+                        >
+                            <X size={18} />
+                        </button>
+                        <img src={previewImg} alt="Farm Photo" className="max-h-[80vh] w-auto object-contain mx-auto" />
+                    </div>
+                </div>
+            )}
+
             <BottomNav />
         </div>
     );

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
-import { fileToBase64 } from "@/lib/fileUtils";
+import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -40,6 +40,7 @@ interface PolicyItem {
         status?: string;
         reviewerNotes?: string;
         settlementAmount?: number;
+        evidencePhoto?: any;
     };
 }
 
@@ -72,6 +73,7 @@ export default function InsuranceDetail() {
     const [lossPercent, setLossPercent] = useState(50);
     const [description, setDescription] = useState("");
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [farmerId, setFarmerId] = useState("");
 
@@ -358,6 +360,22 @@ export default function InsuranceDetail() {
                                             {c.reviewerNotes}
                                         </div>
                                     )}
+
+                                    {c?.evidencePhoto && (() => {
+                                        const evUrl = resolveMediaUrl(c.evidencePhoto);
+                                        return evUrl ? (
+                                            <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
+                                                <span className="text-[11px] font-semibold text-stone-600">Incident Evidence</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPreviewImage(evUrl)}
+                                                    className="text-xs text-teal-700 font-bold hover:underline"
+                                                >
+                                                    View Photo
+                                                </button>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                 </motion.div>
                             );
                         })
@@ -451,7 +469,7 @@ export default function InsuranceDetail() {
                                     </label>
                                     {photoPreview ? (
                                         <div className="relative rounded-xl overflow-hidden border border-stone-200 h-32 bg-stone-100 flex items-center justify-center">
-                                            <img src={photoPreview} alt="Evidence" className="h-full w-full object-cover" />
+                                            <img src={resolveMediaUrl(photoPreview) || photoPreview} alt="Evidence" className="h-full w-full object-cover" />
                                             <button
                                                 type="button"
                                                 onClick={() => setPhotoPreview(null)}
@@ -493,6 +511,26 @@ export default function InsuranceDetail() {
                                 </div>
                             </form>
                         </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Image Zoom Preview Modal */}
+            <AnimatePresence>
+                {previewImage && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+                        onClick={() => setPreviewImage(null)}
+                    >
+                        <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+                            <button
+                                onClick={() => setPreviewImage(null)}
+                                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
+                            >
+                                <X size={18} />
+                            </button>
+                            <img src={resolveMediaUrl(previewImage) || previewImage} alt="Evidence" className="max-h-[80vh] w-auto object-contain mx-auto" />
+                        </div>
                     </div>
                 )}
             </AnimatePresence>

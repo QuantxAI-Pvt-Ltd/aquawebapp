@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
-import { fileToBase64 } from '@/lib/fileUtils';
+import { fileToBase64, resolveMediaUrl } from '@/lib/fileUtils';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -268,7 +268,7 @@ export default function ClaimsPage() {
           filteredClaims.map((item, idx) => {
             const claim = item.claim;
             const cStatus = claim?.status || 'pending';
-            const evidenceUrl = typeof claim?.evidencePhoto === 'object' ? claim.evidencePhoto?.url : (claim?.evidencePhoto as string);
+            const evidenceUrl = resolveMediaUrl(claim?.evidencePhoto);
 
             return (
               <motion.div
@@ -566,7 +566,7 @@ export default function ClaimsPage() {
                     </label>
                     {photoPreview ? (
                       <div className="relative rounded-xl overflow-hidden border border-stone-200 h-32 bg-stone-100 flex items-center justify-center">
-                        <img src={photoPreview} alt="Evidence Preview" className="h-full w-full object-cover" />
+                        <img src={resolveMediaUrl(photoPreview) || photoPreview} alt="Evidence Preview" className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() => setPhotoPreview(null)}
@@ -629,7 +629,7 @@ export default function ClaimsPage() {
               >
                 <X size={18} />
               </button>
-              <img src={previewImage} alt="Evidence" className="max-h-[80vh] w-auto object-contain mx-auto" />
+              <img src={resolveMediaUrl(previewImage) || previewImage} alt="Evidence" className="max-h-[80vh] w-auto object-contain mx-auto" />
             </div>
           </div>
         )}

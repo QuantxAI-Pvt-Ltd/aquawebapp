@@ -72,3 +72,76 @@ export async function uploadToSeaweedFS(
   const b64 = await fileToBase64(file);
   return b64 ? { url: b64, key: '', mimeType: file.type, size: file.size } : null;
 }
+
+/**
+ * Universally resolves any media object, stream endpoint, http url, blob url, data uri,
+ * S3 key, SeaweedFS FID, or raw base64 string into a safe, valid image source URL for <img> tags.
+ */
+export function resolveMediaUrl(media: any): string | null {
+  if (!media) return null;
+
+  // 1. MediaObject with url or key property
+  if (typeof media === 'object') {
+    if (media.url && typeof media.url === 'string') {
+      return resolveMediaUrl(media.url);
+    }
+    if (media.key && typeof media.key === 'string') {
+      return `/api/media/stream?key=${encodeURIComponent(media.key)}`;
+    }
+  }
+
+  if (typeof media === 'string') {
+    const trimmed = media.trim();
+    if (!trimmed) return null;
+
+    // Auto-heal corrupted data URI wrappers around relative stream endpoints
+    // (e.g. "data:image/jpeg;base64,/api/media/stream?key=...")
+    if (
+      trimmed.startsWith('data:image/jpeg;base64,/api/media/stream') ||
+      trimmed.startsWith('data:image/png;base64,/api/media/stream') ||
+      trimmed.startsWith('data:image/webp;base64,/api/media/stream')
+    ) {
+      const match = trimmed.match(/\/api\/media\/stream.+$/);
+      if (match) return match[0];
+    }
+
+    // 2. Already an HTTP, relative stream, blob, or valid data URL
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('/') ||
+      trimmed.startsWith('blob:')
+    ) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('data:')) {
+      // Ensure the data URI doesn't wrap a relative URL
+      if (trimmed.includes('/api/media/stream')) {
+        const match = trimmed.match(/\/api\/media\/stream.+$/);
+        if (match) return match[0];
+      }
+      return trimmed;
+    }
+
+    // 3. SeaweedFS volume FID (e.g. "1,28a335fbc5") or S3 key (e.g. "farmers/..." or "aquainsure/...")
+    if (
+      /^\d+,[0-9a-zA-Z]+$/.test(trimmed) ||
+      ((trimmed.startsWith('farmers/') ||
+        trimmed.startsWith('farms/') ||
+        trimmed.startsWith('ponds/') ||
+        trimmed.startsWith('claims/') ||
+        trimmed.startsWith('aquainsure/')) &&
+        trimmed.length < 500)
+    ) {
+      return `/api/media/stream?key=${encodeURIComponent(trimmed)}`;
+    }
+
+    // 4. Raw Base64 string fallback
+    return `data:image/jpeg;base64,${trimmed}`;
+  }
+
+  return null;
+}
+
+

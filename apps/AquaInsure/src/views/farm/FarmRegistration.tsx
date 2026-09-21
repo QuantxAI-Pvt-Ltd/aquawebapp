@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ChevronLeft, MapPin, Camera } from "lucide-react";
+import { ChevronLeft, MapPin, Camera, Upload, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +19,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { fileToBase64 } from "@/lib/fileUtils";
+import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
 import axios from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 import { LOCATIONS, STATES } from "@/constants/locations";
@@ -43,6 +43,7 @@ export default function FarmRegistration() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [farmPhotoPreview, setFarmPhotoPreview] = useState<string | null>(null);
 
   const [infra, setInfra] = useState(() => {
     const draftStr = localStorage.getItem("draft_farm_infra");
@@ -89,11 +90,19 @@ export default function FarmRegistration() {
 
   const formValues = watch();
 
+  const farmPhotoWatch = watch("farmPhoto");
+
   useEffect(() => {
-    const draft = { ...formValues };
-    delete draft.farmPhoto;
-    localStorage.setItem("draft_farm_form", JSON.stringify(draft));
-  }, [formValues]);
+    if (farmPhotoWatch instanceof File) {
+      const url = URL.createObjectURL(farmPhotoWatch);
+      setFarmPhotoPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else if (typeof farmPhotoWatch === "string") {
+      setFarmPhotoPreview(farmPhotoWatch);
+    } else {
+      setFarmPhotoPreview(null);
+    }
+  }, [farmPhotoWatch]);
 
   useEffect(() => {
     localStorage.setItem("draft_farm_infra", JSON.stringify(infra));
@@ -159,6 +168,8 @@ export default function FarmRegistration() {
 
       toast.loading(t("common.saving"), { id: 'farm-save' });
 
+      const farmPhotoBase64 = data.farmPhoto ? await fileToBase64(data.farmPhoto) : null;
+
       const payload = {
         farmerId,
         location: {
@@ -175,6 +186,7 @@ export default function FarmRegistration() {
         },
         totalPonds: Number(data.totalPonds),
         pondsCount: Number(data.totalPonds),
+        farmPhoto: farmPhotoBase64 || null,
         infrastructure: {
           filtration: infra.filtration === "yes",
           reservoir: infra.reservoir === "yes",
@@ -401,6 +413,74 @@ export default function FarmRegistration() {
 
 
             </div>
+          </motion.div>
+
+          {/* Farm Photo */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white rounded-2xl p-5 space-y-3 border border-stone-100 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                {t("farm.uploadPhoto") || "Farm Overview Photo"}
+              </h2>
+              <span className="text-[10px] text-stone-300 font-medium">Optional</span>
+            </div>
+
+            {farmPhotoPreview ? (
+              <div className="relative rounded-xl overflow-hidden border border-stone-200">
+                <img
+                  src={resolveMediaUrl(farmPhotoPreview) || farmPhotoPreview}
+                  alt="Farm Overview"
+                  className="w-full h-44 object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-lg px-2.5 py-1">
+                    <CheckCircle2 size={12} className="text-emerald-400" />
+                    <span className="text-[11px] font-semibold text-white truncate max-w-[180px]">
+                      {farmPhotoWatch?.name || "Farm Photo Captured"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue("farmPhoto", null, { shouldValidate: true });
+                      setFarmPhotoPreview(null);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-500/80 backdrop-blur-sm text-white hover:bg-rose-600 transition-colors"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 transition"
+                >
+                  <Camera size={18} className="text-teal-600" />
+                  <span className="text-xs font-bold">Take Photo</span>
+                </button>
+                <label className="flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-xl border border-dashed border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 cursor-pointer transition">
+                  <Upload size={18} className="text-stone-500" />
+                  <span className="text-xs font-bold">Upload File</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setValue("farmPhoto", f, { shouldValidate: true });
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
           </motion.div>
 
           <motion.div
