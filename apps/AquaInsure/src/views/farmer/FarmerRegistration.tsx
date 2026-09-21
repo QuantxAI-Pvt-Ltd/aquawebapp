@@ -62,41 +62,75 @@ const FarmerRegistration = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // Guard: if registration is already complete, skip back to daily entry
-  useEffect(() => {
-    if (localStorage.getItem('aqua-reg-complete') === '1') {
-      navigate('/entries/daily', { replace: true });
-    }
-  }, []);
-
   const [step, setStep] = useState(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [aadharOcrLoading, setAadharOcrLoading] = useState(false);
   const [aadharOcrDone, setAadharOcrDone] = useState(false);
   const aadharInputRef = useRef<HTMLInputElement>(null);
   const steps = [t("farmer.stepBasic"), t("farmer.stepAddress"), t("farmer.stepIdentity")];
-  const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
+  const [session, setSession] = useState<{ phone?: string; farmerId?: string; token?: string }>({});
 
   const {
     register,
     handleSubmit,
     setValue,
+    reset,
     watch,
     trigger,
     formState: { errors }
   } = useForm<FarmerForm>({
     resolver: zodResolver(farmerSchema as any),
-    defaultValues: (() => {
+    defaultValues: {
+      phone: '',
+      name: '',
+      fatherName: '',
+      gender: undefined,
+      isScSt: false,
+      dob: '',
+      community: '',
+      village: '',
+      taluk: '',
+      district: '',
+      state: '',
+      pinCode: '',
+      regType: undefined,
+      regNumber: '',
+      aadharNumber: '',
+      hasPan: 'no',
+      panNumber: '',
+      accountHolderName: '',
+      bankName: '',
+      branch: '',
+      accountType: undefined,
+      accountNumber: '',
+      ifscCode: ''
+    }
+  });
+
+  // Guard: if registration is already complete, skip back to daily entry.
+  // Rehydrate draft and session safely on client after initial mount to eliminate SSR mismatch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem('aqua-reg-complete') === '1') {
+      navigate('/entries/daily', { replace: true });
+      return;
+    }
+
+    try {
+      const sess = JSON.parse(localStorage.getItem('aqua-session') || '{}');
+      setSession(sess);
+
       const draftStr = localStorage.getItem("draft_farmer");
       if (draftStr) {
-        try {
-          const draft = JSON.parse(draftStr);
-          return { ...draft, phone: session.phone || draft.phone || '' };
-        } catch(e) {}
+        const draft = JSON.parse(draftStr);
+        reset({ ...draft, phone: sess.phone || draft.phone || '' });
+      } else if (sess.phone) {
+        setValue('phone', sess.phone);
       }
-      return { phone: session.phone || '' };
-    })()
-  });
+    } catch (e) {
+      console.error('Error hydrating draft_farmer:', e);
+    }
+  }, [navigate, reset, setValue]);
 
   const formValues = watch();
 
@@ -111,9 +145,10 @@ const FarmerRegistration = () => {
   }, [formValues]);
 
   const { syncStatus } = useAutoSave(formValues, async () => {
-    if (!session.farmerId) return;
+    const currentSession = session.farmerId ? session : JSON.parse(localStorage.getItem('aqua-session') || '{}');
+    if (!currentSession.farmerId) return;
     try {
-      await axios.patch(`/api/farmers/${session.farmerId}`, {
+      await axios.patch(`/api/farmers/${currentSession.farmerId}`, {
         name: formValues.name,
         fatherName: formValues.fatherName,
         phone: formValues.phone,
@@ -126,7 +161,7 @@ const FarmerRegistration = () => {
         }
       });
       if (formValues.name) {
-        localStorage.setItem('aqua-session', JSON.stringify({ ...session, name: formValues.name }));
+        localStorage.setItem('aqua-session', JSON.stringify({ ...currentSession, name: formValues.name }));
         localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name: formValues.name }));
       }
     } catch(e) {
