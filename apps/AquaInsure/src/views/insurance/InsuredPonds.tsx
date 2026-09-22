@@ -29,7 +29,7 @@ import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import CameraCapture from "@/components/CameraCapture";
 import axios from "@/lib/api";
-import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
+import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import { LOCATIONS, STATES } from "@/constants/locations";
 
 interface PondDetail {
@@ -192,21 +192,31 @@ const InsuredPonds = () => {
         return;
       }
 
-      // Build API payload — convert photos to base64 ONLY for the server request
+      // Build API payload — upload photos to SeaweedFS S3 storage
       const pondPayload = await Promise.all(
-        Object.values(pondDetails).map(async (pd) => ({
-          pondId: pd.pondId,
-          pondNumber: pd.pondNumber,
-          dimensionAcres: parseFloat(pd.dimensionAcres),
-          photo: pd.photo ? await fileToBase64(pd.photo) : (pd.photoPreview ? pd.photoPreview : null),
-          address: {
-            village: pd.village,
-            taluk: pd.taluk,
-            district: pd.district,
-            state: pd.state,
-            pinCode: pd.pinCode,
-          },
-        }))
+        Object.values(pondDetails).map(async (pd) => {
+          let photoUrl = pd.photoPreview;
+          if (pd.photo instanceof File) {
+            const uploaded = await uploadToSeaweedFS(
+              pd.photo,
+              `farmers/${farmerId}/farms/${farmId}/ponds`
+            );
+            photoUrl = uploaded?.key || uploaded?.url || null;
+          }
+          return {
+            pondId: pd.pondId,
+            pondNumber: pd.pondNumber,
+            dimensionAcres: parseFloat(pd.dimensionAcres),
+            photo: photoUrl || null,
+            address: {
+              village: pd.village,
+              taluk: pd.taluk,
+              district: pd.district,
+              state: pd.state,
+              pinCode: pd.pinCode,
+            },
+          };
+        })
       );
 
       const res = await axios.patch(
@@ -260,7 +270,7 @@ const InsuredPonds = () => {
         return;
       }
 
-      // On API error — save text fields only, never base64 photos (quota risk)
+      // Offline fallback: save metadata without base64 photos to stay within quota
       const updatedPonds = (farmData.ponds || []).map((p: any) => {
         const id = p._id || p.pondId;
         const detail = pondDetails[id];
@@ -296,7 +306,7 @@ const InsuredPonds = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       {cameraOpenFor && (
         <CameraCapture

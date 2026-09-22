@@ -717,12 +717,36 @@ const DailyEntry = () => {
                     { placeholder: t("entries.hardness"), key: 'hardness' },
                     { placeholder: t("entries.alkalinity"), key: 'alkalinity' },
                   ].map(({ placeholder, key }) => (
-                    <Input key={key} placeholder={placeholder} type="number"
-                      className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm"
-                      value={data[key] || ""}
-                      onChange={(e) => update(key, e.target.value)} />
+                    <div key={key} className="space-y-1">
+                      <Input placeholder={placeholder} type="number" step="any"
+                        className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm"
+                        value={data[key] || ""}
+                        onChange={(e) => update(key, e.target.value)} />
+                    </div>
                   ))}
                 </div>
+
+                {/* Real-time telemetry alerts */}
+                {(Number(data.do) > 0 && Number(data.do) < 4.0) && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                    <span>⚠️</span>
+                    <span><strong>Low DO Alert:</strong> Dissolved Oxygen ({data.do} mg/L) is below safe threshold (&ge; 4.0 mg/L). Turn on aerators.</span>
+                  </div>
+                )}
+
+                {(Number(data.ph) > 0 && (Number(data.ph) < 7.5 || Number(data.ph) > 8.5)) && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 font-medium">
+                    <span>⚠️</span>
+                    <span><strong>pH Warning:</strong> pH ({data.ph}) is outside the optimal shrimp range (7.5 - 8.5). Check alkalinity/liming.</span>
+                  </div>
+                )}
+
+                {(Number(data.ammonia) > 0.1) && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                    <span>⚠️</span>
+                    <span><strong>Toxic Ammonia:</strong> Ammonia ({data.ammonia} mg/L) exceeds safe maximum (0.1 mg/L). Reduce feeding.</span>
+                  </div>
+                )}
                 <div className="space-y-2 pt-2 border-t border-stone-100">
                   <Input
                     placeholder="Electricity Units Consumed (kWh)"

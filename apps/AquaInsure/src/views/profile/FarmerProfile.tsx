@@ -33,7 +33,7 @@ export default function FarmerProfile() {
     }, []);
 
     return (
-        <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]" style={{ fontFamily: "'Sora', sans-serif" }}>
+        <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
             {/* Header */}

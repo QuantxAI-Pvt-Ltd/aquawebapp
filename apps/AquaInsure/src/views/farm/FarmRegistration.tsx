@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +18,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
+import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import axios from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 import { LOCATIONS, STATES } from "@/constants/locations";
@@ -167,7 +167,13 @@ export default function FarmRegistration() {
 
       toast.loading(t("common.saving"), { id: 'farm-save' });
 
-      const farmPhotoBase64 = data.farmPhoto ? await fileToBase64(data.farmPhoto) : null;
+      let farmPhotoUrl: string | null = null;
+      if (data.farmPhoto instanceof File) {
+        const uploaded = await uploadToSeaweedFS(data.farmPhoto, `farmers/${farmerId}/farms`);
+        farmPhotoUrl = uploaded?.key || uploaded?.url || null;
+      } else if (typeof data.farmPhoto === 'string') {
+        farmPhotoUrl = data.farmPhoto;
+      }
 
       const payload = {
         farmerId,
@@ -185,7 +191,7 @@ export default function FarmRegistration() {
         },
         totalPonds: Number(data.totalPonds),
         pondsCount: Number(data.totalPonds),
-        farmPhoto: farmPhotoBase64 || null,
+        farmPhoto: farmPhotoUrl,
         infrastructure: {
           filtration: infra.filtration === "yes",
           reservoir: infra.reservoir === "yes",
@@ -226,7 +232,7 @@ export default function FarmRegistration() {
   const inputClasses = "h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300";
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

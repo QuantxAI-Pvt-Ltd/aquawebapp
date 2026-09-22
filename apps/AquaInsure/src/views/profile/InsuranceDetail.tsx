@@ -13,9 +13,10 @@ import {
     Waves,
     ArrowRight
 } from "lucide-react";
+import { toast } from "sonner";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
-import { fileToBase64, resolveMediaUrl } from "@/lib/fileUtils";
+import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -71,6 +72,7 @@ export default function InsuranceDetail() {
     const [reason, setReason] = useState("mass_mortality");
     const [lossPercent, setLossPercent] = useState(50);
     const [description, setDescription] = useState("");
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -102,8 +104,9 @@ export default function InsuranceDetail() {
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const b64 = await fileToBase64(file);
-            setPhotoPreview(b64);
+            setPhotoFile(file);
+            const url = URL.createObjectURL(file);
+            setPhotoPreview(url);
         }
     };
 
@@ -113,24 +116,38 @@ export default function InsuranceDetail() {
 
         try {
             setSubmitting(true);
+            toast.loading("Submitting insurance claim...", { id: "detail-claim-save" });
+
+            let evidencePhotoUrl: string | null = null;
+            if (photoFile) {
+                const uploaded = await uploadToSeaweedFS(photoFile, `farmers/${farmerId}/claims`);
+                evidencePhotoUrl = uploaded?.key || uploaded?.url || null;
+            } else if (photoPreview) {
+                evidencePhotoUrl = photoPreview;
+            }
+
             const res = await axios.post(`/api/insurances/${activeClaimPolicy._id}/claim`, {
                 reason,
                 description,
                 estimatedLossPercent: lossPercent,
-                evidencePhoto: photoPreview
+                evidencePhoto: evidencePhotoUrl
             });
 
             if (res.data.success) {
+                toast.dismiss("detail-claim-save");
+                toast.success("Claim filed successfully and is under review.");
                 setActiveClaimPolicy(null);
                 setDescription("");
+                setPhotoFile(null);
                 setPhotoPreview(null);
                 setLossPercent(50);
                 await fetchData(farmerId);
                 setViewMode("claims");
             }
         } catch (err: unknown) {
+            toast.dismiss("detail-claim-save");
             const msg = axios.isAxiosError(err) ? err.response?.data?.error : (err as Error).message;
-            alert(msg || "Failed to submit claim. Please try again.");
+            toast.error(msg || "Failed to submit claim. Please try again.");
         } finally {
             setSubmitting(false);
         }
@@ -146,7 +163,7 @@ export default function InsuranceDetail() {
     };
 
     return (
-        <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]" style={{ fontFamily: "'Sora', sans-serif" }}>
+        <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
             {/* Header */}

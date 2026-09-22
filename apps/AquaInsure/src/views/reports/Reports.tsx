@@ -160,9 +160,9 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] pb-0 overflow-x-clip print:bg-white print:pb-0 flex flex-col"
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col"
       style={{
-        fontFamily: "'Outfit', sans-serif",
+        fontFamily: "'Sora', sans-serif",
         background: 'linear-gradient(160deg, #f0fdf9 0%, #ecfdf5 50%, #f8fafc 100%)',
       }}>
       <style>{`

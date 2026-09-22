@@ -11,6 +11,66 @@ export interface MediaObjectResult {
 }
 
 /**
+ * Compresses an image file on the client side before upload.
+ */
+export async function compressImage(
+  file: File,
+  maxWidth = 1600,
+  quality = 0.82
+): Promise<File> {
+  if (typeof window === 'undefined' || !file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    return file;
+  }
+
+  // If already under 400KB, skip re-compression
+  if (file.size < 400 * 1024) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (blob && blob.size < file.size) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
+/**
  * Converts a standard browser File object into a Base64 string (legacy fallback).
  */
 export const fileToBase64 = (file: File | string | null | undefined): Promise<string | null> => {
@@ -37,11 +97,11 @@ export const fileToBase64 = (file: File | string | null | undefined): Promise<st
 };
 
 /**
- * Uploads a file directly to SeaweedFS distributed storage via S3 Presigned URL,
- * with graceful fallback to backend streaming proxy.
+ * Uploads a file directly to SeaweedFS distributed storage with automatic client-side compression
+ * and graceful fallback to backend streaming proxy.
  *
  * @param file - The browser File object
- * @param folder - Destination folder key prefix (e.g. 'sampling-videos', 'kyc', 'bills')
+ * @param folder - Destination folder key prefix (e.g. 'farmers/123/kyc', 'farmers/123/farms/abc')
  * @returns MediaObject metadata { url, key, mimeType, size }
  */
 export async function uploadToSeaweedFS(
@@ -50,10 +110,20 @@ export async function uploadToSeaweedFS(
 ): Promise<MediaObjectResult | null> {
   if (!file) return null;
 
-  // 1. Upload multipart stream through backend (avoids direct browser-to-storage CORS preflight issues)
+  // 1. Client-side compress images if applicable
+  let fileToUpload = file;
+  if (file.type.startsWith('image/')) {
+    try {
+      fileToUpload = await compressImage(file);
+    } catch {
+      fileToUpload = file;
+    }
+  }
+
+  // 2. Upload multipart stream through backend proxy
   try {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', fileToUpload);
     formData.append('folder', folder);
 
     const streamRes = await fetch(`${API_BASE_URL}/api/media/upload`, {
@@ -67,8 +137,8 @@ export async function uploadToSeaweedFS(
         return {
           url: data.url || `/api/media/stream?key=${encodeURIComponent(data.key)}`,
           key: data.key,
-          mimeType: data.mimeType || file.type,
-          size: data.size || file.size,
+          mimeType: data.mimeType || fileToUpload.type,
+          size: data.size || fileToUpload.size,
         };
       }
     }
@@ -76,9 +146,9 @@ export async function uploadToSeaweedFS(
     console.warn('[SeaweedFS] Backend upload proxy failed:', err);
   }
 
-  // 2. Fallback to base64 if backend storage is completely unreachable
-  const b64 = await fileToBase64(file);
-  return b64 ? { url: b64, key: '', mimeType: file.type, size: file.size } : null;
+  // 3. Fallback to base64 if backend storage is completely unreachable
+  const b64 = await fileToBase64(fileToUpload);
+  return b64 ? { url: b64, key: '', mimeType: fileToUpload.type, size: fileToUpload.size } : null;
 }
 
 /**
@@ -103,7 +173,6 @@ export function resolveMediaUrl(media: any): string | null {
     if (!trimmed) return null;
 
     // Auto-heal corrupted data URI wrappers around relative stream endpoints
-    // (e.g. "data:image/jpeg;base64,/api/media/stream?key=...")
     if (
       trimmed.startsWith('data:image/jpeg;base64,/api/media/stream') ||
       trimmed.startsWith('data:image/png;base64,/api/media/stream') ||
@@ -124,7 +193,6 @@ export function resolveMediaUrl(media: any): string | null {
     }
 
     if (trimmed.startsWith('data:')) {
-      // Ensure the data URI doesn't wrap a relative URL
       if (trimmed.includes('/api/media/stream')) {
         const match = trimmed.match(/\/api\/media\/stream.+$/);
         if (match) return match[0];
@@ -132,7 +200,7 @@ export function resolveMediaUrl(media: any): string | null {
       return trimmed;
     }
 
-    // 3. SeaweedFS volume FID (e.g. "1,28a335fbc5") or S3 key (e.g. "farmers/..." or "aquainsure/...")
+    // 3. SeaweedFS volume FID or S3 key
     if (
       /^\d+,[0-9a-zA-Z]+$/.test(trimmed) ||
       ((trimmed.startsWith('farmers/') ||
@@ -151,5 +219,3 @@ export function resolveMediaUrl(media: any): string | null {
 
   return null;
 }
-
-

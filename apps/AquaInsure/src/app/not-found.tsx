@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import NotFound from '@/pages/NotFound';
+import ErrorDisplay from '@/components/ErrorDisplay';
 
 export default function NotFoundPage() {
   useEffect(() => {
@@ -10,5 +10,13 @@ export default function NotFoundPage() {
     }
   }, []);
 
-  return <NotFound />;
+  return (
+    <ErrorDisplay
+      statusCode={404}
+      title="Page Not Found"
+      message="The requested AquaInsure page could not be found."
+      showHomeButton={true}
+      showBackButton={true}
+    />
+  );
 }

@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { fileToBase64 } from "@/lib/fileUtils";
+import { fileToBase64, uploadToSeaweedFS } from "@/lib/fileUtils";
 import axios, { API_BASE_URL } from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 import { LOCATIONS, STATES } from "@/constants/locations";
@@ -244,11 +244,23 @@ const FarmerRegistration = () => {
         return;
       }
 
-      // Convert files to Base64 strings to send as Mongoose Buffer/BinData
-      const regCertificateBase64 = await fileToBase64(data.regCertificate);
-      const aadharFileBase64 = await fileToBase64(data.aadharFile);
-      const panFileBase64 = await fileToBase64(data.panFile);
-      const photoBase64 = await fileToBase64(data.photo);
+      // Upload media to SeaweedFS S3 storage with scoped keys
+      const [regCertMedia, aadharMedia, panMedia, photoMedia] = await Promise.all([
+        data.regCertificate instanceof File
+          ? uploadToSeaweedFS(data.regCertificate, `farmers/${farmerId}/kyc`)
+          : data.regCertificate ? { url: data.regCertificate } : null,
+        data.aadharFile instanceof File
+          ? uploadToSeaweedFS(data.aadharFile, `farmers/${farmerId}/kyc`)
+          : data.aadharFile ? { url: data.aadharFile } : null,
+        data.panFile instanceof File
+          ? uploadToSeaweedFS(data.panFile, `farmers/${farmerId}/kyc`)
+          : data.panFile ? { url: data.panFile } : null,
+        data.photo instanceof File
+          ? uploadToSeaweedFS(data.photo, `farmers/${farmerId}/kyc`)
+          : data.photo ? { url: data.photo } : null,
+      ]);
+
+      const getMediaVal = (m: any): string | null => (m ? (m.key || m.url || null) : null);
 
       const payload = {
         name: data.name,
@@ -261,15 +273,15 @@ const FarmerRegistration = () => {
         registration: {
           regType: data.regType,
           regNumber: data.regNumber?.trim() || undefined,
-          regCertificate: regCertificateBase64 || null
+          regCertificate: getMediaVal(regCertMedia)
         },
         identity: {
           aadharNumber: data.aadharNumber?.trim() || undefined,
-          aadharFile: aadharFileBase64 || null,
+          aadharFile: getMediaVal(aadharMedia),
           hasPan: data.hasPan === "yes",
           panNumber: data.panNumber?.trim() || undefined,
-          panFile: panFileBase64 || null,
-          photo: photoBase64 || null
+          panFile: getMediaVal(panMedia),
+          photo: getMediaVal(photoMedia)
         },
         address: {
           village: data.village,
@@ -338,15 +350,18 @@ const FarmerRegistration = () => {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        toast.error(json.error || "Please upload a valid Aadhaar card.");
-        setValue("aadharFile", undefined);
-        if (aadharInputRef.current) aadharInputRef.current.value = "";
-        return;
+        throw new Error(json.error || "OCR extraction failed");
       }
-      const d = json.data;
+      const d = json.data || {};
       if (d.name) setValue("name", d.name);
-      if (d.fatherName) setValue("fatherName", d.fatherName);
       if (d.gender) setValue("gender", d.gender);
+      if (d.dob) setValue("dob", d.dob);
+      if (d.fatherName) setValue("fatherName", d.fatherName);
+      if (d.address?.village) setValue("village", d.address.village);
+      if (d.address?.taluk) setValue("taluk", d.address.taluk);
+      if (d.address?.district) setValue("district", d.address.district);
+      if (d.address?.state) setValue("state", d.address.state);
+      if (d.address?.pinCode) setValue("pinCode", d.address.pinCode);
       if (d.aadhaarNumber) setValue("aadharNumber", d.aadhaarNumber);
       setAadharOcrDone(true);
       toast.success("Aadhaar details extracted and autofilled!");
@@ -423,7 +438,7 @@ const FarmerRegistration = () => {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-stone-800 font-sans">
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 

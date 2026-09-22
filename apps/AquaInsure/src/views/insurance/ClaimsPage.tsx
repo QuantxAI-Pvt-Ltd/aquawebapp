@@ -20,9 +20,10 @@ import {
   Waves,
   FileText
 } from 'lucide-react';
+import { toast } from 'sonner';
 import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
-import { fileToBase64, resolveMediaUrl } from '@/lib/fileUtils';
+import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from '@/lib/fileUtils';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -83,6 +84,7 @@ export default function ClaimsPage() {
   const [claimReason, setClaimReason] = useState('mass_mortality');
   const [lossPercent, setLossPercent] = useState(50);
   const [description, setDescription] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -119,39 +121,54 @@ export default function ClaimsPage() {
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const b64 = await fileToBase64(file);
-      setPhotoPreview(b64);
+      setPhotoFile(file);
+      const url = URL.createObjectURL(file);
+      setPhotoPreview(url);
     }
   };
 
   const handleFileClaim = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPolicyId) {
-      alert('Please select an active policy to file a claim on.');
+      toast.error('Please select an active policy to file a claim on.');
       return;
     }
 
     try {
       setSubmitting(true);
+      toast.loading('Submitting insurance claim...', { id: 'claim-save' });
+
+      let evidencePhotoUrl: string | null = null;
+      if (photoFile) {
+        const uploaded = await uploadToSeaweedFS(photoFile, `farmers/${farmerId}/claims`);
+        evidencePhotoUrl = uploaded?.key || uploaded?.url || null;
+      } else if (photoPreview) {
+        evidencePhotoUrl = photoPreview;
+      }
+
       const res = await axios.post(`/api/insurances/${selectedPolicyId}/claim`, {
         reason: claimReason,
         description,
         estimatedLossPercent: lossPercent,
-        evidencePhoto: photoPreview,
+        evidencePhoto: evidencePhotoUrl,
       });
 
       if (res.data.success) {
+        toast.dismiss('claim-save');
+        toast.success('Insurance claim submitted successfully!');
         setIsModalOpen(false);
         setSelectedPolicyId('');
         setDescription('');
+        setPhotoFile(null);
         setPhotoPreview(null);
         setLossPercent(50);
         await loadData(farmerId);
       }
     } catch (err: unknown) {
+      toast.dismiss('claim-save');
       console.error('Claim submission failed:', err);
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : (err as Error).message;
-      alert(msg || 'Failed to submit claim. Please try again.');
+      toast.error(msg || 'Failed to submit claim. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +184,7 @@ export default function ClaimsPage() {
   });
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]" style={{ fontFamily: "'Sora', sans-serif" }}>
+    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
       {/* Header */}
