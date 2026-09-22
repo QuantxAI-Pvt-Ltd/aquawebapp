@@ -160,7 +160,7 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col"
+    <div className="h-full min-h-[100dvh] bg-stone-50 overflow-hidden flex flex-col"
       style={{
         fontFamily: "'Sora', sans-serif",
         background: 'linear-gradient(160deg, #f0fdf9 0%, #ecfdf5 50%, #f8fafc 100%)',
@@ -178,7 +178,9 @@ const Reports = () => {
         .search-field input::placeholder { color: rgba(255,255,255,0.45) !important; }
       `}</style>
 
-      {/* HEADER */}
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* HEADER */}
       <div className="no-print relative overflow-hidden z-10 px-5 pt-8 pb-6"
         style={{
           background: 'linear-gradient(135deg, #0a2e2b 0%, #0f766e 45%, #0d9488 80%, #14b8a6 100%)',
@@ -461,6 +463,7 @@ const Reports = () => {
             </AnimatePresence>
           </div>
         )}
+        </div>
       </div>
 
       <BottomNav />

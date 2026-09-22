@@ -111,125 +111,131 @@ const SettingsPage = () => {
 
   return (
     <div
-      className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col"
+      className="h-full min-h-[100dvh] bg-stone-50 overflow-hidden flex flex-col"
       style={{ fontFamily: "'Sora', sans-serif" }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
-      {/* HEADER */}
-      <div
-        className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
-          boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
-        }}
-      >
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
+        {/* HEADER */}
         <div
-          className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
-          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }}
-        />
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-bold text-white tracking-tight">
-              {t('settings.title') || 'Settings & Support'}
-            </h1>
+          className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
+          style={{
+            background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
+            boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
+          }}
+        >
+          <div
+            className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
+            style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }}
+          />
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(-1)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                {t('settings.title') || 'Settings & Support'}
+              </h1>
+            </div>
+            <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
+              Aqua <span className="text-amber-300">AI</span>nsure
+            </span>
           </div>
-          <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
-            Aqua <span className="text-amber-300">AI</span>nsure
-          </span>
+        </div>
+
+        <div className="px-4 mt-4 space-y-4 pb-8 flex-1">
+          {/* FARMER PROFILE CARD */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm flex items-center gap-3.5"
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shadow-teal-900/10 shrink-0"
+              style={{ background: 'linear-gradient(135deg, #1c6b5a, #2d9b7f)' }}
+            >
+              {farmerName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-sm font-bold text-stone-800 truncate">{farmerName}</h2>
+                <span className="inline-flex items-center text-teal-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{farmerPhone}</p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0">
+              Active Policy
+            </span>
+          </motion.div>
+
+          {/* SETTINGS LIST */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm"
+          >
+            {items.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={item.action}
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors active:bg-stone-50
+                  ${idx < items.length - 1 ? 'border-b border-stone-100' : ''}
+                  ${item.destructive ? 'hover:bg-red-50/60' : 'hover:bg-stone-50'}
+                `}
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${item.iconBg}`}
+                >
+                  <item.icon size={16} className={item.iconColor} />
+                </div>
+
+                <span
+                  className={`flex-1 text-left text-xs font-semibold ${
+                    item.destructive ? 'text-red-500' : 'text-stone-700'
+                  }`}
+                >
+                  {item.label}
+                </span>
+
+                <ChevronRight
+                  size={15}
+                  className={item.destructive ? 'text-red-300' : 'text-stone-300'}
+                />
+              </button>
+            ))}
+          </motion.div>
+
+          {/* APP VERSION / FOOTER */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="text-center text-[10px] font-semibold text-stone-400 mt-5 tracking-wide"
+          >
+            Aqua <span className="text-teal-600">AI</span>nsure v2.4.0 · All rights reserved
+          </motion.p>
         </div>
       </div>
 
-      <div className="px-4 mt-4 space-y-4">
-        {/* FARMER PROFILE CARD */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm flex items-center gap-3.5"
-        >
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shadow-teal-900/10 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1c6b5a, #2d9b7f)' }}
-          >
-            {farmerName.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-sm font-bold text-stone-800 truncate">{farmerName}</h2>
-              <span className="inline-flex items-center text-teal-600">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </span>
-            </div>
-            <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{farmerPhone}</p>
-          </div>
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0">
-            Active Policy
-          </span>
-        </motion.div>
-
-        {/* SETTINGS LIST */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm"
-        >
-          {items.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={item.action}
-              className={`w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors active:bg-stone-50
-                ${idx < items.length - 1 ? 'border-b border-stone-100' : ''}
-                ${item.destructive ? 'hover:bg-red-50/60' : 'hover:bg-stone-50'}
-              `}
-            >
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${item.iconBg}`}
-              >
-                <item.icon size={16} className={item.iconColor} />
-              </div>
-
-              <span
-                className={`flex-1 text-left text-xs font-semibold ${
-                  item.destructive ? 'text-red-500' : 'text-stone-700'
-                }`}
-              >
-                {item.label}
-              </span>
-
-              <ChevronRight
-                size={15}
-                className={item.destructive ? 'text-red-300' : 'text-stone-300'}
-              />
-            </button>
-          ))}
-        </motion.div>
-
-        {/* APP VERSION / FOOTER */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center text-[10px] font-semibold text-stone-400 mt-5 tracking-wide"
-        >
-          Aqua <span className="text-teal-600">AI</span>nsure v2.4.0 · All rights reserved
-        </motion.p>
-      </div>
+      {/* FIXED BOTTOM DOCK */}
+      <BottomNav />
 
       {/* SUPPORT MODAL */}
       <AnimatePresence>
         {supportModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 border border-stone-200 shadow-2xl space-y-4"
+              className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-8 border border-stone-200 shadow-2xl space-y-4 relative z-[101]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -285,12 +291,12 @@ const SettingsPage = () => {
       {/* TERMS MODAL */}
       <AnimatePresence>
         {termsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 border border-stone-200 shadow-2xl flex flex-col space-y-3"
+              className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 pb-8 border border-stone-200 shadow-2xl flex flex-col space-y-3 relative z-[101]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

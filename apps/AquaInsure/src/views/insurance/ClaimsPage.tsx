@@ -15,15 +15,13 @@ import {
   Plus,
   Camera,
   X,
-  IndianRupee,
-  Calendar,
   Waves,
   FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
-import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from '@/lib/fileUtils';
+import { uploadToSeaweedFS, resolveMediaUrl } from '@/lib/fileUtils';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -98,27 +96,37 @@ export default function ClaimsPage() {
         axios.get(`/api/insurances?farmerId=${fId}`),
       ]);
 
-      setClaims(claimsRes.data.data || []);
-      const policies = policiesRes.data.data || [];
-      setActivePolicies(policies.filter((p: ClaimPolicy) => p.status === 'active'));
+      if (claimsRes.data.success) {
+        setClaims(claimsRes.data.data || []);
+      }
+      if (policiesRes.data.success) {
+        const active = (policiesRes.data.data || []).filter(
+          (p: ClaimPolicy) => p.status === 'active' && !p.claim
+        );
+        setActivePolicies(active);
+        if (active.length > 0 && !selectedPolicyId) {
+          setSelectedPolicyId(active[0]._id);
+        }
+      }
     } catch (err) {
-      console.error('Error fetching claims:', err);
+      console.error('Failed to load claims data:', err);
+      toast.error('Unable to load insurance claims. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
-    if (!session.farmerId) {
-      navigate('/login', { replace: true });
-      return;
+    const fId = localStorage.getItem('farmerId');
+    if (fId) {
+      setFarmerId(fId);
+      loadData(fId);
+    } else {
+      setLoading(false);
     }
-    setFarmerId(session.farmerId);
-    loadData(session.farmerId);
-  }, [navigate]);
+  }, []);
 
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
@@ -184,288 +192,291 @@ export default function ClaimsPage() {
   });
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
+    <div className="h-full flex flex-col overflow-hidden bg-stone-50 relative" style={{ fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
-      {/* Header */}
-      <div
-        className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(140deg,#1c4a3e 0%,#1c6b5a 45%,#2d9b7f 100%)',
-          boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
-        }}
-      >
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Insurance Claims</h1>
-              <p className="text-xs text-white/70">File and monitor claim status</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
-            Aqua <span className="text-amber-300">AI</span>nsure
-          </span>
-        </div>
-      </div>
-
-      <div className="px-4 mt-4">
-        {/* Quick Action: File New Claim */}
-        <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-4">
-          <div>
-            <h2 className="text-sm font-bold text-stone-800">Experienced a loss?</h2>
-            <p className="text-xs text-stone-500">File an incident claim on your active policy</p>
-          </div>
-          <button
-            onClick={() => {
-              if (activePolicies.length > 0) {
-                setSelectedPolicyId(activePolicies[0]._id);
-              }
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition shadow-sm touch-manipulation"
-          >
-            <Plus size={16} />
-            <span>File Claim</span>
-          </button>
-        </div>
-
-        {/* Status Filter Tabs */}
-        <div className="flex bg-stone-200/70 p-1 rounded-xl mb-4 text-xs font-semibold text-stone-600">
-          {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-lg capitalize transition-all touch-manipulation ${
-                activeTab === tab
-                  ? 'bg-white text-teal-800 shadow-sm font-bold'
-                  : 'text-stone-500 hover:text-stone-800'
-              }`}
-            >
-              {tab === 'pending' ? 'Under Review' : tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Claims List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-stone-400">
-            <Clock className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-            <p className="text-sm">Loading claims...</p>
-          </div>
-        ) : filteredClaims.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 border border-stone-100 text-center shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto mb-3">
-              <ShieldCheck className="w-6 h-6 text-teal-600" />
-            </div>
-            <h3 className="text-stone-800 font-bold text-sm mb-1">No Claims in this Category</h3>
-            <p className="text-xs text-stone-500 max-w-xs mx-auto mb-4">
-              {activeTab === 'all'
-                ? "You haven't filed any insurance claims. Your active policies are protected."
-                : `There are currently no claims marked as "${activeTab}".`}
-            </p>
-            {activePolicies.length > 0 && activeTab === 'all' && (
+      {/* Scrollable Content Container */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* Header */}
+        <div
+          className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(140deg,#1c4a3e 0%,#1c6b5a 45%,#2d9b7f 100%)',
+            boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
+          }}
+        >
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  setSelectedPolicyId(activePolicies[0]._id);
-                  setIsModalOpen(true);
-                }}
-                className="px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:bg-teal-700 transition"
+                onClick={() => navigate('/dashboard')}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation"
               >
-                File Claim Now
+                <ChevronLeft className="w-5 h-5" />
               </button>
-            )}
+              <div>
+                <h1 className="text-lg font-bold text-white tracking-tight">Insurance Claims</h1>
+                <p className="text-xs text-white/70">File and monitor claim status</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
+              Aqua <span className="text-amber-300">AI</span>nsure
+            </span>
           </div>
-        ) : (
-          filteredClaims.map((item, idx) => {
-            const claim = item.claim;
-            const cStatus = claim?.status || 'pending';
-            const evidenceUrl = resolveMediaUrl(claim?.evidencePhoto);
+        </div>
 
-            return (
-              <motion.div
-                key={item._id}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ease: EASE, duration: 0.4, delay: idx * 0.05 }}
-                className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3.5 relative overflow-hidden"
+        <div className="px-4 mt-4">
+          {/* Quick Action: File New Claim */}
+          <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-stone-800">Experienced a loss?</h2>
+              <p className="text-xs text-stone-500">File an incident claim on your active policy</p>
+            </div>
+            <button
+              onClick={() => {
+                if (activePolicies.length > 0) {
+                  setSelectedPolicyId(activePolicies[0]._id);
+                }
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition shadow-sm touch-manipulation"
+            >
+              <Plus size={16} />
+              <span>File Claim</span>
+            </button>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex bg-stone-200/70 p-1 rounded-xl mb-4 text-xs font-semibold text-stone-600">
+            {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2 rounded-lg capitalize transition-all touch-manipulation ${
+                  activeTab === tab
+                    ? 'bg-white text-teal-800 shadow-sm font-bold'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
               >
-                {/* Status bar accent */}
-                <div
-                  className={`absolute top-0 left-0 right-0 h-1 ${
-                    cStatus === 'approved'
-                      ? 'bg-emerald-500'
-                      : cStatus === 'rejected'
-                      ? 'bg-rose-500'
-                      : 'bg-amber-500'
-                  }`}
-                />
+                {tab === 'pending' ? 'Under Review' : tab}
+              </button>
+            ))}
+          </div>
 
-                <div className="flex items-start justify-between gap-2 mb-3 pt-1">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        cStatus === 'approved'
-                          ? 'bg-emerald-50 border border-emerald-200 text-emerald-600'
-                          : cStatus === 'rejected'
-                          ? 'bg-rose-50 border border-rose-200 text-rose-600'
-                          : 'bg-amber-50 border border-amber-200 text-amber-600'
-                      }`}
-                    >
-                      {cStatus === 'approved' ? (
-                        <CheckCircle2 size={20} />
-                      ) : cStatus === 'rejected' ? (
-                        <XCircle size={20} />
-                      ) : (
-                        <Clock size={20} />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-stone-800">
-                        {item.pondId?.name || `Pond ${item.pondId?.pondNumber || ''}`}
-                      </h4>
-                      <p className="text-[11px] text-stone-400 flex items-center gap-1">
-                        <Waves size={12} />
-                        {item.farmId?.name || 'Farm'} · {item.species}
-                      </p>
-                    </div>
-                  </div>
+          {/* Claims List */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-stone-400">
+              <Clock className="w-8 h-8 animate-spin text-teal-600 mb-2" />
+              <p className="text-sm">Loading claims...</p>
+            </div>
+          ) : filteredClaims.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 border border-stone-100 text-center shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto mb-3">
+                <ShieldCheck className="w-6 h-6 text-teal-600" />
+              </div>
+              <h3 className="text-stone-800 font-bold text-sm mb-1">No Claims in this Category</h3>
+              <p className="text-xs text-stone-500 max-w-xs mx-auto mb-4">
+                {activeTab === 'all'
+                  ? "You haven't filed any insurance claims. Your active policies are protected."
+                  : `There are currently no claims marked as "${activeTab}".`}
+              </p>
+              {activePolicies.length > 0 && activeTab === 'all' && (
+                <button
+                  onClick={() => {
+                    setSelectedPolicyId(activePolicies[0]._id);
+                    setIsModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:bg-teal-700 transition"
+                >
+                  File Claim Now
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredClaims.map((item, idx) => {
+              const claim = item.claim;
+              const cStatus = claim?.status || 'pending';
+              const evidenceUrl = resolveMediaUrl(claim?.evidencePhoto);
 
-                  {/* Status Badge */}
-                  <span
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+              return (
+                <motion.div
+                  key={item._id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ease: EASE, duration: 0.4, delay: idx * 0.05 }}
+                  className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3.5 relative overflow-hidden"
+                >
+                  {/* Status bar accent */}
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 ${
                       cStatus === 'approved'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        ? 'bg-emerald-500'
                         : cStatus === 'rejected'
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-rose-500'
+                        : 'bg-amber-500'
                     }`}
-                  >
-                    {cStatus === 'approved'
-                      ? 'Approved'
-                      : cStatus === 'rejected'
-                      ? 'Rejected'
-                      : 'Under Review'}
-                  </span>
-                </div>
+                  />
 
-                {/* Claim Highlights */}
-                <div className="bg-stone-50 rounded-xl p-3 border border-stone-100 text-xs mb-3 grid grid-cols-2 gap-2.5">
-                  <div>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
-                      Reported Cause
-                    </span>
-                    <span className="font-semibold text-stone-800">
-                      {REASON_LABELS[claim?.reason || ''] || claim?.reason || 'Incident Reported'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
-                      Estimated Loss
-                    </span>
-                    <span className="font-bold text-rose-600">
-                      {claim?.estimatedLossPercent || 0}% Mortality
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
-                      Filing Date
-                    </span>
-                    <span className="text-stone-700">
-                      {claim?.claimedAt ? new Date(claim.claimedAt).toLocaleDateString() : 'Recent'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
-                      Policy Plan
-                    </span>
-                    <span className="text-stone-700 capitalize">
-                      {item.insuranceType} Coverage
-                    </span>
-                  </div>
-                </div>
-
-                {/* Settlement Banner for Approved Claims */}
-                {cStatus === 'approved' && (
-                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
-                        ₹
+                  <div className="flex items-start justify-between gap-2 mb-3 pt-1">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          cStatus === 'approved'
+                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-600'
+                            : cStatus === 'rejected'
+                            ? 'bg-rose-50 border border-rose-200 text-rose-600'
+                            : 'bg-amber-50 border border-amber-200 text-amber-600'
+                        }`}
+                      >
+                        {cStatus === 'approved' ? (
+                          <CheckCircle2 size={20} />
+                        ) : cStatus === 'rejected' ? (
+                          <XCircle size={20} />
+                        ) : (
+                          <Clock size={20} />
+                        )}
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
-                          Settlement Approved
+                        <h4 className="text-sm font-bold text-stone-800">
+                          {item.pondId?.name || `Pond ${item.pondId?.pondNumber || ''}`}
+                        </h4>
+                        <p className="text-[11px] text-stone-400 flex items-center gap-1">
+                          <Waves size={12} />
+                          {item.farmId?.name || 'Farm'} · {item.species}
                         </p>
-                        <p className="text-xs text-emerald-700">Direct credit to registered bank account</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm font-extrabold text-emerald-900">
-                        ₹{Number(claim?.settlementAmount || 0).toLocaleString('en-IN')}
+
+                    {/* Status Badge */}
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                        cStatus === 'approved'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : cStatus === 'rejected'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {cStatus === 'approved'
+                        ? 'Approved'
+                        : cStatus === 'rejected'
+                        ? 'Rejected'
+                        : 'Under Review'}
+                    </span>
+                  </div>
+
+                  {/* Claim Highlights */}
+                  <div className="bg-stone-50 rounded-xl p-3 border border-stone-100 text-xs mb-3 grid grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
+                        Reported Cause
+                      </span>
+                      <span className="font-semibold text-stone-800">
+                        {REASON_LABELS[claim?.reason || ''] || claim?.reason || 'Incident Reported'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
+                        Estimated Loss
+                      </span>
+                      <span className="font-bold text-rose-600">
+                        {claim?.estimatedLossPercent || 0}% Mortality
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
+                        Filing Date
+                      </span>
+                      <span className="text-stone-700">
+                        {claim?.claimedAt ? new Date(claim.claimedAt).toLocaleDateString() : 'Recent'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block mb-0.5">
+                        Policy Plan
+                      </span>
+                      <span className="text-stone-700 capitalize">
+                        {item.insuranceType} Coverage
                       </span>
                     </div>
                   </div>
-                )}
 
-                {/* Description & Reviewer Notes */}
-                {claim?.description && (
-                  <div className="mb-2">
-                    <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wider mb-0.5">
-                      Farmer Observation
-                    </p>
-                    <p className="text-xs text-stone-700 bg-stone-50/50 p-2 rounded-lg border border-stone-100">
-                      {claim.description}
-                    </p>
-                  </div>
-                )}
+                  {/* Settlement Banner for Approved Claims */}
+                  {cStatus === 'approved' && (
+                    <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                          ₹
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                            Settlement Approved
+                          </p>
+                          <p className="text-xs text-emerald-700">Direct credit to registered bank account</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-extrabold text-emerald-900">
+                          ₹{Number(claim?.settlementAmount || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-                {claim?.reviewerNotes && (
-                  <div className="mb-2">
-                    <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wider mb-0.5">
-                      Insurance Inspector Notes
-                    </p>
-                    <p className="text-xs text-stone-800 bg-amber-50/60 p-2 rounded-lg border border-amber-100">
-                      {claim.reviewerNotes}
-                    </p>
-                  </div>
-                )}
+                  {/* Description & Reviewer Notes */}
+                  {claim?.description && (
+                    <div className="mb-2">
+                      <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wider mb-0.5">
+                        Farmer Observation
+                      </p>
+                      <p className="text-xs text-stone-700 bg-stone-50/50 p-2 rounded-lg border border-stone-100">
+                        {claim.description}
+                      </p>
+                    </div>
+                  )}
 
-                {/* Photo Evidence Preview */}
-                {evidenceUrl && (
-                  <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-stone-600 flex items-center gap-1.5">
-                      <FileText size={14} className="text-teal-600" />
-                      Incident Evidence Photo
-                    </span>
-                    <button
-                      onClick={() => setPreviewImage(evidenceUrl)}
-                      className="text-xs text-teal-700 font-bold hover:underline"
-                    >
-                      View Photo
-                    </button>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })
-        )}
+                  {claim?.reviewerNotes && (
+                    <div className="mb-2">
+                      <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wider mb-0.5">
+                        Insurance Inspector Notes
+                      </p>
+                      <p className="text-xs text-stone-800 bg-amber-50/60 p-2 rounded-lg border border-amber-100">
+                        {claim.reviewerNotes}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Photo Evidence Preview */}
+                  {evidenceUrl && (
+                    <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-stone-600 flex items-center gap-1.5">
+                        <FileText size={14} className="text-teal-600" />
+                        Incident Evidence Photo
+                      </span>
+                      <button
+                        onClick={() => setPreviewImage(evidenceUrl)}
+                        className="text-xs text-teal-700 font-bold hover:underline"
+                      >
+                        View Photo
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Claim Submission Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs">
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ ease: EASE, duration: 0.3 }}
-              className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] shadow-2xl"
+              className="bg-white rounded-t-[2rem] sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 pb-8 relative z-[101] shadow-2xl"
             >
               <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
                 <div className="flex items-center gap-2">
@@ -501,50 +512,49 @@ export default function ClaimsPage() {
                 </div>
               ) : (
                 <form onSubmit={handleFileClaim} className="space-y-4">
-                  {/* Select Insured Policy */}
+                  {/* Select Policy */}
                   <div>
                     <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Select Insured Pond Policy
+                      Select Insured Pond
                     </label>
                     <select
                       value={selectedPolicyId}
                       onChange={(e) => setSelectedPolicyId(e.target.value)}
-                      required
-                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      className="w-full text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                     >
                       {activePolicies.map((p) => (
                         <option key={p._id} value={p._id}>
-                          {p.pondId?.name || `Pond ${p.pondId?.pondNumber || ''}`} ({p.insuranceType.toUpperCase()} · {p.species})
+                          {p.pondId?.name || `Pond #${p.pondId?.pondNumber || '?'}`} — {p.species} ({p.farmId?.name || 'Farm'})
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Primary Cause */}
+                  {/* Incident Reason */}
                   <div>
                     <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
-                      Primary Cause of Loss
+                      Incident / Peril Type
                     </label>
                     <select
                       value={claimReason}
                       onChange={(e) => setClaimReason(e.target.value)}
-                      className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      className="w-full text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
                     >
-                      <option value="mass_mortality">Sudden Mass Mortality</option>
-                      <option value="disease_outbreak">Disease Outbreak (WSSV / EHP / EMS)</option>
-                      <option value="water_toxicity">Water Quality Crash / Toxic Spike</option>
-                      <option value="flooding_calamity">Flooding / Heavy Storm Influx</option>
-                      <option value="other">Other Accidental Loss</option>
+                      {Object.entries(REASON_LABELS).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
-                  {/* Estimated Loss % */}
+                  {/* Estimated Loss */}
                   <div>
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center mb-1.5">
                       <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">
                         Estimated Mortality / Crop Loss
                       </label>
-                      <span className="text-xs font-extrabold text-teal-700">{lossPercent}%</span>
+                      <span className="text-xs font-bold text-amber-600">{lossPercent}%</span>
                     </div>
                     <input
                       type="range"
@@ -636,10 +646,10 @@ export default function ClaimsPage() {
       <AnimatePresence>
         {previewImage && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
             onClick={() => setPreviewImage(null)}
           >
-            <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+            <div className="relative z-[101] max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
               <button
                 onClick={() => setPreviewImage(null)}
                 className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"

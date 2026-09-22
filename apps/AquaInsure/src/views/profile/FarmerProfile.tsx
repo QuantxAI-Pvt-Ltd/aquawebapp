@@ -33,25 +33,27 @@ export default function FarmerProfile() {
     }, []);
 
     return (
-        <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
+        <div className="h-full min-h-[100dvh] bg-stone-50 overflow-hidden flex flex-col" style={{ fontFamily: "'Sora', sans-serif" }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
-            {/* Header */}
-            <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
-                style={{ background: "linear-gradient(140deg,#1c4a3e 0%,#1c6b5a 45%,#2d9b7f 100%)", boxShadow: "0 8px 32px -6px rgba(28,74,62,0.28)" }}>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate("/dashboard")}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation">
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <h1 className="text-lg font-bold text-white tracking-tight">{t("dashboard.farmer")}</h1>
+            {/* SCROLLABLE INNER BODY */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+                {/* Header */}
+                <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
+                    style={{ background: "linear-gradient(140deg,#1c4a3e 0%,#1c6b5a 45%,#2d9b7f 100%)", boxShadow: "0 8px 32px -6px rgba(28,74,62,0.28)" }}>
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => navigate("/dashboard")}
+                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all touch-manipulation">
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <h1 className="text-lg font-bold text-white tracking-tight">{t("dashboard.farmer")}</h1>
+                        </div>
+                        <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
+                            Aqua <span className="text-amber-300">AI</span>nsure
+                        </span>
                     </div>
-                    <span className="text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15">
-                        Aqua <span className="text-amber-300">AI</span>nsure
-                    </span>
                 </div>
-            </div>
 
             <div className="px-4 mt-5 space-y-4">
                 {loading ? (
@@ -172,14 +174,15 @@ export default function FarmerProfile() {
                     </div>
                 )}
             </div>
+            </div>
 
             {/* Document / Photo Preview Modal */}
             {previewDoc && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
                     onClick={() => setPreviewDoc(null)}
                 >
-                    <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+                    <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black z-[101]">
                         <button
                             onClick={() => setPreviewDoc(null)}
                             className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"

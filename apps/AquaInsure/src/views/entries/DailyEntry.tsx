@@ -365,7 +365,7 @@ const DailyEntry = () => {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 text-stone-800 font-sans flex flex-col">
+    <div className="h-full min-h-[100dvh] bg-stone-50 overflow-hidden text-stone-800 font-sans flex flex-col">
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
       
@@ -378,8 +378,10 @@ const DailyEntry = () => {
         />
       )}
 
-      {/* HEADER */}
-      <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* HEADER */}
+        <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
         style={{
           background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
           boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
@@ -854,6 +856,7 @@ const DailyEntry = () => {
       </>
     )}
   </div>
+</div>
 
       {/* ── POND PREVIEW MODAL (mobile bottom-sheet) ── */}
       {pondPreviewOpen && (() => {
@@ -877,13 +880,13 @@ const DailyEntry = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               onClick={() => setPondPreviewOpen(false)}
-              className="fixed inset-0 z-[55]"
+              className="fixed inset-0 z-[100]"
               style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
             />
 
             {/* Positioning shell — fixed, aligned to app container */}
             <div
-              className="fixed bottom-0 left-0 right-0 z-[60] flex justify-center items-end pointer-events-none"
+              className="fixed bottom-0 left-0 right-0 z-[101] flex justify-center items-end pointer-events-none"
             >
               {/* Sheet — slide-up animation only, no position transform */}
               <motion.div
