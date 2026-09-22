@@ -378,7 +378,7 @@ const FarmerRegistration = () => {
         {...register(name)}
         placeholder={placeholder}
         type={type}
-        className="h-12 rounded-xl text-base sm:text-sm pr-11 placeholder:text-stone-300"
+        className="h-12 rounded-xl text-base sm:text-sm pr-11 border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-400"
       />
       <button
         type="button"
@@ -438,7 +438,7 @@ const FarmerRegistration = () => {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
+    <div className="h-full flex flex-col overflow-hidden bg-stone-50 relative text-stone-800 font-sans" style={{ fontFamily: "'Sora', sans-serif" }}>
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -450,77 +450,77 @@ const FarmerRegistration = () => {
         />
       )}
 
-      {/* HEADER */}
-      <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
-          boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
-        }}>
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
-          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
-        <div className="flex items-center justify-between relative z-10 mb-5">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => step > 0 ? setStep(step - 1) : (isEditMode ? navigate('/settings') : navigate(-1))}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-bold text-white tracking-tight">
-              {isEditMode ? "Edit Profile" : t("farmer.title")}
-            </h1>
-          </div>
-          <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
-            Aqua <span className="text-amber-300">AI</span>nsure
-          </span>
-        </div>
-
-        {/* Step indicators */}
-        <div className="flex items-center gap-2 relative z-10 px-1">
-          {steps.map((s, i) => (
-            <div key={i} className="flex items-center gap-2 flex-1">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${i < step
-                  ? "bg-amber-400 text-amber-900"
-                  : i === step
-                    ? "bg-white text-teal-700 shadow-lg"
-                    : "bg-white/15 text-white/45 border border-white/15"
-                  }`}>
-                  {i < step ? 'âœ“' : i + 1}
-                </div>
-                <p className={`text-[8px] uppercase font-bold tracking-widest whitespace-nowrap ${i <= step ? "text-white" : "text-white/35"
-                  }`}>
-                  {s.split(" ")[0]}
-                </p>
-              </div>
-              {i < steps.length - 1 && (
-                <div className={`flex-1 h-px mb-5 transition-all ${i < step ? 'bg-amber-400/60' : 'bg-white/15'}`} />
-              )}
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* HEADER */}
+        <div className="px-5 pt-8 pb-7 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
+          style={{
+            background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
+            boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
+          }}>
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
+            style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
+          <div className="flex items-center justify-between relative z-10 mb-5">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => step > 0 ? setStep(step - 1) : (isEditMode ? navigate('/settings') : navigate(-1))}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                {isEditMode ? "Edit Profile" : t("farmer.title")}
+              </h1>
             </div>
-          ))}
+            <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
+              Aqua <span className="text-amber-300">AI</span>nsure
+            </span>
+          </div>
+
+          {/* Step indicators */}
+          <div className="flex items-center gap-2 relative z-10 px-1">
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${i < step
+                    ? "bg-amber-400 text-amber-900"
+                    : i === step
+                      ? "bg-white text-teal-700 shadow-lg"
+                      : "bg-white/15 text-white/45 border border-white/15"
+                    }`}>
+                    {i < step ? '✓' : i + 1}
+                  </div>
+                  <p className={`text-[8px] uppercase font-bold tracking-widest whitespace-nowrap ${i <= step ? "text-white" : "text-white/35"
+                    }`}>
+                    {s.split(" ")[0]}
+                  </p>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={`flex-1 h-px mb-5 transition-all ${i < step ? 'bg-amber-400/60' : 'bg-white/15'}`} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="px-4 mt-5 relative z-10">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          
-
+        <div className="px-4 mt-5 relative z-10">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* STEP 1 - Basic Details */}
             {step === 0 && (
-              <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepBasic")}
                 </h3>
 
-                {/* â”€â”€ AADHAAR QUICK SCAN (top of step 1) â”€â”€ */}
-                <div className="space-y-2 pb-1 border-b border-stone-100">
+                {/* ── AADHAAR QUICK SCAN (top of step 1) ── */}
+                <div className="space-y-2 pb-2 border-b border-stone-100">
                   <div className="flex items-center gap-2">
                     <ScanLine size={14} className="text-teal-600" />
                     <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Aadhaar Card</p>
                     <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">Auto-fill</span>
                   </div>
                   <p className="text-[10px] text-stone-400 leading-snug">
-                    Upload your Aadhaar card â€” name &amp; gender will be filled automatically
+                    Upload your Aadhaar card — name &amp; gender will be filled automatically
                   </p>
 
                   <label
@@ -544,9 +544,9 @@ const FarmerRegistration = () => {
                         aadharOcrDone ? "text-teal-700" : aadharOcrLoading ? "text-amber-600" : "text-stone-400"
                       }`}>
                         {aadharOcrLoading
-                          ? "Reading Aadhaarâ€¦"
+                          ? "Reading Aadhaar…"
                           : aadharOcrDone
-                          ? (watch("aadharFile") instanceof File ? (watch("aadharFile") as File).name : "Aadhaar scanned âœ“")
+                          ? (watch("aadharFile") instanceof File ? (watch("aadharFile") as File).name : "Aadhaar scanned ✓")
                           : "Tap to scan Aadhaar card"}
                       </span>
                     </div>
@@ -566,7 +566,7 @@ const FarmerRegistration = () => {
                   {aadharOcrLoading && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
                       <Loader2 size={12} className="text-amber-500 animate-spin shrink-0" />
-                      <p className="text-[10px] text-amber-700 font-medium">Scanning Aadhaar with OCRâ€¦</p>
+                      <p className="text-[10px] text-amber-700 font-medium">Scanning Aadhaar with OCR…</p>
                     </div>
                   )}
                   {aadharOcrDone && (
@@ -611,7 +611,7 @@ const FarmerRegistration = () => {
 
             {/* STEP 2 - Address Details */}
             {step === 1 && (
-              <div>
+              <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepAddress")}
                 </h3>
@@ -666,7 +666,7 @@ const FarmerRegistration = () => {
 
             {/* STEP 3 - Identity & Bank */}
             {step === 2 && (
-              <div>
+              <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">
                   {t("farmer.stepIdentity")}
                 </h3>
@@ -698,7 +698,7 @@ const FarmerRegistration = () => {
                   </SelectContent>
                 </Select>
                 {watch("hasPan") === "yes" && (
-                  <>
+                  <div className="space-y-4">
                     {renderField("panNumber", t("farmer.panNumber"))}
                     {renderFileUploader(
                       t("farmer.panFile"),
@@ -706,15 +706,15 @@ const FarmerRegistration = () => {
                       watch("panFile"),
                       (file) => setValue("panFile", file)
                     )}
-                  </>
+                  </div>
                 )}
 
-                {/* FIX: was hardcoded "Bank Details" â€” now uses t("farmer.bankDetails") */}
+                {/* Bank Details */}
                 <div className="pt-2 border-t border-stone-100">
                   <p className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">
                     {t("farmer.bankDetails")}
                   </p>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {renderField("accountHolderName", t("farmer.accountHolderName"))}
                     {renderField("bankName", t("farmer.bankName"))}
                     {renderField("branch", t("farmer.branch"))}
@@ -733,45 +733,45 @@ const FarmerRegistration = () => {
                 </div>
               </div>
             )}
-          
 
-          <div className="flex gap-3">
-            {step > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep(step - 1)}
-                className="flex-1 h-12 rounded-xl border-stone-200 text-stone-600 font-semibold"
-              >
-                {t("common.back")}
-              </Button>
-            )}
-            {step < steps.length - 1 ? (
-              <Button
-                type="button"
-                onClick={nextStep}
-                className="flex-1 h-12 rounded-xl text-white font-bold"
-                style={{
-                  background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
-                  boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
-                }}
-              >
-                {t("common.next")}
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                className="flex-1 h-12 rounded-xl text-white font-bold"
-                style={{
-                  background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
-                  boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
-                }}
-              >
-                {isEditMode ? "Save Changes" : t("farmer.save")}
-              </Button>
-            )}
-          </div>
-        </form>
+            <div className="flex gap-3 pt-2">
+              {step > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep(step - 1)}
+                  className="flex-1 h-12 rounded-xl border-stone-200 text-stone-600 font-semibold"
+                >
+                  {t("common.back")}
+                </Button>
+              )}
+              {step < steps.length - 1 ? (
+                <Button
+                  type="button"
+                  onClick={nextStep}
+                  className="flex-1 h-12 rounded-xl text-white font-bold"
+                  style={{
+                    background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
+                    boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
+                  }}
+                >
+                  {t("common.next")}
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className="flex-1 h-12 rounded-xl text-white font-bold"
+                  style={{
+                    background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
+                    boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
+                  }}
+                >
+                  {isEditMode ? "Save Changes" : t("farmer.save")}
+                </Button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
       <BottomNav />
     </div>

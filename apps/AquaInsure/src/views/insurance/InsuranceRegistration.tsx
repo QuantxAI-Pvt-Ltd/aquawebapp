@@ -193,38 +193,40 @@ const InsuranceRegistration = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
+    <div className="h-full flex flex-col overflow-hidden bg-stone-50 relative text-stone-800 font-sans" style={{ fontFamily: "'Sora', sans-serif" }}>
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
-      {/* HEADER */}
-      <div className="px-5 pt-8 pb-8 rounded-b-[2.5rem] relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
-          boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
-        }}>
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
-          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-bold text-white tracking-tight">
-              {t('insurance.title')}
-            </h1>
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* HEADER */}
+        <div className="px-5 pt-8 pb-8 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
+          style={{
+            background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
+            boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
+          }}>
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 opacity-10"
+            style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                {t('insurance.title')}
+              </h1>
+            </div>
+            <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
+              Aqua <span className="text-amber-300">AI</span>nsure
+            </span>
           </div>
-          <span className={`text-[10px] font-bold text-white/85 px-2.5 py-1 bg-white/12 rounded-lg border border-white/15 transition-opacity duration-200 ${syncStatus !== 'idle' ? 'opacity-0' : 'opacity-100'}`}>
-            Aqua <span className="text-amber-300">AI</span>nsure
-          </span>
         </div>
-      </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 mt-5 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 mt-5 space-y-4">
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -421,8 +423,8 @@ const InsuranceRegistration = () => {
             t('insurance.save')
           )}
         </Button>
-
       </form>
+    </div>
 
       <BottomNav />
     </div>

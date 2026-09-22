@@ -232,7 +232,7 @@ export default function FarmRegistration() {
   const inputClasses = "h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-300";
 
   return (
-    <div className="min-h-[100dvh] bg-stone-50 pb-0 overflow-x-clip flex flex-col text-stone-800 font-sans">
+    <div className="h-full flex flex-col overflow-hidden bg-stone-50 relative text-stone-800 font-sans" style={{ fontFamily: "'Sora', sans-serif" }}>
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -245,8 +245,10 @@ export default function FarmRegistration() {
         />
       )}
 
-      {/* HEADER */}
-      <div className="px-5 pt-8 pb-8 rounded-b-[2.5rem] relative overflow-hidden"
+      {/* SCROLLABLE INNER BODY */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
+        {/* HEADER */}
+        <div className="px-5 pt-8 pb-8 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
         style={{
           background: 'linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)',
           boxShadow: '0 8px 32px -6px rgba(28,74,62,0.28)',
@@ -532,6 +534,7 @@ export default function FarmRegistration() {
             {t("common.next")}
           </Button>
         </form>
+      </div>
       </div>
       <BottomNav />
     </div>
