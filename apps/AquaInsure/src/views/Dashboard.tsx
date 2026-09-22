@@ -222,88 +222,85 @@ const Dashboard = () => {
           </div>
 
           {/* SECTIONS */}
-          <div className="relative z-10 flex-1 px-4 sm:px-5 pt-5 pb-6 space-y-6">
+          <div className="relative z-10 flex-1 px-3.5 sm:px-4 pt-4 pb-5 space-y-4 sm:space-y-4.5">
 
             {[
               {
                 title: "Farmer Registration",
                 cards: dashboardCards.slice(0, 4),
-                sectionBg: "rgba(181,129,58,0.05)",
-                sectionBorder: "rgba(181,129,58,0.16)",
+                sectionBg: "rgba(181,129,58,0.03)",
+                sectionBorder: "rgba(181,129,58,0.12)",
                 titleColor: "#b5813a",
-                badgeBg: "bg-amber-50 text-amber-900 border-amber-200/80",
+                badgeBg: "bg-amber-50/90 text-amber-800 border-amber-200/60",
               },
               {
                 title: "Record Keeping",
                 cards: dashboardCards.slice(4, 8),
-                sectionBg: "rgba(28,107,90,0.05)",
-                sectionBorder: "rgba(28,107,90,0.16)",
+                sectionBg: "rgba(28,107,90,0.03)",
+                sectionBorder: "rgba(28,107,90,0.12)",
                 titleColor: "#1c6b5a",
-                badgeBg: "bg-teal-50 text-teal-900 border-teal-200/80",
+                badgeBg: "bg-teal-50/90 text-teal-800 border-teal-200/60",
               },
             ].map((section, sIdx) => (
               <div key={section.title}
-                className="rounded-3xl p-3.5 sm:p-4 transition-all"
-                style={{ background: section.sectionBg, border: `1.5px solid ${section.sectionBorder}` }}
+                className="rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 transition-all"
+                style={{ background: section.sectionBg, border: `1px solid ${section.sectionBorder}` }}
               >
                 {/* Section Header */}
-                <div className="flex items-center justify-between mb-3.5 px-1">
+                <div className="flex items-center justify-between mb-2.5 px-0.5">
                   <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.25 + sIdx * 0.15, ease: EASE }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5"
                   >
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: section.titleColor }} />
-                    <span className="text-[11px] uppercase font-bold tracking-[0.16em]" style={{ color: section.titleColor }}>
+                    <div className="w-2 h-2 rounded-full" style={{ background: section.titleColor }} />
+                    <span className="text-[10.5px] uppercase font-bold tracking-[0.14em]" style={{ color: section.titleColor }}>
                       {section.title}
                     </span>
                   </motion.div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${section.badgeBg}`}>
+                  <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${section.badgeBg}`}>
                     {section.cards.length} modules
                   </span>
                 </div>
 
                 {/* Cards Grid */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-3.5">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   {section.cards.map((card, idx) => (
                     <motion.div
                       key={card.path}
                       className="dash-card group"
                       onClick={() => navigate(card.path)}
-                      initial={{ opacity: 0, y: 22 }}
+                      initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.35 + sIdx * 0.15 + idx * 0.06, duration: 0.5, ease: EASE }}
+                      transition={{ delay: 0.35 + sIdx * 0.15 + idx * 0.05, duration: 0.45, ease: EASE }}
                     >
                       <div
-                        className="rounded-2xl p-4 flex flex-col justify-between bg-white dark:bg-stone-900 h-full min-h-[142px] sm:min-h-[152px] relative overflow-hidden transition-all duration-200 border border-stone-200/80 dark:border-stone-800"
-                        style={{
-                          boxShadow: `0 4px 18px -4px ${card.glow}, 0 2px 5px rgba(0,0,0,0.03)`,
-                        }}
+                        className="rounded-xl sm:rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between bg-white dark:bg-stone-900 h-full min-h-[114px] sm:min-h-[122px] relative overflow-hidden transition-all duration-200 border border-stone-200/60 dark:border-stone-800 hover:border-stone-300/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_14px_-3px_rgba(0,0,0,0.07)]"
                       >
                         {/* Top row: Icon Badge + Micro Arrow */}
-                        <div className="flex items-center justify-between w-full mb-3">
+                        <div className="flex items-center justify-between w-full mb-2">
                           <div
-                            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0"
+                            className="w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl flex items-center justify-center shrink-0"
                             style={{
                               background: card.iconBg,
-                              border: `1.5px solid ${card.iconBorder}`,
+                              border: `1px solid ${card.iconBorder}`,
                             }}
                           >
-                            <card.icon size={22} style={{ color: card.accent }} strokeWidth={2.2} />
+                            <card.icon size={18} style={{ color: card.accent }} strokeWidth={2} />
                           </div>
 
-                          <div className="w-7 h-7 rounded-full bg-stone-50 dark:bg-stone-800 border border-stone-200/70 dark:border-stone-700 flex items-center justify-center text-stone-400 group-hover:text-teal-700 group-hover:bg-teal-50 group-hover:border-teal-200 transition-all duration-200">
-                            <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                          <div className="w-6 h-6 rounded-full bg-stone-50/90 dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700 flex items-center justify-center text-stone-400 group-hover:text-teal-700 group-hover:bg-teal-50 group-hover:border-teal-200 transition-all duration-200">
+                            <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                           </div>
                         </div>
 
                         {/* Bottom row: Title + Description */}
                         <div className="flex flex-col justify-end mt-auto">
-                          <h3 className="text-[13px] sm:text-sm font-bold text-stone-800 dark:text-stone-100 tracking-tight leading-snug group-hover:text-teal-800 transition-colors">
+                          <h3 className="text-[12px] sm:text-[13px] font-bold text-stone-800 dark:text-stone-100 tracking-tight leading-tight group-hover:text-teal-800 transition-colors">
                             {t(card.labelKey)}
                           </h3>
-                          <p className="text-[11px] font-medium text-stone-500 dark:text-stone-400 leading-snug mt-0.5 line-clamp-1">
+                          <p className="text-[10px] sm:text-[10.5px] font-medium text-stone-400 dark:text-stone-500 leading-tight mt-0.5 line-clamp-1">
                             {t(card.descKey)}
                           </p>
                         </div>
