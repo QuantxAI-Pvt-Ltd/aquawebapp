@@ -97,13 +97,13 @@ const SplashScreen = () => {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
         * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 
-        /* Gentle Waves — smooth horizontal translation */
-        @keyframes w1 { from{transform:translateX(0)}    to{transform:translateX(-50%)} }
-        @keyframes w2 { from{transform:translateX(-50%)} to{transform:translateX(0)}   }
-        @keyframes w3 { from{transform:translateX(0)}    to{transform:translateX(-50%)} }
-        .wave1 { animation: w1 14s linear infinite; will-change:transform; }
-        .wave2 { animation: w2 18s linear infinite; will-change:transform; }
-        .wave3 { animation: w3 12s linear infinite; will-change:transform; }
+        /* Seamless Waves — hardware-accelerated continuous loop */
+        @keyframes w1 { from{transform:translate3d(0,0,0)}    to{transform:translate3d(-50%,0,0)} }
+        @keyframes w2 { from{transform:translate3d(-50%,0,0)} to{transform:translate3d(0,0,0)}   }
+        @keyframes w3 { from{transform:translate3d(0,0,0)}    to{transform:translate3d(-50%,0,0)} }
+        .wave1 { animation: w1 10s linear infinite; will-change:transform; }
+        .wave2 { animation: w2 15s linear infinite; will-change:transform; }
+        .wave3 { animation: w3 8s linear infinite; will-change:transform; }
 
         /* Progress bar — smooth fluid curve */
         @keyframes grow { from{transform:scaleX(0)} to{transform:scaleX(1)} }
@@ -225,41 +225,41 @@ const SplashScreen = () => {
         © 2025 Aqua AInsure · All rights reserved
       </p>
 
-      {/* ── WAVES — balanced height to ground bottom cleanly ── */}
+      {/* ── WAVES — full immersive ocean depth with seamless loops ── */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute bottom-0 z-10 w-full overflow-hidden"
-        style={{ height: '26vh' }}
-        initial={{ opacity: 0, y: 30 }}
+        style={{ height: '42vh' }}
+        initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.4, delay: 0.4, ease: FLUID_EASE }}
+        transition={{ duration: 1.8, delay: 0.5, ease: [0.25, 1, 0.5, 1] }}
       >
-        {/* Layer 1 — amber, lightest */}
-        <div className="wave1 absolute bottom-0 w-[200%]" style={{ opacity: 0.13 }}>
-          <svg viewBox="0 0 1440 320" preserveAspectRatio="none" width="100%" height="100%">
+        {/* Layer 1 — amber undertone (Back, slowest) */}
+        <div className="wave1 absolute bottom-0 w-[200%] h-full" style={{ opacity: 0.14 }}>
+          <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full">
             <path
               fill="#f59e0b"
-              d="M0,192L80,181C160,171,320,149,480,154.7C640,160,800,192,960,202.7C1120,213,1280,192,1360,181.3L1440,171L1440,320L0,320Z"
+              d="M0,180 C360,100 720,240 1080,140 C1260,90 1380,130 1440,180 C1800,100 2160,240 2520,140 C2700,90 2820,130 2880,180 L2880,320 L0,320 Z"
             />
           </svg>
         </div>
 
-        {/* Layer 2 — mid teal */}
-        <div className="wave2 absolute bottom-0 w-[200%]" style={{ opacity: 0.25 }}>
-          <svg viewBox="0 0 1440 280" preserveAspectRatio="none" width="100%" height="100%">
+        {/* Layer 2 — mid aqua surge (Middle, counter-flow) */}
+        <div className="wave2 absolute bottom-0 w-[200%] h-full" style={{ opacity: 0.28 }}>
+          <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full">
             <path
               fill="#14b8a6"
-              d="M0,224L80,208C160,192,320,160,480,165.3C640,171,800,213,960,218.7C1120,224,1280,197,1360,186.7L1440,176L1440,280L0,280Z"
+              d="M0,190 C320,260 680,120 1040,210 C1240,260 1380,220 1440,190 C1760,260 2120,120 2480,210 C2680,260 2820,220 2880,190 L2880,320 L0,320 Z"
             />
           </svg>
         </div>
 
-        {/* Layer 3 — solid deep teal, front */}
-        <div className="wave3 absolute bottom-0 w-[200%]" style={{ opacity: 0.95 }}>
-          <svg viewBox="0 0 1440 240" preserveAspectRatio="none" width="100%" height="100%">
+        {/* Layer 3 — deep solid ocean teal (Front crest, crisp grounding) */}
+        <div className="wave3 absolute bottom-0 w-[200%] h-full" style={{ opacity: 1 }}>
+          <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full">
             <path
               fill="#0f766e"
-              d="M0,160L80,149C160,139,320,117,480,122.7C640,128,800,160,960,170.7C1120,181,1280,160,1360,149.3L1440,139L1440,240L0,240Z"
+              d="M0,150 C280,80 620,200 960,110 C1180,50 1360,100 1440,150 C1720,80 2060,200 2400,110 C2620,50 2800,100 2880,150 L2880,320 L0,320 Z"
             />
           </svg>
         </div>
