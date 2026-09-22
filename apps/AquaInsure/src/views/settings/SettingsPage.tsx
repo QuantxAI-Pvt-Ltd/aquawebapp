@@ -224,9 +224,6 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      {/* FIXED BOTTOM DOCK */}
-      <BottomNav />
-
       {/* SUPPORT MODAL */}
       <AnimatePresence>
         {supportModalOpen && (
