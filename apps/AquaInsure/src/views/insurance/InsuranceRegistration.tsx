@@ -44,74 +44,31 @@ export default function InsuranceRegistration() {
     formState: { errors, isSubmitting },
   } = useForm<InsuranceForm>({
     resolver: zodResolver(insuranceSchema as any),
-    defaultValues: (() => {
-      const draftStr = typeof window !== "undefined" ? localStorage.getItem("draft_insurance_form") : null;
-      if (draftStr) {
-        try {
-          return JSON.parse(draftStr);
-        } catch (e) {}
-      }
-      return { insuranceType: "comprehensive", insurancePeriod: "120", species: "vannamei", stockingDensity: "40" };
-    })(),
+    defaultValues: {
+      insuranceType: "comprehensive",
+      insurancePeriod: "120",
+      species: "vannamei",
+      stockingDensity: "40",
+      stockingDate: "",
+    },
   });
 
   const formValues = watch();
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("draft_insurance_form", JSON.stringify(formValues));
-    }
-  }, [formValues]);
-
-  // Load ponds from farm data in localStorage
-  const farmData = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("aqua-farm") || "{}") : {};
-  const allPonds: any[] = farmData.ponds || [];
-  const totalPonds = allPonds.length;
-
-  const [selectedPonds, setSelectedPonds] = useState<string[]>(() => {
-    const draftStr = typeof window !== "undefined" ? localStorage.getItem("draft_insurance_ponds") : null;
-    if (draftStr) {
-      try {
-        return JSON.parse(draftStr);
-      } catch (e) {}
-    }
-    return allPonds.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`).filter(Boolean);
-  });
-
-  useEffect(() => {
-    if (selectedPonds.length === 0 && allPonds.length > 0) {
-      const allIds = allPonds.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`).filter(Boolean);
-      if (allIds.length > 0) setSelectedPonds(allIds);
-    }
-  }, [allPonds.length]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("draft_insurance_ponds", JSON.stringify(selectedPonds));
-    }
-  }, [selectedPonds]);
-
-  const { syncStatus } = useAutoSave([formValues, selectedPonds]);
-
-  const togglePond = (pondId: string) => {
-    setSelectedPonds((prev) =>
-      prev.includes(pondId) ? prev.filter((id) => id !== pondId) : [...prev, pondId]
-    );
-  };
+  const { syncStatus } = useAutoSave(formValues);
 
   const onSubmit = async (data: InsuranceForm) => {
     try {
       const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = session.farmerId;
       if (!farmerId) {
-        toast.error("Session expired. Please login again.");
+        toast.error("Session expired. Please log in again.");
         return;
       }
 
       const farmDataStr = localStorage.getItem("aqua-farm");
       if (!farmDataStr) {
-        toast.error("Farm details not found. Please complete Farm Registration first.");
-        navigate("/farm-registration");
+        toast.error("Farm details not found. Please complete Farm Setup first.");
+        navigate("/farm-setup");
         return;
       }
 
@@ -120,12 +77,7 @@ export default function InsuranceRegistration() {
       const ponds = parsedFarm.ponds || [];
 
       if (!farmId) {
-        toast.error("Invalid Farm ID. Please go back to Farm Registration.");
-        return;
-      }
-
-      if (selectedPonds.length === 0) {
-        toast.error("Please select at least one pond to insure.");
+        toast.error("Invalid Farm ID. Please return to Farm Setup.");
         return;
       }
 
@@ -136,7 +88,8 @@ export default function InsuranceRegistration() {
       const plannedHarvestDate = format(addDays(stockingDate, periodDays), "yyyy-MM-dd");
       const maxHarvestDate = format(addDays(stockingDate, periodDays + 15), "yyyy-MM-dd");
 
-      const firstPondId = selectedPonds[0] || ponds[0]?._id || ponds[0]?.pondId || "pond-1";
+      const allPondIds = ponds.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`);
+      const firstPondId = allPondIds[0] || "pond-1";
 
       const payload = {
         ...data,
@@ -147,18 +100,17 @@ export default function InsuranceRegistration() {
         farmId,
         plannedHarvestDate,
         maxHarvestDate,
-        insuredPondIds: selectedPonds,
+        insuredPondIds: allPondIds,
       };
 
       const res = await axios.post("/api/insurances", payload);
 
       if (res.data?.success) {
-        parsedFarm.insuredPondIds = selectedPonds;
+        parsedFarm.insuredPondIds = allPondIds;
         localStorage.setItem("aqua-farm", JSON.stringify(parsedFarm));
 
         toast.dismiss("insurance-save");
         toast.success(t("insurance.saved") || "Insurance policy saved!");
-
         navigate("/insured-ponds");
       }
     } catch (error: any) {
@@ -181,10 +133,10 @@ export default function InsuranceRegistration() {
 
       {/* SCROLLABLE INNER BODY */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
-        {/* REUSABLE HEADER WITH STEP 3 ACTIVE */}
+        {/* REUSABLE 7-STEP HEADER (Step 6 Active) */}
         <RegistrationHeader
-          currentStep={2}
-          title={t("insurance.title") || "Insurance Setup"}
+          currentStep={5}
+          title="Insurance Policy"
           syncStatus={syncStatus}
         />
 
@@ -194,8 +146,8 @@ export default function InsuranceRegistration() {
               <ShieldCheck size={16} className="text-teal-600" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-stone-700">Policy & Coverage Terms</h2>
-              <p className="text-[11px] text-stone-400">Configure stocking schedule and covered ponds</p>
+              <h2 className="text-sm font-bold text-stone-700">Coverage & Stocking Schedule</h2>
+              <p className="text-[11px] text-stone-400">Configure insurance policy terms and crop cycle</p>
             </div>
           </div>
 
@@ -268,50 +220,6 @@ export default function InsuranceRegistration() {
               </Select>
             </div>
 
-            {/* Ponds Under Insurance */}
-            <div className="space-y-2 pt-2 border-t border-stone-100">
-              <label className="text-xs font-semibold text-stone-500 ml-0.5 block">
-                Ponds Under Insurance Coverage <span className="text-rose-500">*</span>
-              </label>
-              {allPonds.length === 0 ? (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                  No ponds found in local cache. All registered ponds will be covered automatically.
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {allPonds.map((p: any, i: number) => {
-                    const id = p._id || p.pondId || `pond-${i + 1}`;
-                    const isSelected = selectedPonds.includes(id);
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => togglePond(id)}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                          isSelected
-                            ? "text-white border-transparent shadow-sm"
-                            : "bg-white text-stone-500 border-stone-200 hover:border-teal-300"
-                        }`}
-                        style={
-                          isSelected
-                            ? {
-                                background: "linear-gradient(110deg, #1c6b5a, #2d9b7f)",
-                                boxShadow: "0 4px 12px -2px rgba(28,107,90,0.25)",
-                              }
-                            : {}
-                        }
-                      >
-                        Pond {p.pondNumber || i + 1} {isSelected ? "✓" : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="text-[11px] text-teal-700 pl-0.5">
-                {selectedPonds.length} pond{selectedPonds.length > 1 ? "s" : ""} selected for insurance.
-              </p>
-            </div>
-
             {/* Species */}
             <div className="space-y-1.5 pt-1">
               <label className="text-xs font-semibold text-stone-500 ml-0.5">
@@ -336,10 +244,10 @@ export default function InsuranceRegistration() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/farm-registration")}
+                onClick={() => navigate("/farm-setup")}
                 className="flex-1 h-12 rounded-xl border-stone-200 text-stone-600 font-semibold"
               >
-                ← Back to Farm
+                ← Back to Farm Setup
               </Button>
               <Button
                 type="submit"
@@ -353,7 +261,7 @@ export default function InsuranceRegistration() {
                 {isSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
-                  "Next: Pond Details →"
+                  "Next: Insured Ponds →"
                 )}
               </Button>
             </div>

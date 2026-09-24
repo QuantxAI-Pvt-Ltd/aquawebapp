@@ -1,10 +1,11 @@
+import { useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { SyncStatus } from "@/components/SyncIndicator";
 
 export interface RegistrationHeaderProps {
-  currentStep: number; // 0: Farmer, 1: Farm, 2: Insurance, 3: Ponds
+  currentStep: number; // 0 to 6
   title?: string;
   isEditMode?: boolean;
   onBack?: () => void;
@@ -12,10 +13,13 @@ export interface RegistrationHeaderProps {
 }
 
 export const REGISTRATION_STEPS = [
-  { id: 0, title: "Farmer", route: "/farmer-registration" },
-  { id: 1, title: "Farm", route: "/farm-registration" },
-  { id: 2, title: "Insurance", route: "/insurance-registration" },
-  { id: 3, title: "Ponds", route: "/insured-ponds" },
+  { id: 0, title: "Farmer Personal", shortTitle: "Personal", route: "/farmer-registration" },
+  { id: 1, title: "Farmer Address", shortTitle: "Address", route: "/farmer-address" },
+  { id: 2, title: "Identity & Bank", shortTitle: "KYC & Bank", route: "/farmer-kyc" },
+  { id: 3, title: "Farm Location", shortTitle: "Location", route: "/farm-registration" },
+  { id: 4, title: "Farm Setup & Infra", shortTitle: "Setup", route: "/farm-setup" },
+  { id: 5, title: "Insurance Policy", shortTitle: "Insurance", route: "/insurance-registration" },
+  { id: 6, title: "Insured Ponds", shortTitle: "Ponds", route: "/insured-ponds" },
 ];
 
 export default function RegistrationHeader({
@@ -26,6 +30,17 @@ export default function RegistrationHeader({
   syncStatus = "idle",
 }: RegistrationHeaderProps) {
   const navigate = useNavigate();
+  const stepperRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll active step into view
+  useEffect(() => {
+    if (stepperRef.current) {
+      const activeEl = stepperRef.current.children[currentStep] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+    }
+  }, [currentStep]);
 
   const handleBack = () => {
     if (onBack) {
@@ -37,29 +52,32 @@ export default function RegistrationHeader({
       return;
     }
     if (currentStep === 0) {
-      navigate(-1);
+      navigate("/dashboard");
     } else {
-      const prevStep = REGISTRATION_STEPS[currentStep - 1];
-      if (prevStep) navigate(prevStep.route);
+      const prev = REGISTRATION_STEPS[currentStep - 1];
+      if (prev) navigate(prev.route);
       else navigate(-1);
     }
   };
 
   const handleStepClick = (targetStep: number) => {
     if (targetStep === currentStep) return;
-    // Allow jumping to any previously visited step or immediate next step
+    // Allow jumping to any visited/completed step or immediate next step
     const target = REGISTRATION_STEPS[targetStep];
     if (target) {
       navigate(target.route);
     }
   };
 
-  const defaultTitles = ["Farmer Registration", "Farm Details", "Insurance Setup", "Insured Ponds"];
-  const displayTitle = title || (isEditMode ? "Edit Profile" : defaultTitles[currentStep] || "Registration");
+  const displayTitle =
+    title ||
+    (isEditMode
+      ? "Edit Profile"
+      : `Step ${currentStep + 1}: ${REGISTRATION_STEPS[currentStep]?.shortTitle || "Registration"}`);
 
   return (
     <div
-      className="px-5 pt-8 pb-6 rounded-b-[2.5rem] relative overflow-hidden shrink-0"
+      className="px-4 pt-7 pb-5 rounded-b-[2rem] relative overflow-hidden shrink-0"
       style={{
         background: "linear-gradient(140deg, #1c4a3e 0%, #1c6b5a 45%, #2d9b7f 100%)",
         boxShadow: "0 8px 32px -6px rgba(28,74,62,0.28)",
@@ -72,21 +90,21 @@ export default function RegistrationHeader({
       />
 
       {/* Top row: Back button, Title & Badge */}
-      <div className="flex items-center justify-between relative z-10 mb-5">
+      <div className="flex items-center justify-between relative z-10 mb-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleBack}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all active:scale-95"
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/15 text-white border border-white/20 hover:bg-white/25 transition-all active:scale-95"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight leading-tight">
+            <h1 className="text-base font-bold text-white tracking-tight leading-tight">
               {displayTitle}
             </h1>
             <p className="text-[10px] text-white/70 font-medium">
-              Step {currentStep + 1} of 4 · {REGISTRATION_STEPS[currentStep]?.title} Details
+              Step {currentStep + 1} of 7 · {REGISTRATION_STEPS[currentStep]?.title}
             </p>
           </div>
         </div>
@@ -99,46 +117,51 @@ export default function RegistrationHeader({
         </span>
       </div>
 
-      {/* 4-Step Interactive Progress Bar */}
-      <div className="flex items-center gap-1.5 relative z-10 px-0.5">
+      {/* 7-Step Interactive Scrollable Stepper */}
+      <div
+        ref={stepperRef}
+        className="flex items-center gap-1.5 overflow-x-auto no-scrollbar relative z-10 py-1 px-0.5 scroll-smooth"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {REGISTRATION_STEPS.map((s, i) => {
           const isDone = i < currentStep;
           const isCurrent = i === currentStep;
           const isClickable = i <= currentStep;
 
           return (
-            <div key={s.id} className="flex items-center gap-1.5 flex-1">
+            <div key={s.id} className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 disabled={!isClickable}
                 onClick={() => handleStepClick(i)}
-                className={`flex flex-col items-center gap-1 flex-1 group transition-all text-left ${
-                  isClickable ? "cursor-pointer active:scale-95" : "cursor-not-allowed opacity-50"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all ${
+                  isCurrent
+                    ? "bg-white text-teal-900 shadow-md ring-2 ring-white/60 font-bold"
+                    : isDone
+                    ? "bg-amber-400 text-amber-950 font-bold hover:bg-amber-300 active:scale-95 cursor-pointer"
+                    : "bg-white/15 text-white/50 border border-white/15 cursor-not-allowed opacity-60"
                 }`}
               >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
-                    isDone
-                      ? "bg-amber-400 text-amber-950 shadow-sm ring-2 ring-amber-300/40"
-                      : isCurrent
-                      ? "bg-white text-teal-800 shadow-md ring-2 ring-white/60"
-                      : "bg-white/15 text-white/50 border border-white/15"
+                <span
+                  className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-extrabold ${
+                    isCurrent
+                      ? "bg-teal-700 text-white"
+                      : isDone
+                      ? "bg-amber-900 text-amber-100"
+                      : "bg-white/20 text-white/70"
                   }`}
                 >
                   {isDone ? "✓" : i + 1}
-                </div>
-                <p
-                  className={`text-[9px] uppercase font-bold tracking-wider whitespace-nowrap transition-colors ${
-                    isCurrent ? "text-white" : isDone ? "text-amber-300/90" : "text-white/40"
-                  }`}
-                >
-                  {s.title}
-                </p>
+                </span>
+                <span className="text-[10px] whitespace-nowrap tracking-tight">
+                  {s.shortTitle}
+                </span>
               </button>
+
               {i < REGISTRATION_STEPS.length - 1 && (
                 <div
-                  className={`h-[2px] flex-1 mb-4 rounded-full transition-all ${
-                    i < currentStep ? "bg-amber-400/80" : "bg-white/15"
+                  className={`w-2 h-[2px] rounded-full shrink-0 transition-all ${
+                    i < currentStep ? "bg-amber-400/80" : "bg-white/20"
                   }`}
                 />
               )}
@@ -147,12 +170,12 @@ export default function RegistrationHeader({
         })}
       </div>
 
-      {/* Continuous progress line */}
-      <div className="mt-3.5 h-1 bg-white/15 rounded-full overflow-hidden">
+      {/* Progress Line */}
+      <div className="mt-3 h-1 bg-white/15 rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-300"
-          initial={{ width: `${((currentStep + 1) / 4) * 100}%` }}
-          animate={{ width: `${((currentStep + 1) / 4) * 100}%` }}
+          initial={{ width: `${((currentStep + 1) / 7) * 100}%` }}
+          animate={{ width: `${((currentStep + 1) / 7) * 100}%` }}
           transition={{ duration: 0.3 }}
         />
       </div>
