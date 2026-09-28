@@ -158,13 +158,19 @@ export async function uploadToSeaweedFS(
 export function resolveMediaUrl(media: any): string | null {
   if (!media) return null;
 
+  const base = typeof window !== 'undefined'
+    ? (!window.location.port || window.location.port === '80' || window.location.port === '443'
+        ? ''
+        : `${window.location.protocol}//${window.location.hostname}:5001`)
+    : (API_BASE_URL || 'http://localhost:5001');
+
   // 1. MediaObject with url or key property
   if (typeof media === 'object') {
     if (media.url && typeof media.url === 'string') {
       return resolveMediaUrl(media.url);
     }
     if (media.key && typeof media.key === 'string') {
-      return `/api/media/stream?key=${encodeURIComponent(media.key)}`;
+      return `${base}/api/media/stream?key=${encodeURIComponent(media.key)}`;
     }
   }
 
@@ -179,14 +185,18 @@ export function resolveMediaUrl(media: any): string | null {
       trimmed.startsWith('data:image/webp;base64,/api/media/stream')
     ) {
       const match = trimmed.match(/\/api\/media\/stream.+$/);
-      if (match) return match[0];
+      if (match) return `${base}${match[0]}`;
     }
 
-    // 2. Already an HTTP, relative stream, blob, or valid data URL
+    // Relative /api/media/stream endpoint
+    if (trimmed.startsWith('/api/media/stream')) {
+      return `${base}${trimmed}`;
+    }
+
+    // 2. Already an HTTP, blob, or valid data URL
     if (
       trimmed.startsWith('http://') ||
       trimmed.startsWith('https://') ||
-      trimmed.startsWith('/') ||
       trimmed.startsWith('blob:')
     ) {
       return trimmed;
@@ -195,9 +205,13 @@ export function resolveMediaUrl(media: any): string | null {
     if (trimmed.startsWith('data:')) {
       if (trimmed.includes('/api/media/stream')) {
         const match = trimmed.match(/\/api\/media\/stream.+$/);
-        if (match) return match[0];
+        if (match) return `${base}${match[0]}`;
       }
       return trimmed;
+    }
+
+    if (trimmed.startsWith('/')) {
+      return `${base}${trimmed}`;
     }
 
     // 3. SeaweedFS volume FID or S3 key
@@ -210,7 +224,7 @@ export function resolveMediaUrl(media: any): string | null {
         trimmed.startsWith('aquainsure/')) &&
         trimmed.length < 500)
     ) {
-      return `/api/media/stream?key=${encodeURIComponent(trimmed)}`;
+      return `${base}/api/media/stream?key=${encodeURIComponent(trimmed)}`;
     }
 
     // 4. Raw Base64 string fallback
