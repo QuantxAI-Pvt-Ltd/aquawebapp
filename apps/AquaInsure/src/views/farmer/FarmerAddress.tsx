@@ -121,12 +121,9 @@ export default function FarmerAddress() {
 
   const onSubmit = async (data: AddressForm) => {
     try {
-      toast.loading(t("common.saving"), { id: "address-save" });
-
       const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = sess.farmerId;
       if (!farmerId) {
-        toast.dismiss("address-save");
         toast.error("Session expired. Please log in again.");
         return;
       }
@@ -142,12 +139,10 @@ export default function FarmerAddress() {
       });
 
       if (res.data?.success) {
-        toast.dismiss("address-save");
         toast.success("Address details saved!");
         navigate("/farmer-kyc");
       }
     } catch (error: any) {
-      toast.dismiss("address-save");
       console.error("Address submission error:", error);
       toast.error(error.response?.data?.error || t("common.error"));
     }

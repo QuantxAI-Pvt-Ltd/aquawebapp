@@ -7,7 +7,7 @@ const Farm = require('../models/Farm');
 const { uploadBase64, StorageHierarchy } = require('../utils/seaweedfs');
 
 // @route   POST /api/insurances
-// @desc    Register or update an insurance policy for a pond
+// @desc    Register or update variable insurance policies for one or multiple ponds
 router.post('/', async (req, res) => {
     try {
         const {
@@ -15,6 +15,7 @@ router.post('/', async (req, res) => {
             farmId,
             pondId,
             insuredPondIds,
+            pondPolicies,
             stockingDate,
             stockingDensity,
             species,
@@ -29,7 +30,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ success: false, error: 'farmerId and farmId are required' });
         }
 
-        // Validate or resolve farm
+        // Validate or resolve farm and farmer
         const validFarmId = mongoose.Types.ObjectId.isValid(farmId) ? new mongoose.Types.ObjectId(farmId) : null;
         const validFarmerId = mongoose.Types.ObjectId.isValid(farmerId) ? new mongoose.Types.ObjectId(farmerId) : null;
 
@@ -40,7 +41,6 @@ router.post('/', async (req, res) => {
         // Resolve real Pond documents for this farm / farmer
         let realPonds = await Pond.find({ farmId: validFarmId }).sort({ pondNumber: 1 });
         if (!realPonds || realPonds.length === 0) {
-            // Auto-create default Pond 1 if not yet created
             const createdPond = await Pond.create({
                 farmId: validFarmId,
                 farmerId: validFarmerId,
@@ -50,7 +50,48 @@ router.post('/', async (req, res) => {
             realPonds = [createdPond];
         }
 
-        // Resolve primary pondId
+        // Case A: Multi-pond variable policies array
+        if (Array.isArray(pondPolicies) && pondPolicies.length > 0) {
+            const savedPolicies = [];
+            for (const pp of pondPolicies) {
+                const targetPondId = (pp.pondId && mongoose.Types.ObjectId.isValid(pp.pondId))
+                    ? new mongoose.Types.ObjectId(pp.pondId)
+                    : realPonds[0]._id;
+
+                const policyPayload = {
+                    farmerId: validFarmerId,
+                    farmId: validFarmId,
+                    pondId: targetPondId,
+                    insuredPondIds: [targetPondId],
+                    stockingDate: pp.stockingDate ? new Date(pp.stockingDate) : new Date(),
+                    stockingDensity: Number(pp.stockingDensity) || 40,
+                    species: pp.species || 'vannamei',
+                    insuranceType: pp.insuranceType || 'comprehensive',
+                    insurancePeriodDays: Number(pp.insurancePeriodDays) || 120,
+                    plannedHarvestDate: pp.plannedHarvestDate ? new Date(pp.plannedHarvestDate) : undefined,
+                    maxHarvestDate: pp.maxHarvestDate ? new Date(pp.maxHarvestDate) : undefined,
+                    status: 'active',
+                };
+
+                const existingPondPolicy = await Insurance.findOne({
+                    farmerId: validFarmerId,
+                    farmId: validFarmId,
+                    pondId: targetPondId
+                });
+
+                let saved;
+                if (existingPondPolicy) {
+                    saved = await Insurance.findByIdAndUpdate(existingPondPolicy._id, { $set: policyPayload }, { new: true });
+                } else {
+                    saved = await Insurance.create(policyPayload);
+                }
+                savedPolicies.push(saved);
+            }
+
+            return res.status(201).json({ success: true, data: savedPolicies[0], allPolicies: savedPolicies });
+        }
+
+        // Case B: Single policy / global fallback
         let resolvedPondId = null;
         if (pondId && mongoose.Types.ObjectId.isValid(pondId)) {
             resolvedPondId = new mongoose.Types.ObjectId(pondId);
@@ -58,7 +99,6 @@ router.post('/', async (req, res) => {
             resolvedPondId = realPonds[0]._id;
         }
 
-        // Resolve insuredPondIds array
         let validInsuredPondIds = [];
         if (Array.isArray(insuredPondIds) && insuredPondIds.length > 0) {
             validInsuredPondIds = insuredPondIds
@@ -85,7 +125,6 @@ router.post('/', async (req, res) => {
             ...rest
         };
 
-        // Check if an insurance policy already exists for this farmer/farm
         const existing = await Insurance.findOne({ farmerId: validFarmerId, farmId: validFarmId });
         let insurance;
         if (existing) {

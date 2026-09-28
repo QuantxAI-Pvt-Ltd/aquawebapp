@@ -150,12 +150,9 @@ export default function FarmerKYC() {
 
   const onSubmit = async (data: KYCForm) => {
     try {
-      toast.loading(t("common.saving"), { id: "kyc-save" });
-
       const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = sess.farmerId;
       if (!farmerId) {
-        toast.dismiss("kyc-save");
         toast.error("Session expired. Please log in again.");
         return;
       }
@@ -196,12 +193,10 @@ export default function FarmerKYC() {
       const res = await axios.patch(`/api/farmers/${farmerId}`, payload);
 
       if (res.data?.success) {
-        toast.dismiss("kyc-save");
         toast.success("Identity & Bank details saved!");
         navigate("/farm-registration");
       }
     } catch (error: any) {
-      toast.dismiss("kyc-save");
       console.error("KYC submission error:", error);
       toast.error(error.response?.data?.error || t("common.error"));
     }

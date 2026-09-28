@@ -17,9 +17,9 @@ export const REGISTRATION_STEPS = [
   { id: 1, title: "Farmer Address", shortTitle: "Address", route: "/farmer-address" },
   { id: 2, title: "Identity & Bank", shortTitle: "KYC & Bank", route: "/farmer-kyc" },
   { id: 3, title: "Farm Location", shortTitle: "Location", route: "/farm-registration" },
-  { id: 4, title: "Farm Setup & Infra", shortTitle: "Setup", route: "/farm-setup" },
-  { id: 5, title: "Insurance Policy", shortTitle: "Insurance", route: "/insurance-registration" },
-  { id: 6, title: "Insured Ponds", shortTitle: "Ponds", route: "/insured-ponds" },
+  { id: 4, title: "Pond Registration", shortTitle: "Ponds", route: "/farm-setup" },
+  { id: 5, title: "Select Insured Ponds", shortTitle: "Select", route: "/insured-ponds" },
+  { id: 6, title: "Pond Insurance", shortTitle: "Insurance", route: "/insurance-registration" },
 ];
 
 export default function RegistrationHeader({

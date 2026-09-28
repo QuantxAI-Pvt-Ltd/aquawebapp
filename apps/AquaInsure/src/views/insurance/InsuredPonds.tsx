@@ -190,7 +190,6 @@ export default function InsuredPonds() {
     }
 
     setSubmitting(true);
-    toast.loading("Saving pond configurations to database…", { id: "ponds-save" });
 
     try {
       const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
@@ -240,32 +239,18 @@ export default function InsuredPonds() {
         }
       }
 
-      // Mark full registration complete
-      localStorage.setItem("aqua-reg-complete", "1");
-      localStorage.removeItem("draft_farmer");
-      localStorage.removeItem("draft_farmer_address");
-      localStorage.removeItem("draft_farmer_aadharNumber");
-      localStorage.removeItem("draft_farm_location");
-      localStorage.removeItem("draft_farm_form");
-      localStorage.removeItem("draft_farm_infra");
-      localStorage.removeItem("draft_insurance_form");
-      localStorage.removeItem("draft_insured_ponds");
+      // Store selected pond IDs for Step 7 (Variable Insurance Registration)
+      localStorage.setItem("draft_selected_pond_ids", JSON.stringify(selectedPonds));
 
-      toast.dismiss("ponds-save");
-      toast.success(isEditMode ? "Pond details updated!" : "🎉 Registration completed successfully!");
-      setTimeout(() => {
-        if (isEditMode) {
-          navigate("/settings", { replace: true });
-        } else {
-          navigate("/entries/daily", { replace: true });
-        }
-      }, 500);
+      toast.success("Insured ponds selected!");
+      if (isEditMode) {
+        navigate("/settings", { replace: true });
+      } else {
+        navigate("/insurance-registration");
+      }
     } catch (err: any) {
-      toast.dismiss("ponds-save");
-      console.error("Pond save error:", err);
-      localStorage.setItem("aqua-reg-complete", "1");
-      toast.success("Registration completed!");
-      navigate("/entries/daily", { replace: true });
+      console.error("Pond selection error:", err);
+      toast.error(err.response?.data?.error || t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -290,11 +275,10 @@ export default function InsuredPonds() {
 
       {/* SCROLLABLE INNER BODY */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
-        {/* REUSABLE 7-STEP HEADER (Step 7 Active) */}
+        {/* REUSABLE 7-STEP HEADER (Step 6: Select Insured Ponds) */}
         <RegistrationHeader
-          currentStep={6}
-          title="Insured Ponds"
-          syncStatus={syncStatus}
+          currentStep={5}
+          title="Select Insured Ponds"
         />
 
         <div className="px-4 mt-5 space-y-4">
@@ -432,10 +416,10 @@ export default function InsuredPonds() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/insurance-registration")}
+              onClick={() => navigate("/farm-setup")}
               className="flex-1 h-12 rounded-xl border-stone-200 text-stone-600 font-semibold"
             >
-              ← Back to Insurance
+              ← Back to Ponds
             </Button>
             <Button
               type="button"
@@ -450,7 +434,7 @@ export default function InsuredPonds() {
               {submitting ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : (
-                "Complete Registration ✓"
+                "Next: Configure Insurance →"
               )}
             </Button>
           </div>

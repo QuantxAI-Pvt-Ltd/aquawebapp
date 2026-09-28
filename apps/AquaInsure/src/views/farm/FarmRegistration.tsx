@@ -118,12 +118,9 @@ export default function FarmRegistration() {
 
   const onSubmit = async (data: LocationForm) => {
     try {
-      toast.loading(t("common.saving"), { id: "loc-save" });
-
       const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = sess.farmerId;
       if (!farmerId) {
-        toast.dismiss("loc-save");
         toast.error("Session expired. Please log in again.");
         return;
       }
@@ -131,11 +128,9 @@ export default function FarmRegistration() {
       // Save to localStorage draft for combining with Step 5
       localStorage.setItem("draft_farm_location", JSON.stringify(data));
 
-      toast.dismiss("loc-save");
       toast.success("Farm location saved!");
       navigate("/farm-setup");
     } catch (error: any) {
-      toast.dismiss("loc-save");
       console.error("Location save error:", error);
       toast.error(error.response?.data?.error || t("common.error"));
     }

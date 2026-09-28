@@ -19,6 +19,8 @@ const pondSchema = new mongoose.Schema({
 
     // Insured Ponds data
     dimensionAcres: { type: Number },              // size in acres
+    surveyNumber:   { type: String, default: '' }, // Individual survey number for this pond
+    pattaNumber:    { type: String, default: '' }, // Individual patta number for this pond
     photo:          { type: mediaObjectSchema, default: null },
 
     // Per-pond address

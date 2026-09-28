@@ -131,12 +131,9 @@ export default function FarmerRegistration() {
 
   const onSubmit = async (data: PersonalForm) => {
     try {
-      toast.loading(t("common.saving"), { id: "personal-save" });
-
       const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = sess.farmerId;
       if (!farmerId) {
-        toast.dismiss("personal-save");
         toast.error("Session expired. Please log in again.");
         return;
       }
@@ -176,14 +173,12 @@ export default function FarmerRegistration() {
         localStorage.setItem("aqua-session", JSON.stringify({ ...sess, name: data.name }));
         localStorage.setItem("shrimpguard-farmer", JSON.stringify({ name: data.name }));
 
-        toast.dismiss("personal-save");
         toast.success(isEditMode ? "Profile updated" : "Personal details saved!");
 
         if (isEditMode) navigate("/settings");
         else navigate("/farmer-address");
       }
     } catch (error: any) {
-      toast.dismiss("personal-save");
       console.error("Submission error:", error);
       toast.error(error.response?.data?.error || t("common.error"));
     }

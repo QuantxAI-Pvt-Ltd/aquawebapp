@@ -109,30 +109,38 @@ router.post('/', requireAuth, async (req, res) => {
         // Reconcile ponds for this farm
         let existingPonds = await Pond.find({ farmId: farm._id }).sort({ pondNumber: 1 });
         if (existingPonds.length === 0) {
-            // Also check if ponds exist by farmerId
             existingPonds = await Pond.find({ farmerId: farm.farmerId }).sort({ pondNumber: 1 });
             if (existingPonds.length > 0) {
-                // Link them to this farm
                 await Pond.updateMany({ farmerId: farm.farmerId }, { $set: { farmId: farm._id } });
             }
         }
 
+        const inputPonds = Array.isArray(req.body.ponds) ? req.body.ponds : [];
         const pondPromises = [];
-        const currentCount = existingPonds.length;
-        if (currentCount < totalPondsNum) {
-            for (let i = currentCount + 1; i <= totalPondsNum; i++) {
-                pondPromises.push(Pond.create({
-                    farmId: farm._id,
-                    farmerId: farm.farmerId,
-                    pondNumber: i,
-                    name: `Pond ${i}`,
-                    dimensionAcres: 1.0,
-                }));
+
+        // Update or create ponds based on totalPondsNum or inputPonds
+        for (let i = 1; i <= totalPondsNum; i++) {
+            const inputP = inputPonds.find(p => p.pondNumber === i) || inputPonds[i - 1] || {};
+            const existingP = existingPonds.find(p => p.pondNumber === i);
+
+            const pondData = {
+                farmId: farm._id,
+                farmerId: farm.farmerId,
+                pondNumber: i,
+                name: inputP.name || (existingP ? existingP.name : `Pond ${i}`),
+                dimensionAcres: inputP.dimensionAcres != null ? parseFloat(inputP.dimensionAcres) : (existingP?.dimensionAcres || 1.0),
+                surveyNumber: inputP.surveyNumber || existingP?.surveyNumber || (farm.ownership?.patta ? `${farm.ownership.patta}/${i}` : ''),
+                pattaNumber: inputP.pattaNumber || existingP?.pattaNumber || farm.ownership?.patta || '',
+            };
+
+            if (existingP) {
+                pondPromises.push(Pond.findByIdAndUpdate(existingP._id, { $set: pondData }, { new: true }));
+            } else {
+                pondPromises.push(Pond.create(pondData));
             }
         }
 
-        const newlyCreated = await Promise.all(pondPromises);
-        const allPonds = [...existingPonds, ...newlyCreated];
+        const allPonds = await Promise.all(pondPromises);
 
         res.status(201).json({
             success: true,

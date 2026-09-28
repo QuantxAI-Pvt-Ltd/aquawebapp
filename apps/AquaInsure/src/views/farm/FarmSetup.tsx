@@ -16,10 +16,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import BottomNav from "@/components/BottomNav";
-import SyncIndicator from "@/components/SyncIndicator";
 import RegistrationHeader from "@/components/RegistrationHeader";
-import { useAutoSave } from "@/hooks/useAutoSave";
 import axios from "@/lib/api";
+
+interface PondConfig {
+  pondNumber: number;
+  name: string;
+  surveyNumber: string;
+  pattaNumber: string;
+  dimensionAcres: string;
+}
 
 const setupSchema = z.object({
   ownership: z.string().min(1, "farm.errors.ownership"),
@@ -34,6 +40,10 @@ export default function FarmSetup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get("mode") === "edit";
+
+  const [pondsList, setPondsList] = useState<PondConfig[]>([
+    { pondNumber: 1, name: "Pond 1", surveyNumber: "", pattaNumber: "", dimensionAcres: "1.0" },
+  ]);
 
   const [infra, setInfra] = useState({
     filtration: "",
@@ -62,7 +72,33 @@ export default function FarmSetup() {
     },
   });
 
-  // DB as Single Source of Truth: Fetch existing farm records from MongoDB on mount
+  const watchedTotalPonds = watch("totalPonds");
+  const watchedPatta = watch("patta");
+
+  // Synchronize ponds list whenever totalPonds count changes
+  useEffect(() => {
+    const count = parseInt(watchedTotalPonds || "1", 10) || 1;
+    setPondsList((prev) => {
+      const updated: PondConfig[] = [];
+      for (let i = 1; i <= count; i++) {
+        const existing = prev.find((p) => p.pondNumber === i);
+        if (existing) {
+          updated.push(existing);
+        } else {
+          updated.push({
+            pondNumber: i,
+            name: `Pond ${i}`,
+            surveyNumber: watchedPatta ? `${watchedPatta}/${i}` : "",
+            pattaNumber: watchedPatta || "",
+            dimensionAcres: "1.0",
+          });
+        }
+      }
+      return updated;
+    });
+  }, [watchedTotalPonds, watchedPatta]);
+
+  // DB as Single Source of Truth: Fetch existing farm and ponds from MongoDB on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -74,10 +110,11 @@ export default function FarmSetup() {
           .then((res) => {
             if (res.data?.success && Array.isArray(res.data?.data) && res.data.data.length > 0) {
               const farm = res.data.data[0];
+              const pCount = String(farm.totalPonds || farm.pondsCount || "1");
               reset({
                 ownership: farm.ownership?.type || "owned",
                 patta: farm.ownership?.patta || farm.patta || "",
-                totalPonds: String(farm.totalPonds || farm.pondsCount || "1"),
+                totalPonds: pCount,
               });
 
               if (farm.infrastructure) {
@@ -93,31 +130,42 @@ export default function FarmSetup() {
                 });
               }
 
-              // Update local cache
-              localStorage.setItem(
-                "aqua-farm",
-                JSON.stringify({
-                  farmId: farm._id,
-                  ponds: farm.ponds || [],
+              // Also fetch existing ponds for this farmer to fill per-pond survey numbers
+              axios
+                .get(`/api/farms/ponds?farmerId=${sess.farmerId}`)
+                .then((pRes) => {
+                  if (pRes.data?.success && Array.isArray(pRes.data?.data) && pRes.data.data.length > 0) {
+                    const loadedPonds = pRes.data.data.map((p: any, idx: number) => ({
+                      pondNumber: p.pondNumber || idx + 1,
+                      name: p.name || `Pond ${idx + 1}`,
+                      surveyNumber: p.surveyNumber || (farm.ownership?.patta ? `${farm.ownership.patta}/${idx + 1}` : ""),
+                      pattaNumber: p.pattaNumber || farm.ownership?.patta || "",
+                      dimensionAcres: String(p.dimensionAcres || "1.0"),
+                    }));
+                    setPondsList(loadedPonds);
+                  }
                 })
-              );
+                .catch(() => {});
             }
           })
-          .catch((err) => console.warn("Farm setup prefill error:", err));
+          .catch((err) => console.warn("Farm setup prefill warning:", err));
       }
     } catch (e) {
       console.error("Farm setup hydration error:", e);
     }
   }, [reset]);
 
-  const formValues = watch();
-  const { syncStatus } = useAutoSave([formValues, infra]);
-
   const toggleInfra = (field: string, value: string) => {
     setInfra((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handlePondChange = (pondNum: number, field: keyof PondConfig, val: string) => {
+    setPondsList((prev) =>
+      prev.map((p) => (p.pondNumber === pondNum ? { ...p, [field]: val } : p))
+    );
   };
 
   const onSubmit = async (data: SetupForm) => {
@@ -129,13 +177,10 @@ export default function FarmSetup() {
         return;
       }
 
-      toast.loading(t("common.saving") || "Saving to database…", { id: "farm-save" });
-
       // Retrieve location from Step 4
       const locDraftStr = localStorage.getItem("draft_farm_location") || "{}";
       const loc = JSON.parse(locDraftStr);
-
-      const totalPondsCount = Number(data.totalPonds) || 1;
+      const totalPondsCount = Number(data.totalPonds) || pondsList.length || 1;
 
       const payload = {
         farmerId,
@@ -153,6 +198,13 @@ export default function FarmSetup() {
         },
         totalPonds: totalPondsCount,
         pondsCount: totalPondsCount,
+        ponds: pondsList.slice(0, totalPondsCount).map((p) => ({
+          pondNumber: p.pondNumber,
+          name: p.name || `Pond ${p.pondNumber}`,
+          surveyNumber: p.surveyNumber || `${data.patta}/${p.pondNumber}`,
+          pattaNumber: p.pattaNumber || data.patta,
+          dimensionAcres: parseFloat(p.dimensionAcres) || 1.0,
+        })),
         infrastructure: {
           filtration: infra.filtration === "yes",
           reservoir: infra.reservoir === "yes",
@@ -174,16 +226,15 @@ export default function FarmSetup() {
         };
         localStorage.setItem("aqua-farm", JSON.stringify(farmData));
 
-        toast.dismiss("farm-save");
-        toast.success(isEditMode ? "Farm setup updated!" : (t("farm.saved") || "Farm setup saved to database!"));
+        toast.success(isEditMode ? "Farm setup updated!" : "Ponds & Farm setup saved!");
         if (isEditMode) {
           navigate("/settings");
         } else {
-          navigate("/insurance-registration");
+          // Navigate to Step 6: Select Insured Ponds
+          navigate("/insured-ponds");
         }
       }
     } catch (error: any) {
-      toast.dismiss("farm-save");
       console.error("Farm save error:", error);
       toast.error(error.response?.data?.error || t("common.error"));
     }
@@ -197,24 +248,22 @@ export default function FarmSetup() {
       className="h-full flex flex-col overflow-hidden bg-stone-50 relative text-stone-800 font-sans"
       style={{ fontFamily: "'Sora', sans-serif" }}
     >
-      <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
 
       {/* SCROLLABLE INNER BODY */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
-        {/* REUSABLE 7-STEP HEADER (Step 5 Active) */}
+        {/* REUSABLE 7-STEP HEADER (Step 5: Pond Registration) */}
         <RegistrationHeader
           currentStep={4}
-          title="Farm Setup & Infra"
-          syncStatus={syncStatus}
+          title="Pond Registration"
         />
 
         <div className="px-4 mt-5 space-y-4">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Ownership */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-stone-500 ml-0.5">
-                {t("farm.ownershipType") || "Ownership Type"}
+                {t("farm.ownershipType") || "Farm Ownership Type"}
               </label>
               <div className="flex gap-2">
                 {["owned", "leased"].map((v) => {
@@ -223,9 +272,9 @@ export default function FarmSetup() {
                     <button
                       key={v}
                       type="button"
-                      className={`flex-1 h-12 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                      className={`flex-1 h-12 rounded-xl text-xs font-bold transition-all shadow-xs ${
                         isActive
-                          ? "text-white shadow-sm border-transparent"
+                          ? "text-white border-transparent"
                           : "bg-white border text-stone-500 border-stone-200 hover:border-teal-200"
                       }`}
                       onClick={() => setValue("ownership", v, { shouldValidate: true })}
@@ -245,18 +294,22 @@ export default function FarmSetup() {
               </div>
             </div>
 
-            {/* Patta */}
+            {/* Farm Patta Number */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-stone-500 ml-0.5">
-                Patta / Survey Number <span className="text-rose-500">*</span>
+                Primary Farm Patta / Survey Number <span className="text-rose-500">*</span>
               </label>
-              <Input {...register("patta")} placeholder={t("farm.patta")} className={inputClasses} />
+              <Input
+                {...register("patta")}
+                placeholder="e.g. 104/A or Khata # 849"
+                className={inputClasses}
+              />
               {errors.patta && (
                 <p className="text-xs text-red-500 mt-1 ml-1">{t(errors.patta.message as string)}</p>
               )}
             </div>
 
-            {/* Total Ponds */}
+            {/* Total Ponds Select */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-stone-500 ml-0.5">
                 Total Ponds on Farm <span className="text-rose-500">*</span>
@@ -269,25 +322,88 @@ export default function FarmSetup() {
                   <SelectValue placeholder={t("farm.selectPonds")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 30 }, (_, i) => (
+                  {Array.from({ length: 20 }, (_, i) => (
                     <SelectItem key={i + 1} value={String(i + 1)}>
                       {i + 1} {i === 0 ? "Pond" : "Ponds"}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.totalPonds && (
-                <p className="text-xs text-red-500 mt-1 ml-1">{t(errors.totalPonds.message as string)}</p>
-              )}
+            </div>
+
+            {/* Individual Pond Details (Survey No & Dimensions) */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                    Individual Pond Survey Details
+                  </h2>
+                  <p className="text-[11px] text-stone-500">
+                    Specify distinct Survey / Patta number & size for each pond
+                  </p>
+                </div>
+                <span className="text-xs font-extrabold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100">
+                  {pondsList.length} Ponds
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {pondsList.map((pond) => (
+                  <div
+                    key={pond.pondNumber}
+                    className="p-3.5 bg-white rounded-2xl border border-stone-200/80 shadow-xs space-y-3 transition-all hover:border-teal-300"
+                  >
+                    <div className="flex items-center gap-2 pb-1 border-b border-stone-100">
+                      <div className="w-6 h-6 rounded-lg bg-teal-600 text-white font-extrabold text-xs flex items-center justify-center">
+                        {pond.pondNumber}
+                      </div>
+                      <span className="text-xs font-bold text-stone-800">{pond.name}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-stone-500">
+                          Pond Survey / Dag No.
+                        </label>
+                        <Input
+                          value={pond.surveyNumber}
+                          onChange={(e) =>
+                            handlePondChange(pond.pondNumber, "surveyNumber", e.target.value)
+                          }
+                          placeholder={`e.g. ${watchedPatta || "104"}/${pond.pondNumber}`}
+                          className="h-10 text-xs rounded-lg bg-stone-50 border-stone-200"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-stone-500">
+                          Pond Size (Acres)
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0.1"
+                          value={pond.dimensionAcres}
+                          onChange={(e) =>
+                            handlePondChange(pond.pondNumber, "dimensionAcres", e.target.value)
+                          }
+                          placeholder="1.0"
+                          className="h-10 text-xs rounded-lg bg-stone-50 border-stone-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Infrastructure Checklist */}
             <div className="pt-2 border-t border-stone-100 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                {t("farm.infrastructure")}
+                {t("farm.infrastructure") || "Farm Infrastructure"}
               </h2>
 
-              <div className="divide-y divide-stone-100 bg-white rounded-2xl p-3 border border-stone-100 shadow-sm">
+              <div className="divide-y divide-stone-100 bg-white rounded-2xl p-3 border border-stone-100 shadow-xs">
                 {[
                   ["filtration", "Filtration facility"],
                   ["reservoir", "Reservoir system"],
@@ -308,7 +424,7 @@ export default function FarmSetup() {
                         type="button"
                         className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                           infra[key as keyof typeof infra] === "yes"
-                            ? "bg-white text-teal-700 shadow-sm"
+                            ? "bg-white text-teal-700 shadow-xs"
                             : "text-stone-400"
                         }`}
                         onClick={() => toggleInfra(key, "yes")}
@@ -319,7 +435,7 @@ export default function FarmSetup() {
                         type="button"
                         className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                           infra[key as keyof typeof infra] === "no"
-                            ? "bg-white text-rose-600 shadow-sm"
+                            ? "bg-white text-rose-600 shadow-xs"
                             : "text-stone-400"
                         }`}
                         onClick={() => toggleInfra(key, "no")}
@@ -354,7 +470,7 @@ export default function FarmSetup() {
                 {isSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
-                  "Next: Insurance Setup →"
+                  "Next: Select Ponds →"
                 )}
               </Button>
             </div>

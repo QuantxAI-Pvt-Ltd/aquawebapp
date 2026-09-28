@@ -115,13 +115,10 @@ const OneTimeEntry = () => {
         return;
       }
 
-      toast.loading(t("common.saving"), { id: 'onetime-save' });
-
       // Apply to first pond by default in this wizard flow
       const firstPondId = ponds[0]._id || ponds[0].pondId;
 
       if (!firstPondId || String(firstPondId).length < 24) {
-        toast.dismiss('onetime-save');
         toast.error("Invalid Pond ID. Please go back to Farm Registration and Save it to generate valid MongoDB ObjectIds.");
         return;
       }
@@ -148,12 +145,10 @@ const OneTimeEntry = () => {
       const res = await axios.post("/api/entries/one-time", payload);
 
       if (res.data.success) {
-        toast.dismiss('onetime-save');
         toast.success(t("entries.saved"));
         setTimeout(() => navigate("/entries/daily"), 1000);
       }
     } catch (error: any) {
-      toast.dismiss('onetime-save');
       console.error('OneTimeEntry submission error:', error);
       toast.error(error.response?.data?.error || t('common.error'));
     }

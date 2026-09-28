@@ -243,12 +243,9 @@ const DailyEntry = () => {
     if (!selectedDay) { toast.error(t("entries.selectDay")); return; }
 
     try {
-      toast.loading(t("common.saving"), { id: 'daily-save' });
-
       const pondId = ponds[pondIndex]._id || ponds[pondIndex].pondId;
 
       if (!pondId || String(pondId).length < 24) {
-        toast.dismiss('daily-save');
         toast.error("Invalid Pond ID. Please re-register your Farm to generate valid database IDs.");
         return;
       }
@@ -323,7 +320,6 @@ const DailyEntry = () => {
       const res = await axios.post("/api/entries/daily", payload);
 
       if (res.data.success) {
-        toast.dismiss('daily-save');
         toast.success(t("entries.saved"));
         localStorage.removeItem(`draft_daily_${pondId}_${selectedDay}`);
         
@@ -335,7 +331,6 @@ const DailyEntry = () => {
         setSelectedDay(null);
       }
     } catch (error: any) {
-      toast.dismiss('daily-save');
       console.error("Daily entry save error", error);
       toast.error(error.response?.data?.error || t('common.error'));
     }
