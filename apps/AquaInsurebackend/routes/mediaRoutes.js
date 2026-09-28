@@ -13,7 +13,7 @@ const {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB max (covers video uploads)
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB max limit across AquaInsure
 });
 
 /**
@@ -93,8 +93,23 @@ const handleUpload = async (req, res) => {
   }
 };
 
-router.post('/upload', upload.single('file'), handleUpload);
-router.put('/upload', upload.single('file'), handleUpload);
+const uploadSingleFile = (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          success: false,
+          error: 'File size exceeds 15MB limit. Please select a smaller file.',
+        });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+};
+
+router.post('/upload', uploadSingleFile, handleUpload);
+router.put('/upload', uploadSingleFile, handleUpload);
 
 /**
  * @route   GET /api/media/stream?key=...

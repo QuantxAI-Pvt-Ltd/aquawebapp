@@ -114,38 +114,77 @@ async function uploadToSeaweedFSMaster(buffer, filename = 'file.bin', mimeType =
 }
 
 /**
- * Uploads a Buffer to SeaweedFS (native Master first, S3 fallback).
+ * Uploads a Buffer directly to SeaweedFS Filer.
+ */
+async function uploadToSeaweedFSFiler(buffer, key, mimeType = 'application/octet-stream', bucket = DEFAULT_BUCKET) {
+  return new Promise((resolve, reject) => {
+    const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+    const filename = path.basename(cleanKey) || 'file.bin';
+    const boundary = '----SeaweedFSFilerBoundary' + Math.random().toString(36).substring(2);
+    const postDataHeader = Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
+    );
+    const postDataFooter = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const fullPayload = Buffer.concat([postDataHeader, buffer, postDataFooter]);
+
+    const targetPath = `/buckets/${bucket}/${cleanKey}`;
+    const parsed = new URL(targetPath, FILER_ENDPOINT);
+    const transport = parsed.protocol === 'https:' ? https : http;
+
+    const req = transport.request(parsed, {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': fullPayload.length,
+      },
+      timeout: 30000,
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({
+            key: cleanKey,
+            bucket,
+            url: `/api/media/stream?key=${encodeURIComponent(cleanKey)}`,
+            mimeType,
+            size: buffer.length,
+            uploadedAt: new Date(),
+          });
+        } else {
+          reject(new Error(`SeaweedFS Filer upload failed (${res.statusCode}): ${body}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('SeaweedFS Filer upload timeout')));
+    req.write(fullPayload);
+    req.end();
+  });
+}
+
+/**
+ * Uploads a Buffer to SeaweedFS (Filer primary, Master secondary, S3 tertiary).
  * @param {Buffer} buffer
  * @param {string} key
  * @param {string} mimeType
  * @param {string} [bucket]
  */
 async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', bucket = DEFAULT_BUCKET) {
-  // 1. Primary: S3 Gateway upload directly to SeaweedFS S3 bucket
+  const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+
+  // 1. Primary: Direct SeaweedFS Filer upload
   try {
-    await ensureBucket(bucket);
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: buffer,
-      ContentType: mimeType,
-    });
-    await s3Client.send(command);
-    return {
-      key,
-      bucket,
-      url: `/api/media/stream?key=${encodeURIComponent(key)}`,
-      mimeType,
-      size: buffer.length,
-      uploadedAt: new Date(),
-    };
-  } catch (s3Err) {
-    console.warn('[SeaweedFS] S3 upload failed, attempting native master fallback:', s3Err.message);
+    const filerResult = await uploadToSeaweedFSFiler(buffer, cleanKey, mimeType, bucket);
+    if (filerResult) return filerResult;
+  } catch (filerErr) {
+    console.warn('[SeaweedFS] Filer upload failed, attempting native master fallback:', filerErr.message);
   }
 
   // 2. Secondary: Native SeaweedFS Master upload fallback (/submit)
   try {
-    const filename = key ? path.basename(key) : 'media.bin';
+    const filename = cleanKey ? path.basename(cleanKey) : 'media.bin';
     const result = await uploadToSeaweedFSMaster(buffer, filename, mimeType);
     if (result && result.fid) {
       return {
@@ -161,9 +200,31 @@ async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', 
     console.warn('[SeaweedFS] Native master upload fallback failed:', masterErr.message);
   }
 
-  // 3. Fallback: inline data URI
+  // 3. Tertiary: S3 Gateway upload fallback
+  try {
+    await ensureBucket(bucket);
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: cleanKey,
+      Body: buffer,
+      ContentType: mimeType,
+    });
+    await s3Client.send(command);
+    return {
+      key: cleanKey,
+      bucket,
+      url: `/api/media/stream?key=${encodeURIComponent(cleanKey)}`,
+      mimeType,
+      size: buffer.length,
+      uploadedAt: new Date(),
+    };
+  } catch (s3Err) {
+    console.warn('[SeaweedFS] S3 fallback upload failed:', s3Err.message);
+  }
+
+  // 4. Fallback: inline data URI
   return {
-    key: key || 'local_media',
+    key: cleanKey || 'local_media',
     bucket: 'local',
     url: `data:${mimeType};base64,${buffer.toString('base64')}`,
     mimeType,
@@ -176,102 +237,108 @@ async function uploadBuffer(buffer, key, mimeType = 'application/octet-stream', 
  * Generates an S3 presigned PUT URL allowing clients to upload directly to SeaweedFS.
  */
 async function generatePresignedUploadUrl(key, mimeType = 'application/octet-stream', expiresInSeconds = 900, bucket = DEFAULT_BUCKET) {
-  try {
-    await ensureBucket(bucket);
-
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      ContentType: mimeType,
-    });
-
-    const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: expiresInSeconds,
-      unhoistableHeaders: new Set(),
-    });
-
-    return {
-      uploadUrl,
-      key,
-      bucket,
-      finalUrl: getPublicUrl(key, bucket),
-      expiresIn: expiresInSeconds,
-    };
-  } catch (err) {
-    console.warn('[SeaweedFS] Presigned S3 generation failed, using backend proxy URL:', err.message);
-    const backendUrl = process.env.BACKEND_PUBLIC_URL || 'http://localhost:5001';
-    return {
-      uploadUrl: `${backendUrl}/api/media/upload`,
-      key,
-      bucket,
-      finalUrl: getPublicUrl(key, bucket),
-      expiresIn: expiresInSeconds,
-    };
-  }
+  const backendUrl = process.env.BACKEND_PUBLIC_URL || 'http://localhost:5001';
+  const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+  return {
+    uploadUrl: `${backendUrl}/api/media/upload`,
+    key: cleanKey,
+    bucket,
+    finalUrl: getPublicUrl(cleanKey, bucket),
+    expiresIn: expiresInSeconds,
+  };
 }
 
 /**
  * Generates a presigned download URL for private media.
  */
 async function generatePresignedDownloadUrl(key, expiresInSeconds = 3600, bucket = DEFAULT_BUCKET) {
-  return `/api/media/stream?key=${encodeURIComponent(key)}`;
+  const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+  return `/api/media/stream?key=${encodeURIComponent(cleanKey)}`;
 }
 
 /**
- * Fetches an object stream from SeaweedFS (Master or S3).
+ * Streams an object directly from SeaweedFS Filer or Master without S3 timeouts.
+ */
+function streamDirectHttp(targetUrl, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) return reject(new Error('Too many redirects'));
+    const parsed = new URL(targetUrl);
+    const transport = parsed.protocol === 'https:' ? https : http;
+    const req = transport.get(parsed, (res) => {
+      if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+        return resolve(streamDirectHttp(res.headers.location, redirectCount + 1));
+      }
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        resolve({
+          stream: res,
+          contentType: res.headers['content-type'],
+          contentLength: res.headers['content-length'],
+        });
+      } else {
+        reject(new Error(`SeaweedFS responded with status ${res.statusCode}`));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * Fetches an object stream from SeaweedFS (Filer primary, Master for FIDs, S3 fallback).
  * @param {string} key
  * @param {string} [bucket]
  */
 async function getObjectStream(key, bucket = DEFAULT_BUCKET) {
-  // If key is a SeaweedFS fid (e.g. '7,028873e1ae') or master path, fetch from Master
-  if (key && (key.includes(',') || !key.includes('/'))) {
-    return new Promise((resolve, reject) => {
-      const fetchUrl = (targetUrl, redirectCount = 0) => {
-        if (redirectCount > 5) return reject(new Error('Too many redirects'));
-        const parsed = new URL(targetUrl);
-        const transport = parsed.protocol === 'https:' ? https : http;
-        const req = transport.get(parsed, (res) => {
-          if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-            return fetchUrl(res.headers.location, redirectCount + 1);
-          }
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({
-              stream: res,
-              contentType: res.headers['content-type'],
-              contentLength: res.headers['content-length'],
-            });
-          } else {
-            reject(new Error(`SeaweedFS responded with status ${res.statusCode}`));
-          }
-        });
-        req.on('error', reject);
-      };
+  const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
 
-      fetchUrl(`${SEAWEEDFS_MASTER_ENDPOINT}/${encodeURIComponent(key)}`);
-    });
+  // 1. If key is a SeaweedFS fid (e.g. '7,028873e1ae') or master path, fetch from Master
+  if (cleanKey && /^\d+,[0-9a-zA-Z]+$/.test(cleanKey)) {
+    try {
+      return await streamDirectHttp(`${SEAWEEDFS_MASTER_ENDPOINT}/${encodeURIComponent(cleanKey)}`);
+    } catch (masterErr) {
+      console.warn(`[SeaweedFS] Master stream failed for FID ${cleanKey}:`, masterErr.message);
+    }
   }
 
-  // Fallback to S3 client
-  const command = new GetObjectCommand({
-    Bucket: bucket,
-    Key: key,
-  });
+  // 2. Primary: Stream directly from SeaweedFS Filer (/buckets/bucket/key)
+  try {
+    const bucketUrl = `${FILER_ENDPOINT}/buckets/${bucket}/${cleanKey.split('/').map(encodeURIComponent).join('/')}`;
+    return await streamDirectHttp(bucketUrl);
+  } catch (filerBucketErr) {
+    // Try without /buckets prefix in Filer
+    try {
+      const directUrl = `${FILER_ENDPOINT}/${cleanKey.split('/').map(encodeURIComponent).join('/')}`;
+      return await streamDirectHttp(directUrl);
+    } catch (filerDirectErr) {
+      // Fall through to S3
+    }
+  }
 
-  const response = await s3Client.send(command);
-  return {
-    stream: response.Body,
-    contentType: response.ContentType,
-    contentLength: response.ContentLength,
-  };
+  // 3. Fallback to S3 client
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: cleanKey,
+    });
+    const response = await s3Client.send(command);
+    return {
+      stream: response.Body,
+      contentType: response.ContentType,
+      contentLength: response.ContentLength,
+    };
+  } catch (s3Err) {
+    throw new Error(`Media not found: ${cleanKey} (${s3Err.message})`);
+  }
 }
 
 /**
- * Deletes an object from SeaweedFS.
+ * Deletes an object from SeaweedFS (Filer primary, Master, S3).
  */
 async function deleteObject(key, bucket = DEFAULT_BUCKET) {
-  if (key && key.includes(',')) {
+  const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+
+  if (cleanKey && /^\d+,[0-9a-zA-Z]+$/.test(cleanKey)) {
     return new Promise((resolve, reject) => {
-      const parsed = new URL(`/${encodeURIComponent(key)}`, SEAWEEDFS_MASTER_ENDPOINT);
+      const parsed = new URL(`/${encodeURIComponent(cleanKey)}`, SEAWEEDFS_MASTER_ENDPOINT);
       const transport = parsed.protocol === 'https:' ? https : http;
       const req = transport.request(parsed, { method: 'DELETE' }, (res) => {
         resolve({ statusCode: res.statusCode });
@@ -281,12 +348,32 @@ async function deleteObject(key, bucket = DEFAULT_BUCKET) {
     });
   }
 
-  const command = new DeleteObjectCommand({
-    Bucket: bucket,
-    Key: key,
-  });
+  // Filer DELETE
+  try {
+    const targetPath = `/buckets/${bucket}/${cleanKey}`;
+    const parsed = new URL(targetPath, FILER_ENDPOINT);
+    const transport = parsed.protocol === 'https:' ? https : http;
+    await new Promise((resolve, reject) => {
+      const req = transport.request(parsed, { method: 'DELETE' }, (res) => {
+        resolve({ statusCode: res.statusCode });
+      });
+      req.on('error', reject);
+      req.end();
+    });
+  } catch (err) {
+    console.warn('[SeaweedFS] Filer delete error:', err.message);
+  }
 
-  return await s3Client.send(command);
+  // S3 DELETE fallback
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: cleanKey,
+    });
+    return await s3Client.send(command);
+  } catch (s3Err) {
+    // ignore
+  }
 }
 
 /**

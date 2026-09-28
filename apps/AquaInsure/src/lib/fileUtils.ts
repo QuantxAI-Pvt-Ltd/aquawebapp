@@ -96,6 +96,8 @@ export const fileToBase64 = (file: File | string | null | undefined): Promise<st
   });
 };
 
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit across app
+
 /**
  * Uploads a file directly to SeaweedFS distributed storage with automatic client-side compression
  * and graceful fallback to backend streaming proxy.
@@ -109,6 +111,12 @@ export async function uploadToSeaweedFS(
   folder = 'general'
 ): Promise<MediaObjectResult | null> {
   if (!file) return null;
+
+  // Validate hard limit before attempting processing
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    throw new Error(`File size (${sizeMb}MB) exceeds the 10MB maximum limit. Please upload a smaller file.`);
+  }
 
   // 1. Client-side compress images if applicable
   let fileToUpload = file;
