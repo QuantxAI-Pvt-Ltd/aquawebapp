@@ -201,7 +201,21 @@ export function resolveMediaUrl(media: any): string | null {
       return `${base}${trimmed}`;
     }
 
-    // 2. Already an HTTP, blob, or valid data URL
+    // 2. Intercept legacy SeaweedFS S3 gateway URLs (:8333) to prevent socket timeouts
+    if (trimmed.includes(':8333')) {
+      try {
+        const urlObj = new URL(trimmed);
+        let cleanKey = urlObj.pathname.replace(/^\/+/, '');
+        if (cleanKey.startsWith('aquainsure/')) {
+          cleanKey = cleanKey.replace(/^aquainsure\//, '');
+        }
+        return `${base}/api/media/stream?key=${encodeURIComponent(cleanKey)}`;
+      } catch {
+        // Continue to standard URL handling if parsing fails
+      }
+    }
+
+    // 3. Already an HTTP, blob, or valid data URL
     if (
       trimmed.startsWith('http://') ||
       trimmed.startsWith('https://') ||
@@ -222,7 +236,7 @@ export function resolveMediaUrl(media: any): string | null {
       return `${base}${trimmed}`;
     }
 
-    // 3. SeaweedFS volume FID or S3 key
+    // 4. SeaweedFS volume FID or S3 key
     if (
       /^\d+,[0-9a-zA-Z]+$/.test(trimmed) ||
       ((trimmed.startsWith('farmers/') ||
@@ -235,7 +249,7 @@ export function resolveMediaUrl(media: any): string | null {
       return `${base}/api/media/stream?key=${encodeURIComponent(trimmed)}`;
     }
 
-    // 4. Raw Base64 string fallback
+    // 5. Raw Base64 string fallback
     return `data:image/jpeg;base64,${trimmed}`;
   }
 
