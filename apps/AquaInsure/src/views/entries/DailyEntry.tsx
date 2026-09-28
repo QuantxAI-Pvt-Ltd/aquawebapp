@@ -23,6 +23,7 @@ const DailyEntry = () => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [pondPreviewOpen, setPondPreviewOpen] = useState(false);
+  const [brokenPondPhotos, setBrokenPondPhotos] = useState<Record<string, boolean>>({});
   const [data, setData] = useState<Record<string, any>>({});
   const [dbEntries, setDbEntries] = useState<any[]>([]); // entries for current pond from DB
   const [insurances, setInsurances] = useState<any[]>([]);
@@ -445,13 +446,15 @@ const DailyEntry = () => {
                   (lp._id || lp.pondId) === (p._id || p.pondId)
                 );
                 // Photos are stored on the server — never in localStorage
+                const pondKey = p._id || p.pondId || `pond-${i}`;
                 const photo = p.photo || null;
+                const hasValidPhoto = photo && !brokenPondPhotos[pondKey];
                 const acres = localPond?.dimensionAcres ?? p.dimensionAcres ?? null;
                 const isActive = pondIndex === i;
 
                 return (
                   <button
-                    key={p._id || p.pondId || i}
+                    key={pondKey}
                     onClick={() => { setPondIndex(i); setSelectedDay(null); }}
                     className={`relative flex-shrink-0 w-24 rounded-2xl overflow-hidden border-2 transition-all focus:outline-none ${
                       isActive
@@ -460,10 +463,11 @@ const DailyEntry = () => {
                     }`}
                     style={{ minHeight: '88px' }}
                   >
-                    {photo ? (
+                    {hasValidPhoto ? (
                       <img
                         src={resolveMediaUrl(photo) || ''}
-                        alt={`Pond ${p.pondNumber || i + 1}`}
+                        alt=""
+                        onError={() => setBrokenPondPhotos(prev => ({ ...prev, [pondKey]: true }))}
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
@@ -511,10 +515,12 @@ const DailyEntry = () => {
             (lp._id || lp.pondId) === (activePond._id || activePond.pondId)
           );
           // Photos are stored on the server — never in localStorage
+          const activeKey = activePond._id || activePond.pondId || `pond-${pondIndex}`;
           const photo = activePond.photo || null;
+          const hasValidPhoto = photo && !brokenPondPhotos[activeKey];
           const acres = localPond?.dimensionAcres ?? activePond.dimensionAcres ?? null;
 
-          return photo ? (
+          return hasValidPhoto ? (
             <button
               onClick={() => setPondPreviewOpen(true)}
               className="w-full relative rounded-2xl overflow-hidden border border-stone-100 shadow-sm text-left focus:outline-none active:scale-[0.98] transition-transform"
@@ -522,15 +528,17 @@ const DailyEntry = () => {
             >
               <img
                 src={resolveMediaUrl(photo) || ''}
-                alt={`Pond ${activePond.pondNumber || pondIndex + 1}`}
+                alt=""
+                onError={() => setBrokenPondPhotos(prev => ({ ...prev, [activeKey]: true }))}
                 className="absolute inset-0 w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
               <div className="relative z-10 flex items-center gap-3 px-4 py-3.5">
-                <div className="w-11 h-11 rounded-xl border-2 border-white/30 overflow-hidden shrink-0">
+                <div className="w-11 h-11 rounded-xl border-2 border-white/30 overflow-hidden shrink-0 relative bg-teal-900/60">
                   <img
                     src={resolveMediaUrl(photo) || ''}
                     alt=""
+                    onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -917,10 +925,11 @@ const DailyEntry = () => {
               {/* Photo — padded wrapper ensures clip works on all browsers */}
               <div className="px-4 shrink-0">
                 <div className="w-full rounded-2xl overflow-hidden" style={{ height: '160px' }}>
-                  {srcUrl ? (
+                  {srcUrl && !brokenPondPhotos[activePond._id || activePond.pondId || `pond-${pondIndex}`] ? (
                     <img
                       src={srcUrl}
-                      alt={`Pond ${activePond.pondNumber || pondIndex + 1}`}
+                      alt=""
+                      onError={() => setBrokenPondPhotos(prev => ({ ...prev, [activePond._id || activePond.pondId || `pond-${pondIndex}`]: true }))}
                       className="w-full h-full object-cover"
                     />
                   ) : (

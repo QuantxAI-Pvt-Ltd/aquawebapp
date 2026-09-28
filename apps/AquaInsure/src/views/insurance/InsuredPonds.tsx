@@ -370,10 +370,11 @@ export default function InsuredPonds() {
                       Pond Photo (Optional)
                     </label>
                     {pond.photoPreview ? (
-                      <div className="relative rounded-xl overflow-hidden border border-stone-200 aspect-video flex items-center justify-center">
+                      <div className="relative rounded-xl overflow-hidden border border-stone-200 aspect-video flex items-center justify-center bg-stone-100">
                         <img
                           src={pond.photoPreview}
-                          alt={`Pond ${pond.pondNumber}`}
+                          alt=""
+                          onError={() => clearPhoto(pond.pondId)}
                           className="w-full h-full object-cover"
                         />
                         <button

@@ -23,6 +23,7 @@ export default function FarmDetail() {
     const [ponds, setPonds] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [previewImg, setPreviewImg] = useState<string | null>(null);
+    const [brokenPhotos, setBrokenPhotos] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
@@ -70,37 +71,41 @@ export default function FarmDetail() {
                 ) : farms.length === 0 ? (
                     <p className="text-center text-sm text-stone-400 pt-10">No farms registered yet.</p>
                 ) : (
-                    farms.map((farm, i) => (
-                        <div>
+                    farms.map((farm, i) => {
+                        const farmKey = farm._id || `farm-${i}`;
+                        const photoUrl = resolveMediaUrl(farm.farmPhoto);
+                        const hasValidPhoto = photoUrl && !brokenPhotos[farmKey];
 
-                            {/* Farm header card */}
-                            {(() => {
-                                const photoUrl = resolveMediaUrl(farm.farmPhoto);
-                                return (
-                                    <div className="bg-white rounded-2xl overflow-hidden border border-amber-100 shadow-sm mb-3">
-                                        {photoUrl && (
-                                            <div className="w-full h-36 relative overflow-hidden cursor-pointer" onClick={() => setPreviewImg(photoUrl)}>
-                                                <img src={photoUrl} alt="Farm Overview" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                                                <div className="absolute bottom-2.5 left-3.5 text-white">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-md">Farm Photo</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-4 p-4">
-                                            {!photoUrl && (
-                                                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                                                    <Landmark size={20} className="text-amber-500" />
-                                                </div>
-                                            )}
-                                            <div>
-                                                <p className="text-sm font-bold text-stone-800">Farm {i + 1}</p>
-                                                <p className="text-xs text-stone-400">{farm.location?.place}, {farm.location?.district}</p>
+                        return (
+                            <div key={farmKey}>
+                                {/* Farm header card */}
+                                <div className="bg-white rounded-2xl overflow-hidden border border-amber-100 shadow-sm mb-3">
+                                    {hasValidPhoto && (
+                                        <div className="w-full h-36 relative overflow-hidden cursor-pointer bg-stone-900" onClick={() => setPreviewImg(photoUrl)}>
+                                            <img
+                                                src={photoUrl}
+                                                alt=""
+                                                onError={() => setBrokenPhotos(prev => ({ ...prev, [farmKey]: true }))}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                                            <div className="absolute bottom-2.5 left-3.5 text-white">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-md">Farm Photo</span>
                                             </div>
                                         </div>
+                                    )}
+                                    <div className="flex items-center gap-4 p-4">
+                                        {!hasValidPhoto && (
+                                            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                                                <Landmark size={20} className="text-amber-500" />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="text-sm font-bold text-stone-800">Farm {i + 1}</p>
+                                            <p className="text-xs text-stone-400">{farm.location?.place}, {farm.location?.district}</p>
+                                        </div>
                                     </div>
-                                );
-                            })()}
+                                </div>
 
                             <div className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3">
                                 <p className="text-[9px] uppercase font-black tracking-[0.18em] mb-3 text-amber-600">Location</p>
@@ -148,10 +153,11 @@ export default function FarmDetail() {
                                             Pond {i + 1}
                                         </span>
                                     ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
             </div>
