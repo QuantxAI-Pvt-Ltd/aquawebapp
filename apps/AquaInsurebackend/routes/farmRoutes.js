@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Farm = require('../models/Farm');
 const Pond = require('../models/Pond');
+const Farmer = require('../models/Farmer');
 
 const base64ToBuffer = (base64Str) => {
     if (!base64Str) return null;
@@ -42,47 +43,101 @@ const safeUploadBase64 = async (val, keyFn) => {
 const { requireAuth } = require('../middleware/auth');
 
 // @route   POST /api/farms
-// @desc    Register a farm and create its associated Ponds
+// @desc    Register or update a farm and reconcile its associated Ponds
 router.post('/', requireAuth, async (req, res) => {
     try {
-        const { pondsCount, latitude, longitude, ...farmBody } = req.body;
-        const farmObjectId = new mongoose.Types.ObjectId();
-        const farmId = farmObjectId.toString();
-        const farmerId = farmBody.farmerId?.toString();
+        const { pondsCount, latitude, longitude, farmerId: bodyFarmerId, location, ownership, infrastructure, ...restBody } = req.body;
+        const farmerId = bodyFarmerId || req.user?.farmerId;
 
-        const farmPhotoObj = farmBody.farmPhoto
-            ? await safeUploadBase64(farmBody.farmPhoto, (ext) => StorageHierarchy.farmPhoto(farmerId, farmId, ext))
-            : null;
-
-        const farmData = {
-            ...farmBody,
-            _id: farmObjectId,
-            latitude: latitude ? parseFloat(latitude) : undefined,
-            longitude: longitude ? parseFloat(longitude) : undefined,
-            farmPhoto: farmPhotoObj
-        };
-
-        const farm = await Farm.create(farmData);
-
-        // Pre-create pond records tied to this farm based on count
-        const pondPromises = [];
-        const count = parseInt(pondsCount || farm.totalPonds, 10) || 1;
-
-        for (let i = 1; i <= count; i++) {
-            pondPromises.push(Pond.create({
-                farmId: farm._id,
-                farmerId: farm.farmerId,   // denormalized for direct farmer queries
-                pondNumber: i,
-                name: `Pond ${i}`
-            }));
+        if (!farmerId) {
+            return res.status(400).json({ success: false, error: 'farmerId is required' });
         }
 
-        const createdPonds = await Promise.all(pondPromises);
+        // Check if an existing farm exists for this farmer
+        const existingFarm = await Farm.findOne({ farmerId });
+
+        // Resolve location: Ensure district, taluk, and place are non-empty
+        let resolvedLocation = location || {};
+        if (!resolvedLocation.district || !resolvedLocation.taluk || resolvedLocation.district === '-' || resolvedLocation.taluk === '-') {
+            if (existingFarm && existingFarm.location?.district && existingFarm.location.district !== '-') {
+                resolvedLocation = {
+                    place: resolvedLocation.place || existingFarm.location.place || 'My Farm',
+                    taluk: resolvedLocation.taluk || existingFarm.location.taluk || 'Local Taluk',
+                    district: resolvedLocation.district || existingFarm.location.district || 'Local District',
+                };
+            } else {
+                const farmerDoc = await Farmer.findById(farmerId).lean();
+                resolvedLocation = {
+                    place: resolvedLocation.place || farmerDoc?.address?.village || farmerDoc?.address?.taluk || 'My Farm',
+                    taluk: resolvedLocation.taluk || farmerDoc?.address?.taluk || farmerDoc?.address?.village || 'Local Taluk',
+                    district: resolvedLocation.district || farmerDoc?.address?.district || 'Local District',
+                };
+            }
+        }
+
+        const totalPondsNum = parseInt(pondsCount || restBody.totalPonds || (ownership && ownership.totalPonds) || 1, 10) || 1;
+
+        const farmPayload = {
+            farmerId,
+            location: {
+                place: resolvedLocation.place || 'My Farm',
+                taluk: resolvedLocation.taluk || 'Local Taluk',
+                district: resolvedLocation.district || 'Local District',
+            },
+            latitude: latitude ? parseFloat(latitude) : (existingFarm?.latitude || 13.0827),
+            longitude: longitude ? parseFloat(longitude) : (existingFarm?.longitude || 80.2707),
+            ownership: {
+                type: ownership?.type || existingFarm?.ownership?.type || 'owned',
+                patta: ownership?.patta || existingFarm?.ownership?.patta || restBody.patta || '123456',
+            },
+            totalPonds: totalPondsNum,
+            infrastructure: infrastructure || existingFarm?.infrastructure || {},
+            ...restBody
+        };
+
+        let farm;
+        if (existingFarm) {
+            farm = await Farm.findByIdAndUpdate(
+                existingFarm._id,
+                { $set: farmPayload },
+                { new: true, runValidators: true }
+            );
+        } else {
+            farm = await Farm.create(farmPayload);
+        }
+
+        // Reconcile ponds for this farm
+        let existingPonds = await Pond.find({ farmId: farm._id }).sort({ pondNumber: 1 });
+        if (existingPonds.length === 0) {
+            // Also check if ponds exist by farmerId
+            existingPonds = await Pond.find({ farmerId: farm.farmerId }).sort({ pondNumber: 1 });
+            if (existingPonds.length > 0) {
+                // Link them to this farm
+                await Pond.updateMany({ farmerId: farm.farmerId }, { $set: { farmId: farm._id } });
+            }
+        }
+
+        const pondPromises = [];
+        const currentCount = existingPonds.length;
+        if (currentCount < totalPondsNum) {
+            for (let i = currentCount + 1; i <= totalPondsNum; i++) {
+                pondPromises.push(Pond.create({
+                    farmId: farm._id,
+                    farmerId: farm.farmerId,
+                    pondNumber: i,
+                    name: `Pond ${i}`,
+                    dimensionAcres: 1.0,
+                }));
+            }
+        }
+
+        const newlyCreated = await Promise.all(pondPromises);
+        const allPonds = [...existingPonds, ...newlyCreated];
 
         res.status(201).json({
             success: true,
             data: farm,
-            ponds: createdPonds
+            ponds: allPonds
         });
     } catch (err) {
         console.error('Error in POST /api/farms:', err);

@@ -30,28 +30,33 @@ const getFarmerOnboardingStatus = async (farmerId) => {
     }
 
     const farm = await Farm.findOne({ farmerId }).lean();
-    const ponds = await Pond.find({ farmerId }).sort({ pondNumber: 1 }).lean();
-
-    if (!farm || !farm.location?.district || farm.location.district === '-') {
+    if (!farm) {
         return { onboardingStep: 'farm_registration', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
-    if (!farm.patta || !farm.totalPonds) {
+    if (!farm.location?.district || farm.location.district === '-') {
+        return { onboardingStep: 'farm_registration', isProfileComplete: false, farmerName: farmer.name, farmData: null };
+    }
+
+    const hasPatta = farm.ownership?.patta || farm.patta;
+    if (!hasPatta || !farm.totalPonds) {
         return { onboardingStep: 'farm_setup', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
+
+    const ponds = await Pond.find({ $or: [{ farmerId }, { farmId: farm._id }] }).sort({ pondNumber: 1 }).lean();
 
     const farmData = {
         farmId: farm._id,
         ponds
     };
 
-    const insurance = await Insurance.findOne({ farmerId }).lean();
+    const insurance = await Insurance.findOne({ $or: [{ farmerId }, { farmId: farm._id }] }).lean();
     if (!insurance || !insurance.stockingDate) {
         return { onboardingStep: 'insurance_registration', isProfileComplete: false, farmerName: farmer.name, farmData };
     }
 
     // Check if pond dimensions have been filled in insured-ponds
-    const hasPondDetails = ponds.some(p => p.dimensionAcres && Number(p.dimensionAcres) > 0);
+    const hasPondDetails = ponds.length > 0 && ponds.some(p => p.dimensionAcres && Number(p.dimensionAcres) > 0);
     if (!hasPondDetails) {
         return { onboardingStep: 'insured_ponds', isProfileComplete: false, farmerName: farmer.name, farmData };
     }
