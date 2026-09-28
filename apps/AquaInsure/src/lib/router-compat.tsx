@@ -2,7 +2,7 @@
 import './polyfills';
 
 import React, { useCallback, useMemo } from 'react';
-import { useRouter, usePathname, useParams as useNextParams, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useParams as useNextParams, useSearchParams as useNextSearchParams } from 'next/navigation';
 import NextLink from 'next/link';
 
 export function useNavigate() {
@@ -47,6 +47,23 @@ export function useLocation() {
 
 export function useParams<T extends Record<string, string | string[]> = Record<string, string>>() {
   return (useNextParams() || {}) as T;
+}
+
+export function useSearchParams() {
+  const [params, setParams] = React.useState<URLSearchParams>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search);
+    }
+    return new URLSearchParams();
+  });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setParams(new URLSearchParams(window.location.search));
+    }
+  }, []);
+
+  return [params, () => {}] as const;
 }
 
 export interface LinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {

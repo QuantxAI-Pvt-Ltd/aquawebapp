@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,12 +34,15 @@ type InsuranceForm = z.infer<typeof insuranceSchema>;
 
 export default function InsuranceRegistration() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("mode") === "edit";
   const { t } = useTranslation();
 
   const {
     register,
     handleSubmit,
     setValue,
+    reset,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<InsuranceForm>({
@@ -52,6 +55,56 @@ export default function InsuranceRegistration() {
       stockingDate: "",
     },
   });
+
+  // DB as Single Source of Truth: Pre-hydrate existing farm and insurance from MongoDB
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
+      if (sess.farmerId) {
+        // Hydrate Farm
+        axios
+          .get(`/api/farms/${sess.farmerId}`)
+          .then((farmRes) => {
+            if (farmRes.data?.success && Array.isArray(farmRes.data?.data) && farmRes.data.data.length > 0) {
+              const farm = farmRes.data.data[0];
+              localStorage.setItem(
+                "aqua-farm",
+                JSON.stringify({
+                  farmId: farm._id,
+                  ponds: farm.ponds || [],
+                })
+              );
+            }
+          })
+          .catch((err) => console.warn("Insurance farm load error:", err));
+
+        // Hydrate existing Insurance policy
+        axios
+          .get(`/api/insurances?farmerId=${sess.farmerId}`)
+          .then((insRes) => {
+            if (insRes.data?.success && Array.isArray(insRes.data?.data) && insRes.data.data.length > 0) {
+              const ins = insRes.data.data[0];
+              let dateStr = "";
+              if (ins.stockingDate) {
+                dateStr = ins.stockingDate.split("T")[0];
+              }
+              reset({
+                insuranceType: ins.insuranceType || "comprehensive",
+                insurancePeriod: String(ins.insurancePeriodDays || ins.insurancePeriod || "120"),
+                species: ins.species || "vannamei",
+                stockingDensity: String(ins.stockingDensity || "40"),
+                stockingDate: dateStr,
+              });
+            }
+          })
+          .catch((err) => console.warn("Insurance policy load error:", err));
+      }
+    } catch (e) {
+      console.error("Insurance hydration error:", e);
+    }
+  }, [reset]);
 
   const formValues = watch();
   const { syncStatus } = useAutoSave(formValues);
@@ -110,8 +163,12 @@ export default function InsuranceRegistration() {
         localStorage.setItem("aqua-farm", JSON.stringify(parsedFarm));
 
         toast.dismiss("insurance-save");
-        toast.success(t("insurance.saved") || "Insurance policy saved!");
-        navigate("/insured-ponds");
+        toast.success(isEditMode ? "Insurance policy updated!" : (t("insurance.saved") || "Insurance policy saved!"));
+        if (isEditMode) {
+          navigate("/settings");
+        } else {
+          navigate("/insured-ponds");
+        }
       }
     } catch (error: any) {
       toast.dismiss("insurance-save");

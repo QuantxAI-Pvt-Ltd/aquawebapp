@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Camera, Upload, X, Loader2 } from "lucide-react";
@@ -35,6 +35,8 @@ type SetupForm = z.infer<typeof setupSchema>;
 export default function FarmSetup() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("mode") === "edit";
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [farmPhotoPreview, setFarmPhotoPreview] = useState<string | null>(null);
 
@@ -53,6 +55,7 @@ export default function FarmSetup() {
     register,
     handleSubmit,
     setValue,
+    reset,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<SetupForm>({
@@ -63,6 +66,58 @@ export default function FarmSetup() {
       totalPonds: "1",
     },
   });
+
+  // DB as Single Source of Truth: Fetch existing farm records from MongoDB on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
+      if (sess.farmerId) {
+        axios
+          .get(`/api/farms/${sess.farmerId}`)
+          .then((res) => {
+            if (res.data?.success && Array.isArray(res.data?.data) && res.data.data.length > 0) {
+              const farm = res.data.data[0];
+              reset({
+                ownership: farm.ownership?.type || "owned",
+                patta: farm.ownership?.patta || farm.patta || "",
+                totalPonds: String(farm.totalPonds || farm.pondsCount || "1"),
+              });
+
+              if (farm.farmPhoto) {
+                setFarmPhotoPreview(resolveMediaUrl(farm.farmPhoto));
+              }
+
+              if (farm.infrastructure) {
+                setInfra({
+                  filtration: farm.infrastructure.filtration ? "yes" : "no",
+                  reservoir: farm.infrastructure.reservoir ? "yes" : "no",
+                  farmFencing: farm.infrastructure.farmFencing ? "yes" : "no",
+                  birdFencing: farm.infrastructure.birdFencing ? "yes" : "no",
+                  dips: farm.infrastructure.dips ? "yes" : "no",
+                  power: farm.infrastructure.power ? "yes" : "no",
+                  aerators: farm.infrastructure.aerators ? "yes" : "no",
+                  nursery: farm.infrastructure.nursery ? "yes" : "no",
+                });
+              }
+
+              // Update local cache
+              localStorage.setItem(
+                "aqua-farm",
+                JSON.stringify({
+                  farmId: farm._id,
+                  ponds: farm.ponds || [],
+                })
+              );
+            }
+          })
+          .catch((err) => console.warn("Farm setup prefill error:", err));
+      }
+    } catch (e) {
+      console.error("Farm setup hydration error:", e);
+    }
+  }, [reset]);
 
   const formValues = watch();
   const farmPhotoWatch = watch("farmPhoto");
@@ -150,8 +205,12 @@ export default function FarmSetup() {
         localStorage.setItem("aqua-farm", JSON.stringify(farmData));
 
         toast.dismiss("farm-save");
-        toast.success(t("farm.saved") || "Farm setup saved to database!");
-        navigate("/insurance-registration");
+        toast.success(isEditMode ? "Farm setup updated!" : (t("farm.saved") || "Farm setup saved to database!"));
+        if (isEditMode) {
+          navigate("/settings");
+        } else {
+          navigate("/insurance-registration");
+        }
       }
     } catch (error: any) {
       toast.dismiss("farm-save");

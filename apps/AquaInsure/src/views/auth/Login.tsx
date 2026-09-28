@@ -64,8 +64,17 @@ const Login = () => {
           case 'farmer_registration':
             navigate('/farmer-registration', { replace: true });
             break;
+          case 'farmer_address':
+            navigate('/farmer-address', { replace: true });
+            break;
+          case 'farmer_kyc':
+            navigate('/farmer-kyc', { replace: true });
+            break;
           case 'farm_registration':
             navigate('/farm-registration', { replace: true });
+            break;
+          case 'farm_setup':
+            navigate('/farm-setup', { replace: true });
             break;
           case 'insurance_registration':
             navigate('/insurance-registration', { replace: true });

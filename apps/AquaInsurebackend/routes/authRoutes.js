@@ -17,15 +17,27 @@ const getFarmerOnboardingStatus = async (farmerId) => {
     }
 
     const farmer = await Farmer.findById(farmerId).lean();
-    if (!farmer || !farmer.name || farmer.name === 'New Farmer' || !farmer.address?.village || farmer.address.village === '-') {
-        return { onboardingStep: 'farmer_registration', isProfileComplete: false, farmerName: farmer?.name !== 'New Farmer' ? farmer?.name : null, farmData: null };
+    if (!farmer || !farmer.name || farmer.name === 'New Farmer') {
+        return { onboardingStep: 'farmer_registration', isProfileComplete: false, farmerName: null, farmData: null };
+    }
+
+    if (!farmer.address?.village || farmer.address.village === '-' || !farmer.address?.state || farmer.address.state === '-') {
+        return { onboardingStep: 'farmer_address', isProfileComplete: false, farmerName: farmer.name, farmData: null };
+    }
+
+    if (!farmer.bankDetails?.accountNumber && !farmer.registration?.regNumber && !farmer.identity?.aadharNumber) {
+        return { onboardingStep: 'farmer_kyc', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
     const farm = await Farm.findOne({ farmerId }).lean();
     const ponds = await Pond.find({ farmerId }).sort({ pondNumber: 1 }).lean();
 
-    if (!farm || !ponds || ponds.length === 0) {
+    if (!farm || !farm.location?.district || farm.location.district === '-') {
         return { onboardingStep: 'farm_registration', isProfileComplete: false, farmerName: farmer.name, farmData: null };
+    }
+
+    if (!farm.patta || !farm.totalPonds) {
+        return { onboardingStep: 'farm_setup', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
     const farmData = {
@@ -34,7 +46,7 @@ const getFarmerOnboardingStatus = async (farmerId) => {
     };
 
     const insurance = await Insurance.findOne({ farmerId }).lean();
-    if (!insurance) {
+    if (!insurance || !insurance.stockingDate) {
         return { onboardingStep: 'insurance_registration', isProfileComplete: false, farmerName: farmer.name, farmData };
     }
 

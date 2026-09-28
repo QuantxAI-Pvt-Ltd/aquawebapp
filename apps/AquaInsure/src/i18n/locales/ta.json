@@ -265,10 +265,22 @@
     "productionCost": "உற்பத்தி செலவு",
     "noData": "தேர்ந்தெடுத்த வடிகட்டிக்கு பதிவுகள் இல்லை"
   },
+  "registration": {
+    "farmerPersonal": "விவசாயி தனிப்பட்ட விவரங்கள்",
+    "farmerAddress": "விவசாயி முகவரி விவரங்கள்",
+    "farmerKyc": "அடையாளம் மற்றும் வங்கி விவரங்கள்",
+    "farmLocation": "பண்ணை இருப்பிடம் & GPS",
+    "farmSetup": "பண்ணை அமைப்பு & உள்கட்டமைப்பு",
+    "insurancePolicy": "காப்பீட்டுக் கொள்கை விவரங்கள்",
+    "insuredPonds": "காப்பீடு செய்யப்பட்ட குளங்கள் & புகைப்படங்கள்",
+    "step": "படி"
+  },
   "settings": {
     "title": "அமைப்புகள்",
     "changeLanguage": "மொழியை மாற்றவும்",
     "editProfile": "சுயவிவரத்தை திருத்தவும்",
+    "registrationProfile": "பதிவு & பண்ணை சுயவிவரம்",
+    "preferencesSupport": "விருப்பத்தேர்வுகள் & ஆதரவு",
     "logout": "வெளியேறு"
   },
   "common": {

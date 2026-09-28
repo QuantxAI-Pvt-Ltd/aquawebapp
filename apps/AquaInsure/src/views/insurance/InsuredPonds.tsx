@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Camera, Upload, Waves, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,23 +28,35 @@ interface PondDetail {
 
 export default function InsuredPonds() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("mode") === "edit";
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const [cameraOpenFor, setCameraOpenFor] = useState<string | null>(null);
 
   // Load farm & ponds from database or localStorage
-  const farmData = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("aqua-farm") || "{}") : {};
-  const rawPonds: any[] = farmData.ponds || [];
+  const [farmId, setFarmId] = useState<string>(() => {
+    try {
+      const fd = JSON.parse(localStorage.getItem("aqua-farm") || "{}");
+      return fd.farmId || "";
+    } catch {
+      return "";
+    }
+  });
 
-  const allPonds: any[] =
-    rawPonds.length > 0
-      ? rawPonds
-      : [
-          { pondId: "pond-1", pondNumber: 1, dimensionAcres: 1.0 },
-        ];
+  const [allPondsList, setAllPondsList] = useState<any[]>(() => {
+    try {
+      const fd = JSON.parse(localStorage.getItem("aqua-farm") || "{}");
+      return fd.ponds && fd.ponds.length > 0
+        ? fd.ponds
+        : [{ pondId: "pond-1", pondNumber: 1, dimensionAcres: 1.0 }];
+    } catch {
+      return [{ pondId: "pond-1", pondNumber: 1, dimensionAcres: 1.0 }];
+    }
+  });
 
   const [selectedPonds, setSelectedPonds] = useState<string[]>(() =>
-    allPonds.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`)
+    allPondsList.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`)
   );
 
   const [pondDetails, setPondDetails] = useState<Record<string, PondDetail>>(() => {
@@ -55,7 +67,7 @@ export default function InsuredPonds() {
     } catch (e) {}
 
     const init: Record<string, PondDetail> = {};
-    allPonds.forEach((p: any, i: number) => {
+    allPondsList.forEach((p: any, i: number) => {
       const id = p._id || p.pondId || `pond-${i + 1}`;
       const draftDetail = draft ? draft[id] : null;
 
@@ -74,6 +86,65 @@ export default function InsuredPonds() {
     });
     return init;
   });
+
+  // DB as Single Source of Truth: Fetch live farm and ponds from MongoDB on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
+      if (sess.farmerId) {
+        // Hydrate farm ID
+        axios
+          .get(`/api/farms/${sess.farmerId}`)
+          .then((fRes) => {
+            if (fRes.data?.success && Array.isArray(fRes.data?.data) && fRes.data.data.length > 0) {
+              const farm = fRes.data.data[0];
+              setFarmId(farm._id);
+            }
+          })
+          .catch(() => {});
+
+        // Hydrate ponds list from DB
+        axios
+          .get(`/api/farms/ponds?farmerId=${sess.farmerId}`)
+          .then((pRes) => {
+            if (pRes.data?.success && Array.isArray(pRes.data?.data) && pRes.data.data.length > 0) {
+              const livePonds = pRes.data.data;
+              setAllPondsList(livePonds);
+              setSelectedPonds(livePonds.map((p: any) => p._id || `pond-${p.pondNumber}`));
+
+              setPondDetails((prev) => {
+                const updated = { ...prev };
+                livePonds.forEach((p: any) => {
+                  const id = p._id || `pond-${p.pondNumber}`;
+                  updated[id] = {
+                    pondId: id,
+                    pondNumber: p.pondNumber,
+                    dimensionAcres: p.dimensionAcres ? String(p.dimensionAcres) : (prev[id]?.dimensionAcres || "1.0"),
+                    photo: null,
+                    photoPreview: p.photo ? resolveMediaUrl(p.photo) : (prev[id]?.photoPreview || null),
+                    village: p.address?.village || prev[id]?.village || "",
+                    taluk: p.address?.taluk || prev[id]?.taluk || "",
+                    district: p.address?.district || prev[id]?.district || "",
+                    state: p.address?.state || prev[id]?.state || "",
+                    pinCode: p.address?.pinCode || prev[id]?.pinCode || "",
+                  };
+                });
+                return updated;
+              });
+
+              // Cache in local storage
+              const currentFarm = JSON.parse(localStorage.getItem("aqua-farm") || "{}");
+              localStorage.setItem("aqua-farm", JSON.stringify({ ...currentFarm, ponds: livePonds }));
+            }
+          })
+          .catch((err) => console.warn("Ponds fetch error:", err));
+      }
+    } catch (e) {
+      console.error("Insured ponds hydration error:", e);
+    }
+  }, []);
 
   const { syncStatus } = useAutoSave(pondDetails);
 
@@ -124,12 +195,13 @@ export default function InsuredPonds() {
     try {
       const session = JSON.parse(localStorage.getItem("aqua-session") || "{}");
       const farmerId = session.farmerId;
-      const farmId = farmData.farmId;
+      const targetFarmId = farmId || JSON.parse(localStorage.getItem("aqua-farm") || "{}").farmId;
 
       const pondsToProcess = Object.values(pondDetails).filter((p) =>
         selectedPonds.includes(p.pondId)
       );
 
+      const pondsPayload: any[] = [];
       for (const detail of pondsToProcess) {
         let photoUrl: string | null = null;
         if (detail.photo instanceof File && farmerId) {
@@ -142,7 +214,9 @@ export default function InsuredPonds() {
           photoUrl = detail.photoPreview;
         }
 
-        const pondPayload = {
+        pondsPayload.push({
+          pondId: detail.pondId.startsWith("pond-") ? undefined : detail.pondId,
+          pondNumber: detail.pondNumber,
           dimensionAcres: parseFloat(detail.dimensionAcres) || 1.0,
           photo: photoUrl,
           address: {
@@ -152,14 +226,17 @@ export default function InsuredPonds() {
             state: detail.state,
             pinCode: detail.pinCode,
           },
-        };
+        });
+      }
 
-        if (farmId && detail.pondId && !detail.pondId.startsWith("pond-")) {
-          try {
-            await axios.patch(`/api/farms/${farmId}/ponds/${detail.pondId}`, pondPayload);
-          } catch (pe) {
-            console.warn(`Pond ${detail.pondId} patch warning:`, pe);
-          }
+      if (targetFarmId) {
+        try {
+          await axios.patch(`/api/farms/${targetFarmId}/ponds`, {
+            farmerId,
+            ponds: pondsPayload,
+          });
+        } catch (pe) {
+          console.warn("Ponds batch patch warning:", pe);
         }
       }
 
@@ -175,9 +252,13 @@ export default function InsuredPonds() {
       localStorage.removeItem("draft_insured_ponds");
 
       toast.dismiss("ponds-save");
-      toast.success("🎉 Registration completed successfully!");
+      toast.success(isEditMode ? "Pond details updated!" : "🎉 Registration completed successfully!");
       setTimeout(() => {
-        navigate("/entries/daily", { replace: true });
+        if (isEditMode) {
+          navigate("/settings", { replace: true });
+        } else {
+          navigate("/entries/daily", { replace: true });
+        }
       }, 500);
     } catch (err: any) {
       toast.dismiss("ponds-save");

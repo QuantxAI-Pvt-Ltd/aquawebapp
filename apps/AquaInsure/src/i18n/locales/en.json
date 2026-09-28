@@ -268,10 +268,22 @@
     "productionCost": "Production Cost",
     "noData": "No records found for selected filters"
   },
+  "registration": {
+    "farmerPersonal": "Farmer Personal Details",
+    "farmerAddress": "Farmer Address Details",
+    "farmerKyc": "Identity & Bank Details",
+    "farmLocation": "Farm Location & GPS",
+    "farmSetup": "Farm Setup & Infrastructure",
+    "insurancePolicy": "Insurance Policy Details",
+    "insuredPonds": "Insured Ponds & Photos",
+    "step": "Step"
+  },
   "settings": {
     "title": "Settings",
     "changeLanguage": "Change Language",
     "editProfile": "Edit Profile",
+    "registrationProfile": "Registration & Farm Profile",
+    "preferencesSupport": "Preferences & Support",
     "logout": "Logout"
   },
   "common": {

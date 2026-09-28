@@ -15,6 +15,11 @@ import {
   X,
   CheckCircle2,
   ExternalLink,
+  MapPin,
+  CreditCard,
+  Compass,
+  Tractor,
+  Waves,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import BottomNav from '@/components/BottomNav';
@@ -66,15 +71,66 @@ const SettingsPage = () => {
   const farmerName = farmer?.name || session.name || 'Shrimp Farmer';
   const farmerPhone = farmer?.phone || session.phone || 'Verified Account';
 
-  const items = [
+  const registrationModules = [
     {
+      step: 1,
       icon: User,
-      label: t('settings.editProfile') || 'Edit Farmer Profile',
-      action: () => navigate('/farmer-registration?mode=edit'),
-      destructive: false,
+      label: t('registration.farmerPersonal') || 'Farmer Personal Details',
+      path: '/farmer-registration?mode=edit',
+      iconBg: 'bg-emerald-50 border-emerald-100',
+      iconColor: 'text-emerald-600',
+    },
+    {
+      step: 2,
+      icon: MapPin,
+      label: t('registration.farmerAddress') || 'Farmer Address',
+      path: '/farmer-address?mode=edit',
+      iconBg: 'bg-teal-50 border-teal-100',
+      iconColor: 'text-teal-600',
+    },
+    {
+      step: 3,
+      icon: CreditCard,
+      label: t('registration.farmerKyc') || 'Identity & Bank Account',
+      path: '/farmer-kyc?mode=edit',
       iconBg: 'bg-amber-50 border-amber-100',
       iconColor: 'text-amber-600',
     },
+    {
+      step: 4,
+      icon: Compass,
+      label: t('registration.farmLocation') || 'Farm Location & GPS',
+      path: '/farm-registration?mode=edit',
+      iconBg: 'bg-sky-50 border-sky-100',
+      iconColor: 'text-sky-600',
+    },
+    {
+      step: 5,
+      icon: Tractor,
+      label: t('registration.farmSetup') || 'Farm Setup & Infrastructure',
+      path: '/farm-setup?mode=edit',
+      iconBg: 'bg-indigo-50 border-indigo-100',
+      iconColor: 'text-indigo-600',
+    },
+    {
+      step: 6,
+      icon: ShieldCheck,
+      label: t('registration.insurancePolicy') || 'Insurance Policy',
+      path: '/insurance-registration?mode=edit',
+      iconBg: 'bg-emerald-50 border-emerald-100',
+      iconColor: 'text-emerald-700',
+    },
+    {
+      step: 7,
+      icon: Waves,
+      label: t('registration.insuredPonds') || 'Insured Ponds & Photos',
+      path: '/insured-ponds?mode=edit',
+      iconBg: 'bg-cyan-50 border-cyan-100',
+      iconColor: 'text-cyan-700',
+    },
+  ];
+
+  const generalItems = [
     {
       icon: Globe,
       label: t('settings.changeLanguage') || 'Change Language',
@@ -175,42 +231,86 @@ const SettingsPage = () => {
             </span>
           </motion.div>
 
-          {/* SETTINGS LIST */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm"
-          >
-            {items.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={item.action}
-                className={`w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors active:bg-stone-50
-                  ${idx < items.length - 1 ? 'border-b border-stone-100' : ''}
-                  ${item.destructive ? 'hover:bg-red-50/60' : 'hover:bg-stone-50'}
-                `}
-              >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${item.iconBg}`}
+          {/* REGISTRATION & FARM PROFILE MODULES */}
+          <div className="space-y-1.5">
+            <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider px-1">
+              {t('settings.registrationProfile') || 'Registration & Farm Profile'}
+            </h3>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl overflow-hidden border border-stone-200/80 shadow-sm divide-y divide-stone-100"
+            >
+              {registrationModules.map((mod, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => navigate(mod.path)}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-stone-50 active:bg-stone-100 text-left"
                 >
-                  <item.icon size={16} className={item.iconColor} />
-                </div>
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${mod.iconBg}`}
+                  >
+                    <mod.icon size={15} className={mod.iconColor} />
+                  </div>
 
-                <span
-                  className={`flex-1 text-left text-xs font-semibold ${
-                    item.destructive ? 'text-red-500' : 'text-stone-700'
-                  }`}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">
+                        {mod.step}
+                      </span>
+                      <span className="text-xs font-semibold text-stone-800 truncate">
+                        {mod.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <ChevronRight size={14} className="text-stone-300 shrink-0" />
+                </button>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* GENERAL & SUPPORT */}
+          <div className="space-y-1.5 pt-2">
+            <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider px-1">
+              {t('settings.preferencesSupport') || 'Preferences & Support'}
+            </h3>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-2xl overflow-hidden border border-stone-200/80 shadow-sm divide-y divide-stone-100"
+            >
+              {generalItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={item.action}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors active:bg-stone-50
+                    ${item.destructive ? 'hover:bg-red-50/60' : 'hover:bg-stone-50'}
+                  `}
                 >
-                  {item.label}
-                </span>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${item.iconBg}`}
+                  >
+                    <item.icon size={16} className={item.iconColor} />
+                  </div>
 
-                <ChevronRight
-                  size={15}
-                  className={item.destructive ? 'text-red-300' : 'text-stone-300'}
-                />
-              </button>
-            ))}
-          </motion.div>
+                  <span
+                    className={`flex-1 text-left text-xs font-semibold ${
+                      item.destructive ? 'text-red-500' : 'text-stone-700'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+
+                  <ChevronRight
+                    size={15}
+                    className={item.destructive ? 'text-red-300' : 'text-stone-300'}
+                  />
+                </button>
+              ))}
+            </motion.div>
+          </div>
 
           {/* APP VERSION / FOOTER */}
           <motion.p
