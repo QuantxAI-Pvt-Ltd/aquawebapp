@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Camera, Upload, X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,15 +19,12 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import RegistrationHeader from "@/components/RegistrationHeader";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import axios from "@/lib/api";
-import CameraCapture from "@/components/CameraCapture";
 
 const setupSchema = z.object({
   ownership: z.string().min(1, "farm.errors.ownership"),
   patta: z.string().min(1, "farm.errors.patta"),
   totalPonds: z.string().min(1, "farm.errors.ponds"),
-  farmPhoto: z.any().optional(),
 });
 
 type SetupForm = z.infer<typeof setupSchema>;
@@ -37,8 +34,6 @@ export default function FarmSetup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isEditMode = searchParams.get("mode") === "edit";
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [farmPhotoPreview, setFarmPhotoPreview] = useState<string | null>(null);
 
   const [infra, setInfra] = useState({
     filtration: "",
@@ -85,10 +80,6 @@ export default function FarmSetup() {
                 totalPonds: String(farm.totalPonds || farm.pondsCount || "1"),
               });
 
-              if (farm.farmPhoto) {
-                setFarmPhotoPreview(resolveMediaUrl(farm.farmPhoto));
-              }
-
               if (farm.infrastructure) {
                 setInfra({
                   filtration: farm.infrastructure.filtration ? "yes" : "no",
@@ -120,18 +111,6 @@ export default function FarmSetup() {
   }, [reset]);
 
   const formValues = watch();
-  const farmPhotoWatch = watch("farmPhoto");
-
-  useEffect(() => {
-    if (farmPhotoWatch instanceof File) {
-      const url = URL.createObjectURL(farmPhotoWatch);
-      setFarmPhotoPreview(url);
-      return () => URL.revokeObjectURL(url);
-    } else if (typeof farmPhotoWatch === "string") {
-      setFarmPhotoPreview(resolveMediaUrl(farmPhotoWatch));
-    }
-  }, [farmPhotoWatch]);
-
   const { syncStatus } = useAutoSave([formValues, infra]);
 
   const toggleInfra = (field: string, value: string) => {
@@ -150,19 +129,11 @@ export default function FarmSetup() {
         return;
       }
 
-      toast.loading(t("common.saving"), { id: "farm-save" });
+      toast.loading(t("common.saving") || "Saving to database…", { id: "farm-save" });
 
       // Retrieve location from Step 4
       const locDraftStr = localStorage.getItem("draft_farm_location") || "{}";
       const loc = JSON.parse(locDraftStr);
-
-      let farmPhotoUrl: string | null = null;
-      if (data.farmPhoto instanceof File) {
-        const uploaded = await uploadToSeaweedFS(data.farmPhoto, `farmers/${farmerId}/farms`);
-        farmPhotoUrl = uploaded?.key || uploaded?.url || null;
-      } else if (typeof data.farmPhoto === "string") {
-        farmPhotoUrl = data.farmPhoto;
-      }
 
       const totalPondsCount = Number(data.totalPonds) || 1;
 
@@ -182,7 +153,6 @@ export default function FarmSetup() {
         },
         totalPonds: totalPondsCount,
         pondsCount: totalPondsCount,
-        farmPhoto: farmPhotoUrl,
         infrastructure: {
           filtration: infra.filtration === "yes",
           reservoir: infra.reservoir === "yes",
@@ -229,15 +199,6 @@ export default function FarmSetup() {
     >
       <SyncIndicator status={syncStatus} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
-
-      {isCameraOpen && (
-        <CameraCapture
-          onCapture={(file) => setValue("farmPhoto", file, { shouldValidate: true })}
-          onClose={() => setIsCameraOpen(false)}
-          title={t("farm.uploadPhoto")}
-          facingMode="environment"
-        />
-      )}
 
       {/* SCROLLABLE INNER BODY */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-8">
@@ -302,7 +263,7 @@ export default function FarmSetup() {
               </label>
               <Select
                 onValueChange={(v) => setValue("totalPonds", v, { shouldValidate: true })}
-                value={watch("totalPonds")}
+                value={watch("totalPonds") || "1"}
               >
                 <SelectTrigger className={inputClasses}>
                   <SelectValue placeholder={t("farm.selectPonds")} />
@@ -317,56 +278,6 @@ export default function FarmSetup() {
               </Select>
               {errors.totalPonds && (
                 <p className="text-xs text-red-500 mt-1 ml-1">{t(errors.totalPonds.message as string)}</p>
-              )}
-            </div>
-
-            {/* Farm Photo */}
-            <div className="space-y-1.5 pt-2 border-t border-stone-100">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                  {t("farm.uploadPhoto") || "Farm Overview Photo"}
-                </h2>
-                <span className="text-[10px] text-stone-400 font-medium">Optional</span>
-              </div>
-
-              {farmPhotoPreview ? (
-                <div className="relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-900/5 aspect-video flex items-center justify-center">
-                  <img src={farmPhotoPreview} alt="Farm Overview" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue("farmPhoto", null, { shouldValidate: true });
-                      setFarmPhotoPreview(null);
-                    }}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsCameraOpen(true)}
-                    className="flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 transition"
-                  >
-                    <Camera size={18} className="text-teal-600" />
-                    <span className="text-xs font-bold">Take Photo</span>
-                  </button>
-                  <label className="flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-xl border border-dashed border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 cursor-pointer transition">
-                    <Upload size={18} className="text-stone-500" />
-                    <span className="text-xs font-bold">Upload File</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) setValue("farmPhoto", f, { shouldValidate: true });
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
               )}
             </div>
 

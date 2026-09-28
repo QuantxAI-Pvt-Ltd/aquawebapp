@@ -233,17 +233,23 @@ export default function FarmRegistration() {
               <label className="text-xs font-semibold text-stone-500 ml-0.5">
                 Farm Coordinates (GPS Pinning)
               </label>
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={captureGeo}
-                className="w-full h-12 rounded-xl gap-2 border-stone-200 text-stone-700 bg-stone-50 hover:bg-stone-100 font-semibold"
+                className="w-full h-12 rounded-xl flex items-center justify-center gap-2.5 border border-emerald-300 bg-emerald-50/90 hover:bg-emerald-100/90 transition-all px-4 font-bold text-xs sm:text-sm text-stone-900 shadow-xs active:scale-[0.99]"
               >
-                <MapPin size={18} className="text-teal-600" />
-                {latitude && longitude
-                  ? `GPS: ${latitude}, ${longitude}`
-                  : t("farm.captureGeo") || "Capture Geo-Coordinates"}
-              </Button>
+                <div className="w-7 h-7 rounded-lg bg-emerald-600/15 flex items-center justify-center text-emerald-700 shrink-0">
+                  <MapPin size={16} className="text-emerald-700" />
+                </div>
+                <span className="text-stone-900 tracking-tight">
+                  {latitude && longitude
+                    ? `GPS: ${latitude}, ${longitude}`
+                    : t("farm.captureGeo") || "Capture Geo-Coordinates"}
+                </span>
+                {latitude && longitude && (
+                  <span className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                )}
+              </button>
             </div>
 
             {/* ACTION BUTTONS */}

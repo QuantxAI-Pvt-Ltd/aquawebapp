@@ -134,32 +134,48 @@ export default function InsuranceRegistration() {
         return;
       }
 
-      toast.loading(t("common.saving"), { id: "insurance-save" });
+      toast.loading(t("common.saving") || "Saving to database…", { id: "insurance-save" });
+
+      let livePonds = ponds;
+      if (!livePonds || livePonds.length === 0 || !livePonds[0]._id) {
+        try {
+          const pondRes = await axios.get(`/api/farms/ponds?farmerId=${farmerId}`);
+          if (pondRes.data?.success && Array.isArray(pondRes.data?.data) && pondRes.data.data.length > 0) {
+            livePonds = pondRes.data.data;
+          }
+        } catch {}
+      }
 
       const stockingDate = new Date(data.stockingDate);
       const periodDays = parseInt(data.insurancePeriod, 10) || 120;
       const plannedHarvestDate = format(addDays(stockingDate, periodDays), "yyyy-MM-dd");
       const maxHarvestDate = format(addDays(stockingDate, periodDays + 15), "yyyy-MM-dd");
 
-      const allPondIds = ponds.map((p: any, i: number) => p._id || p.pondId || `pond-${i + 1}`);
-      const firstPondId = allPondIds[0] || "pond-1";
+      const validPondIds = livePonds
+        .map((p: any) => p._id || p.pondId)
+        .filter((id: any) => id && typeof id === "string" && id.length === 24);
 
-      const payload = {
+      const firstPondId = validPondIds[0] || (livePonds[0] && livePonds[0]._id) || undefined;
+
+      const payload: any = {
         ...data,
         stockingDensity: Number(data.stockingDensity),
         insurancePeriodDays: periodDays,
-        pondId: firstPondId,
         farmerId,
         farmId,
         plannedHarvestDate,
         maxHarvestDate,
-        insuredPondIds: allPondIds,
+        insuredPondIds: validPondIds.length > 0 ? validPondIds : undefined,
       };
+
+      if (firstPondId) {
+        payload.pondId = firstPondId;
+      }
 
       const res = await axios.post("/api/insurances", payload);
 
       if (res.data?.success) {
-        parsedFarm.insuredPondIds = allPondIds;
+        parsedFarm.insuredPondIds = validPondIds;
         localStorage.setItem("aqua-farm", JSON.stringify(parsedFarm));
 
         toast.dismiss("insurance-save");

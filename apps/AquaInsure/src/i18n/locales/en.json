@@ -293,6 +293,8 @@
     "uploading": "Uploading...",
     "capture": "Capture",
     "save": "Save",
+    "saving": "Saving to Database…",
+    "saved": "Saved successfully",
     "cancel": "Cancel",
     "next": "Next",
     "back": "Back",

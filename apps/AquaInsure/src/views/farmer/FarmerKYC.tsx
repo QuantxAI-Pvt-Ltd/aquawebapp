@@ -60,7 +60,7 @@ export default function FarmerKYC() {
   } = useForm<KYCForm>({
     resolver: zodResolver(kycSchema as any),
     defaultValues: {
-      regType: undefined,
+      regType: "",
       regNumber: "",
       aadharNumber: "",
       hasPan: "no",
@@ -68,7 +68,7 @@ export default function FarmerKYC() {
       accountHolderName: "",
       bankName: "",
       branch: "",
-      accountType: undefined,
+      accountType: "",
       accountNumber: "",
       ifscCode: "",
     },
@@ -89,7 +89,7 @@ export default function FarmerKYC() {
             if (res.data?.success && res.data?.data) {
               const f = res.data.data;
               reset({
-                regType: f.registration?.regType || undefined,
+                regType: f.registration?.regType || "",
                 regNumber: f.registration?.regNumber || "",
                 aadharNumber: f.identity?.aadharNumber || "",
                 hasPan: f.identity?.hasPan ? "yes" : "no",
@@ -97,7 +97,7 @@ export default function FarmerKYC() {
                 accountHolderName: f.bankDetails?.accountHolderName || "",
                 bankName: f.bankDetails?.bankName || "",
                 branch: f.bankDetails?.branch || "",
-                accountType: f.bankDetails?.accountType || undefined,
+                accountType: f.bankDetails?.accountType || "",
                 accountNumber: f.bankDetails?.accountNumber || "",
                 ifscCode: f.bankDetails?.ifscCode || "",
               });
@@ -247,7 +247,7 @@ export default function FarmerKYC() {
               </label>
               <Select
                 onValueChange={(v) => setValue("regType", v, { shouldDirty: true })}
-                value={watch("regType")}
+                value={watch("regType") || ""}
               >
                 <SelectTrigger className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm w-full border px-4">
                   <SelectValue placeholder={t("farmer.registrationType")} />
@@ -269,7 +269,7 @@ export default function FarmerKYC() {
               </label>
               <Select
                 onValueChange={(v) => setValue("hasPan", v, { shouldDirty: true })}
-                value={watch("hasPan")}
+                value={watch("hasPan") || "no"}
               >
                 <SelectTrigger className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm w-full border px-4">
                   <SelectValue placeholder={t("farmer.hasPan")} />
