@@ -44,8 +44,7 @@ router.get('/daily', async (req, res) => {
         }
 
         const entries = await DailyEntry.find(query)
-            .select(EXCLUDE_BUFFERS)
-            .sort({ date: -1 })
+            .sort({ dayNumber: 1, date: -1 })
             .lean();
 
         res.status(200).json({ success: true, data: entries });
@@ -99,6 +98,22 @@ const safeUploadBase64 = async (val, keyFn) => {
 
 const { requireAuth } = require('../middleware/auth');
 
+// @route   GET /api/entries/one-time
+// @desc    Get one-time setup entry for a pond
+router.get('/one-time', async (req, res) => {
+    try {
+        const { pondId } = req.query;
+        if (!pondId) {
+            return res.status(400).json({ success: false, error: 'pondId is required' });
+        }
+        const entry = await OneTimeEntry.findOne({ pondId }).lean();
+        res.status(200).json({ success: true, data: entry });
+    } catch (err) {
+        console.error('Error in GET /api/entries/one-time:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // @route   POST /api/entries/one-time
 // @desc    Save one-time pond setup entry
 router.post('/one-time', requireAuth, async (req, res) => {
@@ -135,8 +150,12 @@ router.post('/one-time', requireAuth, async (req, res) => {
             }
         };
 
-        const entry = await OneTimeEntry.create(entryData);
-        res.status(201).json({ success: true, data: entry });
+        const entry = await OneTimeEntry.findOneAndUpdate(
+            { pondId: data.pondId },
+            { $set: entryData },
+            { new: true, upsert: true }
+        );
+        res.status(200).json({ success: true, data: entry });
     } catch (err) {
         console.error('Error in POST /api/entries/one-time:', err);
         res.status(500).json({ success: false, error: err.message });
@@ -149,6 +168,10 @@ router.post('/daily', requireAuth, async (req, res) => {
     try {
         const data = req.body;
 
+        if (!data.pondId || !data.dayNumber) {
+            return res.status(400).json({ success: false, error: 'pondId and dayNumber are required' });
+        }
+
         // Fetch existing to preserve files if not re-uploaded
         const existingEntry = await DailyEntry.findOne({ pondId: data.pondId, dayNumber: data.dayNumber }).lean();
 
@@ -156,7 +179,7 @@ router.post('/daily', requireAuth, async (req, res) => {
         const farmerId = pond?.farmerId?.toString() || 'unknown';
         const farmId = pond?.farmId?.toString() || 'unknown';
         const pondIdStr = data.pondId?.toString();
-        const dayNumber = data.dayNumber || 1;
+        const dayNumber = Number(data.dayNumber) || 1;
         const dateStr = (data.date ? new Date(data.date) : new Date()).toISOString().split('T')[0];
 
         const uploadDailyField = (val, oldVal, fieldName) => {
@@ -165,7 +188,7 @@ router.post('/daily', requireAuth, async (req, res) => {
                     StorageHierarchy.dailyMedia(farmerId, farmId, pondIdStr, dayNumber, dateStr, fieldName, ext)
                 );
             }
-            return oldVal;
+            return oldVal || null;
         };
 
         const [samplingVideo, feedBills, miscBills, electricityBills, waterReport, shrimpPhoto, labReport] = await Promise.all([
@@ -178,42 +201,70 @@ router.post('/daily', requireAuth, async (req, res) => {
             uploadDailyField(data.shrimpHealth?.labReport, existingEntry?.shrimpHealth?.labReport, 'labReport'),
         ]);
 
+        const toNum = (v) => {
+            if (v === null || v === undefined || v === '') return undefined;
+            const n = Number(v);
+            return isNaN(n) ? undefined : n;
+        };
+
+        const healthStatus = (data.shrimpHealth?.status === 'normal' || data.shrimpHealth?.status === 'deficiency')
+            ? data.shrimpHealth.status
+            : (existingEntry?.shrimpHealth?.status || undefined);
+
         const entryData = {
-            ...data,
-            // Stamp date server-side — frontend sends it, server ensures it's a proper Date
+            pondId: data.pondId,
+            dayNumber,
             date: data.date ? new Date(data.date) : new Date(),
             sampling: {
-                ...data.sampling,
+                survival: toNum(data.sampling?.survival) ?? existingEntry?.sampling?.survival,
+                biomass: toNum(data.sampling?.biomass) ?? existingEntry?.sampling?.biomass,
+                proportionateGrowth: data.sampling?.proportionateGrowth !== undefined
+                    ? Boolean(data.sampling.proportionateGrowth)
+                    : existingEntry?.sampling?.proportionateGrowth,
                 samplingVideo
             },
             feedManagement: {
-                ...data.feedManagement,
+                feedQuantity: toNum(data.feedManagement?.feedQuantity) ?? existingEntry?.feedManagement?.feedQuantity,
+                feedCost: toNum(data.feedManagement?.feedCost) ?? existingEntry?.feedManagement?.feedCost,
                 feedBills
             },
             financials: {
-                ...data.financials,
+                labourCost: toNum(data.financials?.labourCost) ?? existingEntry?.financials?.labourCost,
+                otherExpenses: toNum(data.financials?.otherExpenses) ?? existingEntry?.financials?.otherExpenses,
+                waterCost: toNum(data.financials?.waterCost) ?? existingEntry?.financials?.waterCost,
                 miscBills,
                 electricityBills
             },
             waterQuality: {
-                ...data.waterQuality,
+                do: toNum(data.waterQuality?.do) ?? existingEntry?.waterQuality?.do,
+                ph: toNum(data.waterQuality?.ph) ?? existingEntry?.waterQuality?.ph,
+                temperature: toNum(data.waterQuality?.temperature) ?? existingEntry?.waterQuality?.temperature,
+                ammonia: toNum(data.waterQuality?.ammonia) ?? existingEntry?.waterQuality?.ammonia,
+                hardness: toNum(data.waterQuality?.hardness) ?? existingEntry?.waterQuality?.hardness,
+                alkalinity: toNum(data.waterQuality?.alkalinity) ?? existingEntry?.waterQuality?.alkalinity,
                 waterReport
             },
             shrimpHealth: {
-                ...data.shrimpHealth,
+                status: healthStatus,
+                measures: data.shrimpHealth?.measures || existingEntry?.shrimpHealth?.measures || '',
                 shrimpPhoto,
                 labReport
+            },
+            productionEstimation: {
+                expectedCop: toNum(data.productionEstimation?.expectedCop) ?? existingEntry?.productionEstimation?.expectedCop,
+                expectedProduction: toNum(data.productionEstimation?.expectedProduction) ?? existingEntry?.productionEstimation?.expectedProduction,
+                expectedAbw: toNum(data.productionEstimation?.expectedAbw) ?? existingEntry?.productionEstimation?.expectedAbw
             }
         };
 
         // UPSERT: overwrite if same pond + day logged again
         const entry = await DailyEntry.findOneAndUpdate(
-            { pondId: data.pondId, dayNumber: data.dayNumber },
+            { pondId: data.pondId, dayNumber },
             entryData,
             { new: true, upsert: true, runValidators: true }
         );
 
-        // Return lean copy without heavy legacy buffers if any remain
+        // Return lean copy
         const lean = entry.toObject();
         res.status(200).json({ success: true, data: lean });
     } catch (err) {

@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Upload, Activity, Utensils, Users, Droplets, HeartPulse, PieChart, BarChart3, X, MapPin, Maximize2, Waves } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ChevronLeft, Upload, Activity, Utensils, Users, Droplets, HeartPulse, 
+  PieChart, BarChart3, X, MapPin, Maximize2, Waves, Eye, CheckCircle2, 
+  Camera, ExternalLink, FileText 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,12 +27,14 @@ const DailyEntry = () => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [pondPreviewOpen, setPondPreviewOpen] = useState(false);
+  const [viewerModal, setViewerModal] = useState<{ title: string; url: string; isVideo?: boolean } | null>(null);
   const [brokenPondPhotos, setBrokenPondPhotos] = useState<Record<string, boolean>>({});
   const [data, setData] = useState<Record<string, any>>({});
   const [dbEntries, setDbEntries] = useState<any[]>([]); // entries for current pond from DB
   const [insurances, setInsurances] = useState<any[]>([]);
 
   const [loadingPonds, setLoadingPonds] = useState(true);
+  const lastHydratedKeyRef = useRef<string | null>(null);
 
   const update = (k: string, v: any) => setData(prev => ({ ...prev, [k]: v }));
 
@@ -115,36 +121,53 @@ const DailyEntry = () => {
 
   // When a day is selected, pre-fill form with existing DB entry if available
   useEffect(() => {
-    if (selectedDay === null) return;
+    if (selectedDay === null) {
+      lastHydratedKeyRef.current = null;
+      return;
+    }
     const pond = ponds[pondIndex];
     if (!pond) return;
+    const pid = pond._id || pond.pondId;
+    const key = `${pid}_${selectedDay}`;
 
-    const existing = dbEntries.find((e: any) => e.dayNumber === selectedDay && e.pondId === (pond._id || pond.pondId));
+    // Only hydrate when transitioning to a new day/pond selection
+    if (lastHydratedKeyRef.current === key) return;
+    lastHydratedKeyRef.current = key;
+
+    const existing = dbEntries.find((e: any) => e.dayNumber === selectedDay && e.pondId === pid);
     if (existing) {
       // flatten nested structure back to flat form state
       setData({
-        survival: existing.sampling?.survival,
-        biomass: existing.sampling?.biomass,
+        survival: existing.sampling?.survival ?? '',
+        biomass: existing.sampling?.biomass ?? '',
         proportionateGrowth: existing.sampling?.proportionateGrowth ? 'yes' : 'no',
-        feedQuantity: existing.feedManagement?.feedQuantity,
-        feedCost: existing.feedManagement?.feedCost,
-        labourCost: existing.financials?.labourCost,
-        otherExpenses: existing.financials?.otherExpenses,
-        waterCost: existing.financials?.waterCost,
-        do: existing.waterQuality?.do,
-        ph: existing.waterQuality?.ph,
-        temperature: existing.waterQuality?.temperature,
-        ammonia: existing.waterQuality?.ammonia,
-        hardness: existing.waterQuality?.hardness,
-        alkalinity: existing.waterQuality?.alkalinity,
-        health: existing.shrimpHealth?.status,
-        measures: existing.shrimpHealth?.measures,
-        expectedCop: existing.productionEstimation?.expectedCop,
-        expectedProduction: existing.productionEstimation?.expectedProduction,
-        expectedAbw: existing.productionEstimation?.expectedAbw,
+        feedQuantity: existing.feedManagement?.feedQuantity ?? '',
+        feedCost: existing.feedManagement?.feedCost ?? '',
+        labourCost: existing.financials?.labourCost ?? '',
+        otherExpenses: existing.financials?.otherExpenses ?? '',
+        waterCost: existing.financials?.waterCost ?? '',
+        electricityUnits: existing.financials?.electricityUnits ?? '',
+        do: existing.waterQuality?.do ?? '',
+        ph: existing.waterQuality?.ph ?? '',
+        temperature: existing.waterQuality?.temperature ?? '',
+        ammonia: existing.waterQuality?.ammonia ?? '',
+        hardness: existing.waterQuality?.hardness ?? '',
+        alkalinity: existing.waterQuality?.alkalinity ?? '',
+        health: existing.shrimpHealth?.status ?? '',
+        measures: existing.shrimpHealth?.measures ?? '',
+        expectedCop: existing.productionEstimation?.expectedCop ?? '',
+        expectedProduction: existing.productionEstimation?.expectedProduction ?? '',
+        expectedAbw: existing.productionEstimation?.expectedAbw ?? '',
+        samplingVideoPreview: resolveMediaUrl(existing.sampling?.samplingVideo),
+        feedBillsPreview: resolveMediaUrl(existing.feedManagement?.feedBills),
+        miscBillsPreview: resolveMediaUrl(existing.financials?.miscBills),
+        electricityBillsPreview: resolveMediaUrl(existing.financials?.electricityBills),
+        waterReportPreview: resolveMediaUrl(existing.waterQuality?.waterReport),
+        shrimpPhotoPreview: resolveMediaUrl(existing.shrimpHealth?.shrimpPhoto),
+        labReportPreview: resolveMediaUrl(existing.shrimpHealth?.labReport),
       });
     } else {
-      const draftStr = localStorage.getItem(`draft_daily_${pond._id || pond.pondId}_${selectedDay}`);
+      const draftStr = localStorage.getItem(`draft_daily_${pid}_${selectedDay}`);
       if (draftStr) {
         try { setData(JSON.parse(draftStr)); } catch (e) { setData({}); }
       } else {
@@ -157,7 +180,7 @@ const DailyEntry = () => {
   useEffect(() => {
     if (selectedDay !== null && ponds[pondIndex]) {
       const pond = ponds[pondIndex];
-      if (!pond._id) return;
+      if (!pond._id && !pond.pondId) return;
       const draftToSave = { ...data };
       delete draftToSave.samplingVideo;
       delete draftToSave.feedBills;
@@ -178,52 +201,57 @@ const DailyEntry = () => {
     // Check if there is actual input data (not empty) before hitting the DB continually
     const hasData = Object.entries(data).some(([k, v]) => {
       if (v === undefined || v === null || v === '' || v === false) return false;
+      if (k.endsWith('Preview')) return false;
       if (k === 'proportionateGrowth' && v === 'no') return false;
       return true;
     });
     if (!hasData) return;
+
+    const toNum = (v: any) => (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : undefined;
+    const validHealth = (data.health === 'normal' || data.health === 'deficiency') ? data.health : undefined;
 
     const payload = {
         pondId: pondId,
         dayNumber: selectedDay,
         date: new Date().toISOString(),
         sampling: {
-          survival: data.survival ? Number(data.survival) : undefined,
-          biomass: data.biomass ? Number(data.biomass) : undefined,
+          survival: toNum(data.survival),
+          biomass: toNum(data.biomass),
           proportionateGrowth: data.proportionateGrowth === "yes",
         },
         feedManagement: {
-          feedQuantity: data.feedQuantity ? Number(data.feedQuantity) : undefined,
-          feedCost: data.feedCost ? Number(data.feedCost) : undefined,
+          feedQuantity: toNum(data.feedQuantity),
+          feedCost: toNum(data.feedCost),
         },
         financials: {
-          labourCost: data.labourCost ? Number(data.labourCost) : undefined,
-          otherExpenses: data.otherExpenses ? Number(data.otherExpenses) : undefined,
-          waterCost: data.waterCost ? Number(data.waterCost) : undefined,
+          labourCost: toNum(data.labourCost),
+          otherExpenses: toNum(data.otherExpenses),
+          waterCost: toNum(data.waterCost),
+          electricityUnits: toNum(data.electricityUnits),
         },
         waterQuality: {
-          do: data.do ? Number(data.do) : undefined,
-          ph: data.ph ? Number(data.ph) : undefined,
-          temperature: data.temperature ? Number(data.temperature) : undefined,
-          ammonia: data.ammonia ? Number(data.ammonia) : undefined,
-          hardness: data.hardness ? Number(data.hardness) : undefined,
-          alkalinity: data.alkalinity ? Number(data.alkalinity) : undefined,
+          do: toNum(data.do),
+          ph: toNum(data.ph),
+          temperature: toNum(data.temperature),
+          ammonia: toNum(data.ammonia),
+          hardness: toNum(data.hardness),
+          alkalinity: toNum(data.alkalinity),
         },
         shrimpHealth: {
-          status: data.health,
-          measures: data.measures,
+          status: validHealth,
+          measures: data.measures || undefined,
         },
         productionEstimation: {
-          expectedCop: data.expectedCop ? Number(data.expectedCop) : undefined,
-          expectedProduction: data.expectedProduction ? Number(data.expectedProduction) : undefined,
-          expectedAbw: data.expectedAbw ? Number(data.expectedAbw) : undefined
+          expectedCop: toNum(data.expectedCop),
+          expectedProduction: toNum(data.expectedProduction),
+          expectedAbw: toNum(data.expectedAbw)
         }
     };
     
     const res = await axios.post("/api/entries/daily", payload);
     
-    // Synchronize the local dbEntries so that leaving the day and returning hydrates fresh data
-    if (res.data?.success) {
+    // Synchronize the local dbEntries
+    if (res.data?.success && res.data?.data) {
       setDbEntries(prev => {
         const idx = prev.findIndex(e => e.dayNumber === selectedDay && e.pondId === pondId);
         if (idx !== -1) {
@@ -236,24 +264,132 @@ const DailyEntry = () => {
     }
   });
 
-  // Day color: green=completed, amber=partial, grey=pending — based on DB
-  const getDayStatus = (day: number) => {
-    const pond = ponds[pondIndex];
-    const pondId = pond?._id || pond?.pondId;
-    const entry = dbEntries.find((e: any) => e.dayNumber === day && (!pondId || e.pondId === pondId));
-    if (!entry) return 'pending';
-    const filled = [entry.sampling, entry.feedManagement, entry.financials, entry.waterQuality, entry.shrimpHealth]
-      .filter(s => s && Object.values(s).some(v => v != null && v !== '' && v !== false)).length;
-    if (filled === 0) return 'pending';
-    return filled >= 4 ? 'completed' : 'partial';
+  // Day color: green=completed (4+ sections), amber=partial (1-3 sections), grey=pending — based on clean business metrics
+  const isMediaPresent = (val: any) => {
+    if (!val) return false;
+    if (typeof val === 'string') return val.trim().length > 0;
+    if (typeof val === 'object') return Boolean(val.url || val.key);
+    return false;
   };
 
+  const isValuePresent = (val: any) => {
+    if (val === undefined || val === null || val === '') return false;
+    if (typeof val === 'number') return !isNaN(val);
+    return true;
+  };
+
+  const getDayStatus = (day: number) => {
+    const pond = ponds[pondIndex];
+    const currentPondId = String(pond?._id || pond?.pondId || '');
+
+    // Find entry in database entries
+    const entry = dbEntries.find((e: any) => {
+      const entryPondId = String(typeof e.pondId === 'object' ? (e.pondId?._id || e.pondId) : (e.pondId || ''));
+      return Number(e.dayNumber) === Number(day) && (!currentPondId || entryPondId === currentPondId);
+    });
+
+    let targetData: any = entry;
+
+    // If no DB entry, check if farmer has local draft
+    if (!targetData && currentPondId) {
+      try {
+        const draftStr = localStorage.getItem(`draft_daily_${currentPondId}_${day}`);
+        if (draftStr) targetData = JSON.parse(draftStr);
+      } catch {}
+    }
+
+    if (!targetData) return 'pending';
+
+    // Count filled sections accurately ignoring Mongoose _id / timestamps
+    let filledSections = 0;
+
+    // 1. Sampling
+    const smp = targetData.sampling || {};
+    if (
+      isValuePresent(smp.survival) ||
+      isValuePresent(smp.biomass) ||
+      smp.proportionateGrowth === true ||
+      isMediaPresent(smp.samplingVideo) ||
+      (targetData.survival || targetData.biomass || isMediaPresent(targetData.samplingVideo))
+    ) {
+      filledSections++;
+    }
+
+    // 2. Feed Management
+    const feed = targetData.feedManagement || {};
+    if (
+      isValuePresent(feed.feedQuantity) ||
+      isValuePresent(feed.feedCost) ||
+      isMediaPresent(feed.feedBills) ||
+      (targetData.feedQuantity || targetData.feedCost || isMediaPresent(targetData.feedBills))
+    ) {
+      filledSections++;
+    }
+
+    // 3. Financials / Labour
+    const fin = targetData.financials || {};
+    if (
+      isValuePresent(fin.labourCost) ||
+      isValuePresent(fin.otherExpenses) ||
+      isValuePresent(fin.waterCost) ||
+      isValuePresent(fin.electricityUnits) ||
+      isMediaPresent(fin.miscBills) ||
+      isMediaPresent(fin.electricityBills) ||
+      (targetData.labourCost || targetData.otherExpenses || targetData.waterCost || targetData.electricityUnits || isMediaPresent(targetData.miscBills) || isMediaPresent(targetData.electricityBills))
+    ) {
+      filledSections++;
+    }
+
+    // 4. Water Quality
+    const wq = targetData.waterQuality || {};
+    if (
+      isValuePresent(wq.do) ||
+      isValuePresent(wq.ph) ||
+      isValuePresent(wq.temperature) ||
+      isValuePresent(wq.ammonia) ||
+      isValuePresent(wq.hardness) ||
+      isValuePresent(wq.alkalinity) ||
+      isMediaPresent(wq.waterReport) ||
+      (targetData.do || targetData.ph || targetData.temperature || targetData.ammonia || targetData.hardness || targetData.alkalinity || isMediaPresent(targetData.waterReport))
+    ) {
+      filledSections++;
+    }
+
+    // 5. Shrimp Health
+    const sh = targetData.shrimpHealth || {};
+    if (
+      sh.status === 'normal' ||
+      sh.status === 'deficiency' ||
+      (sh.measures && String(sh.measures).trim().length > 0) ||
+      isMediaPresent(sh.shrimpPhoto) ||
+      isMediaPresent(sh.labReport) ||
+      (targetData.health === 'normal' || targetData.health === 'deficiency' || targetData.measures || isMediaPresent(targetData.shrimpPhoto) || isMediaPresent(targetData.labReport))
+    ) {
+      filledSections++;
+    }
+
+    // 6. Production Estimation
+    const prod = targetData.productionEstimation || {};
+    if (
+      isValuePresent(prod.expectedCop) ||
+      isValuePresent(prod.expectedProduction) ||
+      isValuePresent(prod.expectedAbw) ||
+      (targetData.expectedCop || targetData.expectedProduction || targetData.expectedAbw)
+    ) {
+      filledSections++;
+    }
+
+    if (filledSections === 0) return 'pending';
+    if (filledSections >= 4) return 'completed';
+    return 'partial';
+  };
 
   const save = async () => {
     if (!selectedDay) { toast.error(t("entries.selectDay")); return; }
 
     try {
-      const pondId = ponds[pondIndex]._id || ponds[pondIndex].pondId;
+      const pond = ponds[pondIndex];
+      const pondId = pond?._id || pond?.pondId;
 
       if (!pondId || String(pondId).length < 24) {
         toast.error("Invalid Pond ID. Please re-register your Farm to generate valid database IDs.");
@@ -268,13 +404,26 @@ const DailyEntry = () => {
       const dailyFolder = `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/daily/day_${selectedDay}_${dateStr}`;
 
       // Upload media files to SeaweedFS distributed storage under specific farmer hierarchy
-      const samplingVideoData = await uploadToSeaweedFS(data.samplingVideo, `${dailyFolder}/sampling-videos`);
-      const feedBillsData = await uploadToSeaweedFS(data.feedBills, `${dailyFolder}/feed-bills`);
-      const miscBillsData = await uploadToSeaweedFS(data.miscBills, `${dailyFolder}/misc-bills`);
-      const electricityBillsData = await uploadToSeaweedFS(data.electricityBills, `${dailyFolder}/electricity-bills`);
-      const waterReportData = await uploadToSeaweedFS(data.waterReport, `${dailyFolder}/water-reports`);
-      const shrimpPhotoData = await uploadToSeaweedFS(data.shrimpPhoto, `${dailyFolder}/shrimp-photos`);
-      const labReportData = await uploadToSeaweedFS(data.labReport, `${dailyFolder}/lab-reports`);
+      const [
+        samplingVideoData,
+        feedBillsData,
+        miscBillsData,
+        electricityBillsData,
+        waterReportData,
+        shrimpPhotoData,
+        labReportData
+      ] = await Promise.all([
+        data.samplingVideo instanceof File ? uploadToSeaweedFS(data.samplingVideo, `${dailyFolder}/sampling-videos`) : Promise.resolve(data.samplingVideo || null),
+        data.feedBills instanceof File ? uploadToSeaweedFS(data.feedBills, `${dailyFolder}/feed-bills`) : Promise.resolve(data.feedBills || null),
+        data.miscBills instanceof File ? uploadToSeaweedFS(data.miscBills, `${dailyFolder}/misc-bills`) : Promise.resolve(data.miscBills || null),
+        data.electricityBills instanceof File ? uploadToSeaweedFS(data.electricityBills, `${dailyFolder}/electricity-bills`) : Promise.resolve(data.electricityBills || null),
+        data.waterReport instanceof File ? uploadToSeaweedFS(data.waterReport, `${dailyFolder}/water-reports`) : Promise.resolve(data.waterReport || null),
+        data.shrimpPhoto instanceof File ? uploadToSeaweedFS(data.shrimpPhoto, `${dailyFolder}/shrimp-photos`) : Promise.resolve(data.shrimpPhoto || null),
+        data.labReport instanceof File ? uploadToSeaweedFS(data.labReport, `${dailyFolder}/lab-reports`) : Promise.resolve(data.labReport || null)
+      ]);
+
+      const toNum = (v: any) => (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : undefined;
+      const validHealth = (data.health === 'normal' || data.health === 'deficiency') ? data.health : undefined;
 
       const payload = {
         pondId: pondId,
@@ -282,60 +431,68 @@ const DailyEntry = () => {
         date: new Date().toISOString(),
 
         sampling: {
-          survival: data.survival ? Number(data.survival) : undefined,
-          biomass: data.biomass ? Number(data.biomass) : undefined,
+          survival: toNum(data.survival),
+          biomass: toNum(data.biomass),
           proportionateGrowth: data.proportionateGrowth === "yes",
           samplingVideo: samplingVideoData
         },
 
         feedManagement: {
-          feedQuantity: data.feedQuantity ? Number(data.feedQuantity) : undefined,
-          feedCost: data.feedCost ? Number(data.feedCost) : undefined,
+          feedQuantity: toNum(data.feedQuantity),
+          feedCost: toNum(data.feedCost),
           feedBills: feedBillsData
         },
 
         financials: {
-          labourCost: data.labourCost ? Number(data.labourCost) : undefined,
-          otherExpenses: data.otherExpenses ? Number(data.otherExpenses) : undefined,
+          labourCost: toNum(data.labourCost),
+          otherExpenses: toNum(data.otherExpenses),
           miscBills: miscBillsData,
-          waterCost: data.waterCost ? Number(data.waterCost) : undefined,
+          waterCost: toNum(data.waterCost),
           electricityBills: electricityBillsData,
-          electricityUnits: data.electricityUnits ? Number(data.electricityUnits) : undefined
+          electricityUnits: toNum(data.electricityUnits)
         },
 
         waterQuality: {
-          do: data.do ? Number(data.do) : undefined,
-          ph: data.ph ? Number(data.ph) : undefined,
-          temperature: data.temperature ? Number(data.temperature) : undefined,
-          ammonia: data.ammonia ? Number(data.ammonia) : undefined,
-          hardness: data.hardness ? Number(data.hardness) : undefined,
-          alkalinity: data.alkalinity ? Number(data.alkalinity) : undefined,
+          do: toNum(data.do),
+          ph: toNum(data.ph),
+          temperature: toNum(data.temperature),
+          ammonia: toNum(data.ammonia),
+          hardness: toNum(data.hardness),
+          alkalinity: toNum(data.alkalinity),
           waterReport: waterReportData
         },
 
         shrimpHealth: {
-          status: data.health || undefined,
-          measures: data.measures,
+          status: validHealth,
+          measures: data.measures || undefined,
           shrimpPhoto: shrimpPhotoData,
           labReport: labReportData
         },
 
         productionEstimation: {
-          expectedCop: data.expectedCop ? Number(data.expectedCop) : undefined,
-          expectedProduction: data.expectedProduction ? Number(data.expectedProduction) : undefined,
-          expectedAbw: data.expectedAbw ? Number(data.expectedAbw) : undefined
+          expectedCop: toNum(data.expectedCop),
+          expectedProduction: toNum(data.expectedProduction),
+          expectedAbw: toNum(data.expectedAbw)
         }
       };
 
       const res = await axios.post("/api/entries/daily", payload);
 
-      if (res.data.success) {
+      if (res.data?.success) {
         toast.success(t("entries.saved"));
         localStorage.removeItem(`draft_daily_${pondId}_${selectedDay}`);
         
-        // Refresh entries
-        axios.get(`/api/entries/daily?pondId=${pondId}`)
-          .then(r => setDbEntries(r.data.data || []));
+        if (res.data.data) {
+          setDbEntries(prev => {
+            const idx = prev.findIndex(e => e.dayNumber === selectedDay && e.pondId === pondId);
+            if (idx !== -1) {
+              const newEntries = [...prev];
+              newEntries[idx] = res.data.data;
+              return newEntries;
+            }
+            return [...prev, res.data.data];
+          });
+        }
         
         setData({});
         setSelectedDay(null);
@@ -352,6 +509,116 @@ const DailyEntry = () => {
     ins.pondId === pondIdToMatch || (ins.insuredPondIds && ins.insuredPondIds.includes(pondIdToMatch))
   );
   const maxDays = pondInsurance?.insurancePeriodDays ? Number(pondInsurance.insurancePeriodDays) : (pond ? 120 : 0);
+
+  const getMediaUrl = (val: any, previewUrl?: string): string | null => {
+    if (val instanceof File) {
+      return URL.createObjectURL(val);
+    }
+    if (previewUrl && previewUrl.trim().length > 0) return previewUrl;
+    if (typeof val === 'string' && val.trim().length > 0) return resolveMediaUrl(val);
+    if (val && typeof val === 'object' && (val.url || val.key)) return resolveMediaUrl(val);
+    return null;
+  };
+
+  const MediaField = ({
+    label,
+    fieldKey,
+    value,
+    previewUrl,
+    accept = "image/*,.pdf",
+    onChange,
+    allowCamera = false,
+    onCameraClick,
+  }: {
+    label: string;
+    fieldKey: string;
+    value: any;
+    previewUrl?: string;
+    accept?: string;
+    onChange: (file: File | undefined) => void;
+    allowCamera?: boolean;
+    onCameraClick?: () => void;
+  }) => {
+    const activeUrl = getMediaUrl(value, previewUrl);
+    const fileName = value instanceof File ? value.name : (activeUrl ? 'Attached Document' : null);
+    const isVideo = fieldKey === 'samplingVideo' || (value instanceof File && value.type.startsWith('video/'));
+
+    if (activeUrl) {
+      return (
+        <div className="w-full rounded-2xl border border-teal-200 bg-teal-50/70 p-3 flex flex-col gap-2.5 transition-all shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <CheckCircle2 size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-teal-700 font-bold uppercase tracking-wider truncate">{label}</p>
+                <p className="text-xs text-stone-700 font-medium truncate">{fileName || 'Uploaded File'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t border-teal-100">
+            <button
+              type="button"
+              onClick={() => setViewerModal({ title: label, url: activeUrl, isVideo })}
+              className="flex-1 h-9 rounded-xl bg-teal-700 hover:bg-teal-800 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+            >
+              <Eye size={14} />
+              <span>Show {isVideo ? 'Video' : 'Image'}</span>
+            </button>
+
+            <label className="h-9 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0">
+              <Upload size={13} className="text-stone-500" />
+              <span>Change</span>
+              <input
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={(e) => onChange(e.target.files?.[0])}
+              />
+            </label>
+
+            {allowCamera && (
+              <button
+                type="button"
+                onClick={onCameraClick}
+                className="w-9 h-9 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-teal-700 flex items-center justify-center shrink-0 shadow-xs transition-all"
+                title="Capture with Camera"
+              >
+                <Camera size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex gap-2 w-full">
+        <label className="flex-1 h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
+          <Upload size={16} className="text-teal-600 shrink-0" />
+          <span className="truncate text-stone-500 font-medium text-xs sm:text-sm">{label}</span>
+          <input
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={(e) => onChange(e.target.files?.[0])}
+          />
+        </label>
+        {allowCamera && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCameraClick}
+            className="w-12 h-12 rounded-xl border-stone-200 bg-stone-50 p-0 text-teal-600 hover:bg-stone-100 shrink-0"
+          >
+            <Camera size={18} />
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   const renderSectionCard = (Icon: any, title: string, children: React.ReactNode) => (
     <motion.div
@@ -609,10 +876,10 @@ const DailyEntry = () => {
                     key={day}
                     onClick={() => setSelectedDay(day)}
                     className={`aspect-square rounded-lg text-[9px] font-bold transition-all ${status === 'completed'
-                      ? 'bg-teal-500 text-white shadow-sm'
+                      ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
                       : status === 'partial'
-                        ? 'bg-amber-400 text-amber-900'
-                        : 'bg-stone-100 text-stone-400 hover:bg-stone-200'
+                        ? 'bg-amber-400 text-amber-950 shadow-sm hover:bg-amber-500 font-extrabold'
+                        : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'
                       }`}
                   >
                     {day}
@@ -621,15 +888,15 @@ const DailyEntry = () => {
               })}
             </div>
             {/* Legend */}
-            <div className="flex gap-4 mt-3 pt-3 border-t border-stone-100">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 pt-3 border-t border-stone-100">
               {[
-                { color: 'bg-teal-500', label: 'Completed' },
-                { color: 'bg-amber-400', label: 'Partial' },
-                { color: 'bg-stone-100', label: 'Pending' },
+                { color: 'bg-emerald-600', label: 'Completed (4+ sections)' },
+                { color: 'bg-amber-400', label: 'Partial (1-3 sections)' },
+                { color: 'bg-stone-200', label: 'Pending' },
               ].map(({ color, label }) => (
                 <div key={label} className="flex items-center gap-1.5">
                   <div className={`w-2.5 h-2.5 rounded-sm ${color}`} />
-                  <span className="text-[10px] text-stone-400 font-medium">{label}</span>
+                  <span className="text-[10px] text-stone-500 font-medium">{label}</span>
                 </div>
               ))}
             </div>
@@ -663,13 +930,14 @@ const DailyEntry = () => {
                   </SelectContent>
                 </Select>
                 <Input placeholder={t("entries.biomass")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.biomass || ""} onChange={(e) => update("biomass", e.target.value)} />
-                <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                  <Upload size={16} className="text-teal-600" />
-                  <span className="truncate text-stone-500 font-medium">
-                    {data.samplingVideo ? (data.samplingVideo as File).name : t("entries.samplingVideo")}
-                  </span>
-                  <input type="file" accept="video/*" className="hidden" onChange={(e) => update("samplingVideo", e.target.files?.[0])} />
-                </label>
+                <MediaField
+                  label={t("entries.samplingVideo")}
+                  fieldKey="samplingVideo"
+                  value={data.samplingVideo}
+                  previewUrl={data.samplingVideoPreview}
+                  accept="video/*"
+                  onChange={(file) => update("samplingVideo", file)}
+                />
                 <div className="flex items-center justify-between py-2 border-t border-stone-100 mt-1">
                   <span className="text-sm font-medium text-stone-600">{t("entries.proportionateGrowth")}</span>
                   <div className="flex bg-stone-100 rounded-lg p-0.5">
@@ -692,13 +960,14 @@ const DailyEntry = () => {
               <>
                 <Input placeholder={t("entries.feedQuantity")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.feedQuantity || ""} onChange={(e) => update("feedQuantity", e.target.value)} />
                 <Input placeholder={t("entries.feedCost")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.feedCost || ""} onChange={(e) => update("feedCost", e.target.value)} />
-                <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                  <Upload size={16} className="text-teal-600" />
-                  <span className="truncate text-stone-500 font-medium">
-                    {data.feedBills ? (data.feedBills as File).name : t("entries.uploadBills") + " (Img/PDF)"}
-                  </span>
-                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => update("feedBills", e.target.files?.[0])} />
-                </label>
+                <MediaField
+                  label={t("entries.uploadBills") + " (Feed Bills)"}
+                  fieldKey="feedBills"
+                  value={data.feedBills}
+                  previewUrl={data.feedBillsPreview}
+                  accept="image/*,.pdf"
+                  onChange={(file) => update("feedBills", file)}
+                />
               </>
             ))}
 
@@ -708,13 +977,14 @@ const DailyEntry = () => {
                 <Input placeholder={t("entries.labourCostInput")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.labourCost || ""} onChange={(e) => update("labourCost", e.target.value)} />
                 <div className="space-y-2 pt-2 border-t border-stone-100">
                   <Input placeholder={t("entries.otherExpenses")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.otherExpenses || ""} onChange={(e) => update("otherExpenses", e.target.value)} />
-                  <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                    <Upload size={16} className="text-teal-600" />
-                    <span className="truncate text-stone-500 font-medium">
-                      {data.miscBills ? (data.miscBills as File).name : t("entries.uploadBills")}
-                    </span>
-                    <input type="file" className="hidden" onChange={(e) => update("miscBills", e.target.files?.[0])} />
-                  </label>
+                  <MediaField
+                    label={t("entries.uploadBills") + " (Misc Bills)"}
+                    fieldKey="miscBills"
+                    value={data.miscBills}
+                    previewUrl={data.miscBillsPreview}
+                    accept="image/*,.pdf"
+                    onChange={(file) => update("miscBills", file)}
+                  />
                 </div>
               </>
             ))}
@@ -761,7 +1031,7 @@ const DailyEntry = () => {
                     <span><strong>Toxic Ammonia:</strong> Ammonia ({data.ammonia} mg/L) exceeds safe maximum (0.1 mg/L). Reduce feeding.</span>
                   </div>
                 )}
-                <div className="space-y-2 pt-2 border-t border-stone-100">
+                <div className="space-y-3 pt-2 border-t border-stone-100">
                   <Input
                     placeholder="Electricity Units Consumed (kWh)"
                     type="number"
@@ -769,18 +1039,22 @@ const DailyEntry = () => {
                     value={data.electricityUnits || ""}
                     onChange={(e) => update("electricityUnits", e.target.value)}
                   />
-                  {[
-                    { key: 'waterReport', label: t("entries.waterQualityReport"), accept: undefined },
-                    { key: 'electricityBills', label: t("entries.electricityBills"), accept: undefined },
-                  ].map(({ key, label, accept }) => (
-                    <label key={key} className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                      <Upload size={16} className="text-teal-600" />
-                      <span className="truncate text-stone-500 font-medium">
-                        {data[key] ? (data[key] as File).name : label}
-                      </span>
-                      <input type="file" accept={accept} className="hidden" onChange={(e) => update(key, e.target.files?.[0])} />
-                    </label>
-                  ))}
+                  <MediaField
+                    label={t("entries.waterQualityReport")}
+                    fieldKey="waterReport"
+                    value={data.waterReport}
+                    previewUrl={data.waterReportPreview}
+                    accept="image/*,.pdf"
+                    onChange={(file) => update("waterReport", file)}
+                  />
+                  <MediaField
+                    label={t("entries.electricityBills")}
+                    fieldKey="electricityBills"
+                    value={data.electricityBills}
+                    previewUrl={data.electricityBillsPreview}
+                    accept="image/*,.pdf"
+                    onChange={(file) => update("electricityBills", file)}
+                  />
                   <Input placeholder={t("entries.waterCost")} type="number" className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.waterCost || ""} onChange={(e) => update("waterCost", e.target.value)} />
                 </div>
               </>
@@ -799,30 +1073,24 @@ const DailyEntry = () => {
                   </SelectContent>
                 </Select>
                 <Input placeholder={t("entries.measures")} className="h-12 rounded-xl border-stone-200 bg-stone-50 text-sm" value={data.measures || ""} onChange={(e) => update("measures", e.target.value)} />
-                <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                  <Upload size={16} className="text-teal-600" />
-                  <span className="truncate text-stone-500 font-medium">
-                    {data.labReport ? (data.labReport as File).name : t("entries.labReport")}
-                  </span>
-                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => update("labReport", e.target.files?.[0])} />
-                </label>
-                <div className="flex gap-2">
-                  <label className="flex-1 h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors">
-                    <Upload size={16} className="text-teal-600" />
-                    <span className="truncate text-stone-500 font-medium">
-                      {data.shrimpPhoto ? (data.shrimpPhoto as File).name : t("entries.uploadPhoto")}
-                    </span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => update("shrimpPhoto", e.target.files?.[0])} />
-                  </label>
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setIsCameraOpen(true)}
-                    className="w-12 h-12 rounded-xl border-stone-200 bg-stone-50 p-0 text-teal-600"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-                  </Button>
-                </div>
+                <MediaField
+                  label={t("entries.labReport")}
+                  fieldKey="labReport"
+                  value={data.labReport}
+                  previewUrl={data.labReportPreview}
+                  accept="image/*,.pdf"
+                  onChange={(file) => update("labReport", file)}
+                />
+                <MediaField
+                  label={t("entries.uploadPhoto") + " (Shrimp Photo)"}
+                  fieldKey="shrimpPhoto"
+                  value={data.shrimpPhoto}
+                  previewUrl={data.shrimpPhotoPreview}
+                  accept="image/*"
+                  onChange={(file) => update("shrimpPhoto", file)}
+                  allowCamera={true}
+                  onCameraClick={() => setIsCameraOpen(true)}
+                />
               </>
             ))}
 
@@ -869,6 +1137,95 @@ const DailyEntry = () => {
     )}
   </div>
 </div>
+
+      {/* ── UNIVERSAL MEDIA PREVIEW LIGHTBOX MODAL ── */}
+      <AnimatePresence>
+        {viewerModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewerModal(null)}
+              className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm"
+            />
+
+            {/* Modal Dialog */}
+            <div className="fixed inset-0 z-[125] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 10 }}
+                className="w-full max-w-lg bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex flex-col max-h-[85vh]"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3.5 bg-stone-900/90 border-b border-white/10 text-white shrink-0">
+                  <div className="min-w-0 flex-1 pr-3">
+                    <p className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Preview Document</p>
+                    <h3 className="text-sm font-bold truncate text-stone-100">{viewerModal.title}</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={viewerModal.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                      title="Open in new window"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                    <button
+                      onClick={() => setViewerModal(null)}
+                      className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Media Container */}
+                <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[260px]">
+                  {viewerModal.isVideo ? (
+                    <video
+                      src={viewerModal.url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="max-h-[65vh] w-full rounded-2xl object-contain shadow-md"
+                    />
+                  ) : viewerModal.url.toLowerCase().includes('.pdf') || viewerModal.url.startsWith('data:application/pdf') ? (
+                    <div className="flex flex-col items-center justify-center gap-4 py-8 text-center px-4">
+                      <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+                        <FileText size={32} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white mb-1">PDF Document</p>
+                        <p className="text-xs text-stone-400 max-w-xs">This PDF document can be viewed or downloaded in a new browser tab.</p>
+                      </div>
+                      <a
+                        href={viewerModal.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md inline-flex items-center gap-2 transition-all"
+                      >
+                        <ExternalLink size={14} />
+                        <span>Open PDF Document</span>
+                      </a>
+                    </div>
+                  ) : (
+                    <img
+                      src={viewerModal.url}
+                      alt={viewerModal.title}
+                      className="max-h-[65vh] w-full rounded-2xl object-contain shadow-md"
+                    />
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── POND PREVIEW MODAL (mobile bottom-sheet) ── */}
       {pondPreviewOpen && (() => {
