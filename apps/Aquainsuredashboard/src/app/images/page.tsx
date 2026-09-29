@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, ImageIcon, Download, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageIcon, Download, ExternalLink, FileText, AlertCircle } from 'lucide-react';
 import { formatDateTime } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/fileUtils';
 import type { ImageItem, Pagination, ApiResponse } from '@/types';
 
 const IMAGE_SOURCES = [
@@ -38,6 +39,7 @@ export default function ImagesPage() {
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 24, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let ignore = false;
@@ -120,40 +122,51 @@ export default function ImagesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {images.map((img) => (
-            <button
-              key={img._id}
-              onClick={() => setSelectedImage(img)}
-              className="group relative aspect-square overflow-hidden rounded-xl border border-border/50 bg-card/60 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {img.image?.toLowerCase().endsWith('.pdf') ? (
-                <div className="h-full w-full flex flex-col items-center justify-center bg-muted/20 p-2 text-center">
-                  <ImageIcon className="h-8 w-8 text-cyan-400 mb-1" />
-                  <span className="text-[11px] font-medium text-foreground">PDF Document</span>
+          {images.map((img) => {
+            const rawUrl = resolveMediaUrl(img.image);
+            const isPdf = rawUrl?.toLowerCase().includes('.pdf') || rawUrl?.startsWith('data:application/pdf');
+            const isBroken = !rawUrl || brokenImages[img._id];
+
+            return (
+              <button
+                key={img._id}
+                onClick={() => setSelectedImage(img)}
+                className="group relative aspect-square overflow-hidden rounded-xl border border-border/50 bg-card/60 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {isPdf ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center bg-muted/20 p-2 text-center">
+                    <FileText className="h-8 w-8 text-cyan-400 mb-1" />
+                    <span className="text-[11px] font-medium text-foreground">PDF Document</span>
+                  </div>
+                ) : isBroken ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center bg-muted/30 p-2 text-center">
+                    <ImageIcon className="h-7 w-7 text-muted-foreground/50 mb-1" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Image Preview</span>
+                  </div>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={rawUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    onError={() => {
+                      setBrokenImages(prev => ({ ...prev, [img._id]: true }));
+                    }}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                <div className="absolute bottom-0 left-0 right-0 translate-y-2 p-2.5 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100 text-left">
+                  <p className="truncate text-xs font-medium text-white">
+                    {img.label}
+                  </p>
+                  <p className="truncate text-[10px] text-white/70">
+                    {img.sublabel}
+                  </p>
                 </div>
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={img.image}
-                  alt={img.label}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <div className="absolute bottom-0 left-0 right-0 translate-y-2 p-2.5 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100 text-left">
-                <p className="truncate text-xs font-medium text-white">
-                  {img.label}
-                </p>
-                <p className="truncate text-[10px] text-white/70">
-                  {img.sublabel}
-                </p>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -188,66 +201,79 @@ export default function ImagesPage() {
           <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/40">
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-base font-semibold">{selectedImage?.label}</DialogTitle>
-              {selectedImage?.image && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs gap-1.5"
-                    onClick={() => window.open(selectedImage.image, '_blank')}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> Open
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2.5"
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = selectedImage.image;
-                      link.download = selectedImage.label || 'download';
-                      link.click();
-                    }}
-                    title="Download"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
+              {selectedImage?.image && (() => {
+                const resolved = resolveMediaUrl(selectedImage.image);
+                return resolved ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={() => window.open(resolved, '_blank')}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Open
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = resolved;
+                        link.download = selectedImage.label || 'download';
+                        link.click();
+                      }}
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </DialogHeader>
-          {selectedImage && (
-            <div className="space-y-4 px-6 py-5">
-              {/* Media Display */}
-              <div className="relative overflow-hidden rounded-xl border border-border/50 bg-background flex items-center justify-center min-h-[300px]">
-                {selectedImage.image?.toLowerCase().endsWith('.pdf') ? (
-                  <iframe
-                    src={selectedImage.image}
-                    className="w-full h-[55vh] rounded-lg"
-                    title={selectedImage.label}
-                  />
-                ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={selectedImage.image}
-                    alt={selectedImage.label}
-                    className="mx-auto max-h-[55vh] w-auto object-contain"
-                  />
-                )}
-              </div>
+          {selectedImage && (() => {
+            const resolved = resolveMediaUrl(selectedImage.image);
+            const isPdf = resolved?.toLowerCase().includes('.pdf') || resolved?.startsWith('data:application/pdf');
 
-              {/* Metadata */}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 bg-muted/20 p-4 rounded-xl border border-border/40">
-                <MetaItem label="Source" value={IMAGE_SOURCES.find(s => s.value === selectedImage.source)?.label || selectedImage.source} />
-                <MetaItem label="Title" value={selectedImage.label} />
-                <MetaItem label="Associated With" value={selectedImage.sublabel} />
-                <MetaItem label="Uploaded" value={formatDateTime(selectedImage.timestamp)} />
-                {selectedImage.meta && Object.entries(selectedImage.meta).map(([key, val]) => (
-                  <MetaItem key={key} label={key} value={String(val)} />
-                ))}
+            return (
+              <div className="space-y-4 px-6 py-5">
+                {/* Media Display */}
+                <div className="relative overflow-hidden rounded-xl border border-border/50 bg-background flex items-center justify-center min-h-[300px]">
+                  {isPdf ? (
+                    <iframe
+                      src={resolved || ''}
+                      className="w-full h-[55vh] rounded-lg"
+                      title={selectedImage.label}
+                    />
+                  ) : resolved ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={resolved}
+                      alt=""
+                      className="mx-auto max-h-[55vh] w-auto object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-muted-foreground py-12">
+                      <AlertCircle className="h-8 w-8 mb-2 text-amber-500" />
+                      <p className="text-sm">Image not available</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Metadata */}
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 bg-muted/20 p-4 rounded-xl border border-border/40">
+                  <MetaItem label="Source" value={IMAGE_SOURCES.find(s => s.value === selectedImage.source)?.label || selectedImage.source} />
+                  <MetaItem label="Title" value={selectedImage.label} />
+                  <MetaItem label="Associated With" value={selectedImage.sublabel} />
+                  <MetaItem label="Uploaded" value={formatDateTime(selectedImage.timestamp)} />
+                  {selectedImage.meta && Object.entries(selectedImage.meta).map(([key, val]) => (
+                    <MetaItem key={key} label={key} value={String(val)} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

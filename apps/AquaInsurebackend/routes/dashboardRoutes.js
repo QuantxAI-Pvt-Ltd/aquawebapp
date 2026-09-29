@@ -11,13 +11,37 @@ const OneTimeEntry = require('../models/OneTimeEntry');
 // ─── Helper: convert Buffer/BinData or SeaweedFS MediaObject to URL ──────────
 const bufferToDataUrl = (media, mime = 'image/jpeg') => {
     if (!media) return null;
-    if (typeof media === 'object' && media.url) return media.url;
-    if (typeof media === 'string') {
-        if (media.startsWith('http://') || media.startsWith('https://') || media.startsWith('/') || media.startsWith('data:')) {
-            return media;
+    if (typeof media === 'object') {
+        if (media.key) {
+            return `/api/media/stream?key=${encodeURIComponent(media.key)}`;
         }
-        if (media.includes('/') || media.includes(',')) {
-            return `/api/media/stream?key=${encodeURIComponent(media)}`;
+        if (media.url && typeof media.url === 'string') {
+            if (media.url.includes(':8333')) {
+                try {
+                    const urlObj = new URL(media.url);
+                    let key = urlObj.pathname.replace(/^\/+/, '');
+                    if (key.startsWith('aquainsure/')) key = key.replace(/^aquainsure\//, '');
+                    return `/api/media/stream?key=${encodeURIComponent(key)}`;
+                } catch (e) {}
+            }
+            return media.url;
+        }
+    }
+    if (typeof media === 'string') {
+        const trimmed = media.trim();
+        if (trimmed.includes(':8333')) {
+            try {
+                const urlObj = new URL(trimmed);
+                let key = urlObj.pathname.replace(/^\/+/, '');
+                if (key.startsWith('aquainsure/')) key = key.replace(/^aquainsure\//, '');
+                return `/api/media/stream?key=${encodeURIComponent(key)}`;
+            } catch (e) {}
+        }
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/') || trimmed.startsWith('data:')) {
+            return trimmed;
+        }
+        if (trimmed.includes('/') || trimmed.includes(',')) {
+            return `/api/media/stream?key=${encodeURIComponent(trimmed)}`;
         }
     }
     let raw;

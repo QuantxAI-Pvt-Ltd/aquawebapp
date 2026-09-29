@@ -47,6 +47,7 @@ import {
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatDate } from '@/lib/formatters';
 import { api } from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/fileUtils';
 import type { Insurance, Farmer, Pond, Farm, DailyEntry } from '@/types';
 
 const REASON_LABELS: Record<string, string> = {
@@ -637,14 +638,11 @@ export default function InsurancesPage() {
                           Incident Evidence Photo
                         </span>
                         {(() => {
-                          const url =
-                            typeof selectedPolicy.claim.evidencePhoto === 'object'
-                              ? selectedPolicy.claim.evidencePhoto?.url
-                              : (selectedPolicy.claim.evidencePhoto as string);
+                          const url = resolveMediaUrl(selectedPolicy.claim.evidencePhoto);
 
-                          return (
+                          return url ? (
                             <div
-                              onClick={() => url && setZoomImage(url)}
+                              onClick={() => setZoomImage(url)}
                               className="relative group cursor-pointer rounded-xl overflow-hidden border border-border h-44 bg-muted flex items-center justify-center"
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -653,7 +651,7 @@ export default function InsurancesPage() {
                                 <Eye size={16} /> Click to Expand
                               </div>
                             </div>
-                          );
+                          ) : null;
                         })()}
                       </div>
                     )}

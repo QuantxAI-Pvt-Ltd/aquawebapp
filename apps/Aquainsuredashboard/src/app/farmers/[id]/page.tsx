@@ -33,23 +33,8 @@ import {
 } from '@/components/ui/dialog';
 import { formatDate } from '@/lib/formatters';
 import { apiFetch, API_BASE } from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/fileUtils';
 import type { FarmerDetailData, ApiResponse, Pond, Farm, Insurance, MediaObject, DailyEntry, OneTimeEntry } from '@/types';
-
-// Helper to safely extract image/document URL from MediaObject, string, or legacy object
-function getMediaUrl(media?: MediaObject | string | null): string | null {
-  if (!media) return null;
-  if (typeof media === 'string') {
-    if (media.startsWith('http://') || media.startsWith('https://') || media.startsWith('/')) {
-      return media;
-    }
-    if (media.startsWith('data:')) return media;
-    return `${API_BASE}${media.startsWith('/') ? '' : '/'}${media}`;
-  }
-  if (typeof media === 'object' && media.url) {
-    return media.url;
-  }
-  return null;
-}
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -130,10 +115,10 @@ export default function FarmerDetailPage({ params }: PageProps) {
     );
   }
 
-  const profilePhotoUrl = getMediaUrl(farmer.identity?.photo);
-  const aadharUrl = getMediaUrl(farmer.identity?.aadharFile);
-  const panUrl = getMediaUrl(farmer.identity?.panFile);
-  const regCertUrl = getMediaUrl(farmer.registration?.regCertificate);
+  const profilePhotoUrl = resolveMediaUrl(farmer.identity?.photo);
+  const aadharUrl = resolveMediaUrl(farmer.identity?.aadharFile);
+  const panUrl = resolveMediaUrl(farmer.identity?.panFile);
+  const regCertUrl = resolveMediaUrl(farmer.registration?.regCertificate);
 
   return (
     <div className="animate-fade-in space-y-6 pb-12">
@@ -378,7 +363,7 @@ export default function FarmerDetailPage({ params }: PageProps) {
             <div className="space-y-6">
               {farmer.farms.map((farm: Farm) => {
                 const farmPonds = farmer.ponds?.filter((p: Pond) => String(p.farmId) === String(farm._id)) || [];
-                const farmPhotoUrl = getMediaUrl(farm.farmPhoto);
+                const farmPhotoUrl = resolveMediaUrl(farm.farmPhoto);
 
                 return (
                   <Card key={farm._id} className="border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden shadow-sm">
@@ -613,7 +598,7 @@ function PondCard({
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<{ daily: DailyEntry[]; oneTime: OneTimeEntry[] } | null>(null);
 
-  const pondPhotoUrl = getMediaUrl(pond.photo);
+  const pondPhotoUrl = resolveMediaUrl(pond.photo);
 
   const fetchEntries = async () => {
     if (entries) return;
@@ -799,7 +784,10 @@ function DailyEntryItem({
                     variant="secondary"
                     size="sm"
                     className="h-6 text-[10px] px-2"
-                    onClick={() => onInspectMedia('Shrimp Health Photo', getMediaUrl(entry.shrimpHealth?.shrimpPhoto)!)}
+                    onClick={() => {
+                      const url = resolveMediaUrl(entry.shrimpHealth?.shrimpPhoto);
+                      if (url) onInspectMedia('Shrimp Health Photo', url);
+                    }}
                   >
                     Shrimp Photo
                   </Button>
@@ -809,7 +797,10 @@ function DailyEntryItem({
                     variant="secondary"
                     size="sm"
                     className="h-6 text-[10px] px-2"
-                    onClick={() => onInspectMedia('Feed Bill Document', getMediaUrl(entry.feedManagement?.feedBills)!)}
+                    onClick={() => {
+                      const url = resolveMediaUrl(entry.feedManagement?.feedBills);
+                      if (url) onInspectMedia('Feed Bill Document', url);
+                    }}
                   >
                     Feed Bill
                   </Button>
@@ -819,7 +810,10 @@ function DailyEntryItem({
                     variant="secondary"
                     size="sm"
                     className="h-6 text-[10px] px-2"
-                    onClick={() => onInspectMedia('Misc Bill Document', getMediaUrl(entry.financials?.miscBills)!)}
+                    onClick={() => {
+                      const url = resolveMediaUrl(entry.financials?.miscBills);
+                      if (url) onInspectMedia('Misc Bill Document', url);
+                    }}
                   >
                     Misc Bill
                   </Button>
@@ -829,7 +823,10 @@ function DailyEntryItem({
                     variant="secondary"
                     size="sm"
                     className="h-6 text-[10px] px-2"
-                    onClick={() => onInspectMedia('Water Quality Report', getMediaUrl(entry.waterQuality?.waterReport)!)}
+                    onClick={() => {
+                      const url = resolveMediaUrl(entry.waterQuality?.waterReport);
+                      if (url) onInspectMedia('Water Quality Report', url);
+                    }}
                   >
                     Water Report
                   </Button>
