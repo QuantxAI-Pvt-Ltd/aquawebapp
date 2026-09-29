@@ -124,6 +124,7 @@ export interface DailyEntry {
     survival?: number;
     biomass?: number;
     proportionateGrowth?: boolean;
+    samplingVideo?: MediaObject | string | null;
   };
   feedManagement?: {
     feedQuantity?: number;
@@ -147,7 +148,7 @@ export interface DailyEntry {
     waterReport?: MediaObject | string | null;
   };
   shrimpHealth?: {
-    status?: 'normal' | 'deficiency';
+    status?: 'normal' | 'deficiency' | string;
     measures?: string;
     shrimpPhoto?: MediaObject | string | null;
     labReport?: MediaObject | string | null;
@@ -157,6 +158,8 @@ export interface DailyEntry {
     expectedProduction?: number;
     expectedAbw?: number;
   };
+  pondName?: string;
+  pondNumber?: number;
   createdAt: string;
 }
 
@@ -167,7 +170,10 @@ export interface OneTimeEntry {
   farmId?: string;
   date?: string;
   stage?: string;
+  pondName?: string;
+  pondNumber?: number;
   pondPreparation?: {
+    followedPractices?: boolean;
     bleachingKg?: number;
     limingKg?: number;
     pondPrepBills?: MediaObject | string | null;
@@ -175,10 +181,25 @@ export interface OneTimeEntry {
   seedSelection?: {
     hatcheryName?: string;
     seedCount?: number;
+    pcrTesting?: boolean;
     pcrCertificate?: MediaObject | string | null;
     seedBills?: MediaObject | string | null;
   };
   createdAt: string;
+}
+
+export interface VaultMediaItem {
+  id: string;
+  category: 'identity' | 'farm' | 'pond' | 'setup' | 'daily' | 'claim';
+  mediaType: 'image' | 'video' | 'document';
+  title: string;
+  subtitle: string;
+  url: string;
+  pondId?: string;
+  pondName?: string;
+  dayNumber?: number;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FarmerDetailData extends Farmer {

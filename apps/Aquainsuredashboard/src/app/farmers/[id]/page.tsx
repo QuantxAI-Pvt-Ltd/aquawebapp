@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -19,22 +19,33 @@ import {
   AlertCircle,
   Clock,
   Eye,
+  Video as VideoIcon,
+  Image as ImageIcon,
+  Sparkles,
+  Filter,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { formatDate } from '@/lib/formatters';
-import { apiFetch, API_BASE } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/fileUtils';
-import type { FarmerDetailData, ApiResponse, Pond, Farm, Insurance, MediaObject, DailyEntry, OneTimeEntry } from '@/types';
+import { MediaViewerDialog, type MediaViewerTarget } from '@/components/ui/media-viewer-dialog';
+import type {
+  FarmerDetailData,
+  ApiResponse,
+  Pond,
+  Farm,
+  Insurance,
+  DailyEntry,
+  OneTimeEntry,
+  VaultMediaItem,
+} from '@/types';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -49,15 +60,23 @@ export default function FarmerDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal inspection state for documents/images
-  const [inspectModal, setInspectModal] = useState<{
-    title: string;
-    url: string;
-    mimeType?: string;
-  } | null>(null);
+  // Additional fine-grained farmer entries & vault data
+  const [entriesData, setEntriesData] = useState<{ dailyEntries: DailyEntry[]; oneTimeEntries: OneTimeEntry[] }>({
+    dailyEntries: [],
+    oneTimeEntries: [],
+  });
+  const [vaultMedia, setVaultMedia] = useState<VaultMediaItem[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+
+  // Unified Media Viewer Lightbox State
+  const [activeMedia, setActiveMedia] = useState<MediaViewerTarget | null>(null);
+
+  // Filters for Day-by-Day & Media Vault tabs
+  const [selectedPondFilter, setSelectedPondFilter] = useState<string>('all');
+  const [vaultCategoryFilter, setVaultCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
-    async function fetchFarmer() {
+    async function fetchFarmerAndMedia() {
       setLoading(true);
       setError(null);
       try {
@@ -73,9 +92,54 @@ export default function FarmerDetailPage({ params }: PageProps) {
       } finally {
         setLoading(false);
       }
+
+      // Fetch all farmer entries and media vault asynchronously
+      setEntriesLoading(true);
+      try {
+        const [entriesRes, vaultRes] = await Promise.all([
+          apiFetch<ApiResponse<{ dailyEntries: DailyEntry[]; oneTimeEntries: OneTimeEntry[] }>>(
+            `/api/dashboard/farmers/${farmerId}/entries`
+          ).catch(() => null),
+          apiFetch<ApiResponse<VaultMediaItem[]>>(
+            `/api/dashboard/farmers/${farmerId}/media-vault`
+          ).catch(() => null),
+        ]);
+
+        if (entriesRes && entriesRes.success && entriesRes.data) {
+          setEntriesData(entriesRes.data);
+        }
+        if (vaultRes && vaultRes.success && vaultRes.data) {
+          setVaultMedia(vaultRes.data);
+        }
+      } catch (e) {
+        console.error('Error fetching farmer entries / vault:', e);
+      } finally {
+        setEntriesLoading(false);
+      }
     }
-    fetchFarmer();
+    fetchFarmerAndMedia();
   }, [farmerId]);
+
+  // Filtered daily entries based on pond selection
+  const filteredDailyEntries = useMemo(() => {
+    if (selectedPondFilter === 'all') return entriesData.dailyEntries;
+    return entriesData.dailyEntries.filter((e) => String(e.pondId) === selectedPondFilter);
+  }, [entriesData.dailyEntries, selectedPondFilter]);
+
+  // Filtered vault media
+  const filteredVaultMedia = useMemo(() => {
+    return vaultMedia.filter((item) => {
+      const matchesPond =
+        selectedPondFilter === 'all' || !item.pondId || String(item.pondId) === selectedPondFilter;
+      const matchesCategory =
+        vaultCategoryFilter === 'all' ||
+        (vaultCategoryFilter === 'video' && item.mediaType === 'video') ||
+        (vaultCategoryFilter === 'photo' && item.mediaType === 'image') ||
+        (vaultCategoryFilter === 'document' && item.mediaType === 'document') ||
+        item.category === vaultCategoryFilter;
+      return matchesPond && matchesCategory;
+    });
+  }, [vaultMedia, selectedPondFilter, vaultCategoryFilter]);
 
   if (loading) {
     return (
@@ -121,7 +185,7 @@ export default function FarmerDetailPage({ params }: PageProps) {
   const regCertUrl = resolveMediaUrl(farmer.registration?.regCertificate);
 
   return (
-    <div className="animate-fade-in space-y-6 pb-12">
+    <div className="animate-fade-in space-y-6 pb-16">
       {/* ── Top Navigation Bar ────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Button
@@ -134,6 +198,9 @@ export default function FarmerDetailPage({ params }: PageProps) {
         </Button>
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted-foreground">ID: {farmer._id}</span>
+          <Badge variant="outline" className="border-blue-500/40 text-blue-400 bg-blue-500/10 uppercase font-semibold tracking-wider">
+            🏛️ PMMSY / State Subsidized
+          </Badge>
           {farmer.registration?.regType && (
             <Badge variant="outline" className="uppercase font-semibold tracking-wider">
               {farmer.registration.regType} Verified
@@ -151,13 +218,20 @@ export default function FarmerDetailPage({ params }: PageProps) {
               {/* Avatar or Photo */}
               <div className="relative group shrink-0">
                 {profilePhotoUrl ? (
-                  <div className="h-20 w-20 rounded-2xl overflow-hidden border-2 border-primary/30 shadow-md">
+                  <div className="h-20 w-20 rounded-2xl overflow-hidden border-2 border-primary/30 shadow-md bg-black/20">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={profilePhotoUrl}
                       alt={farmer.name}
                       className="h-full w-full object-cover cursor-pointer transition-transform group-hover:scale-105"
-                      onClick={() => setInspectModal({ title: `${farmer.name}'s Photo`, url: profilePhotoUrl })}
+                      onClick={() =>
+                        setActiveMedia({
+                          title: `${farmer.name}'s Portrait Photo`,
+                          url: profilePhotoUrl,
+                          category: 'Identity',
+                          type: 'image',
+                        })
+                      }
                     />
                   </div>
                 ) : (
@@ -167,8 +241,15 @@ export default function FarmerDetailPage({ params }: PageProps) {
                 )}
                 {profilePhotoUrl && (
                   <button
-                    onClick={() => setInspectModal({ title: `${farmer.name}'s Photo`, url: profilePhotoUrl })}
-                    className="absolute bottom-1 right-1 rounded-full bg-black/60 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() =>
+                      setActiveMedia({
+                        title: `${farmer.name}'s Portrait Photo`,
+                        url: profilePhotoUrl,
+                        category: 'Identity',
+                        type: 'image',
+                      })
+                    }
+                    className="absolute bottom-1 right-1 rounded-full bg-black/70 p-1.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Inspect Photo"
                   >
                     <ZoomIn className="h-3.5 w-3.5" />
@@ -216,29 +297,675 @@ export default function FarmerDetailPage({ params }: PageProps) {
               </div>
               <div className="h-8 w-px bg-border/50" />
               <div className="text-center px-3">
-                <p className="text-2xl font-bold text-emerald-400">{farmer.insurances?.length ?? 0}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Policies</p>
+                <p className="text-2xl font-bold text-emerald-400">{entriesData.dailyEntries?.length ?? 0}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Daily Logs</p>
+              </div>
+              <div className="h-8 w-px bg-border/50" />
+              <div className="text-center px-3">
+                <p className="text-2xl font-bold text-indigo-400">{vaultMedia?.length ?? 0}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Media Files</p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Main Tabbed Sections ───────────────────────────────────────────── */}
-      <Tabs defaultValue="kyc" className="space-y-6">
-        <TabsList className="bg-card/60 border border-border/50 p-1 rounded-xl">
-          <TabsTrigger value="kyc" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <User className="h-4 w-4" /> Personal & KYC
+      {/* ── Main Tabbed Sections Grouped for this Farmer ──────────────────── */}
+      <Tabs defaultValue="daily-logs" className="space-y-6">
+        <TabsList className="bg-card/70 border border-border/50 p-1.5 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-1">
+          <TabsTrigger value="daily-logs" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Clock className="h-4 w-4" /> Day-by-Day Logs & Videos ({entriesData.dailyEntries?.length ?? 0})
+          </TabsTrigger>
+          <TabsTrigger value="vault" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Sparkles className="h-4 w-4 text-amber-300" /> Media & Video Vault ({vaultMedia?.length ?? 0})
           </TabsTrigger>
           <TabsTrigger value="farms" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Waves className="h-4 w-4" /> Farms & Ponds ({farmer.farms?.length ?? 0})
           </TabsTrigger>
-          <TabsTrigger value="insurance" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <ShieldCheck className="h-4 w-4" /> Insurance Policies ({farmer.insurances?.length ?? 0})
+          <TabsTrigger value="kyc" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <User className="h-4 w-4" /> Personal & KYC
           </TabsTrigger>
         </TabsList>
 
-        {/* ── TAB 1: PERSONAL & KYC DOCUMENTS ──────────────────────────────── */}
+        {/* ── TAB 1: DAY-BY-DAY DAILY LOGS & VIDEOS ─────────────────────────── */}
+        <TabsContent value="daily-logs" className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-card/40 p-4 rounded-xl border border-border/40">
+            <div>
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4 text-cyan-400" /> Operational Daily Entry Timeline
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Inspect cast-net sampling videos, shrimp health photos, feed invoices, and water quality tests logged day-by-day.
+              </p>
+            </div>
+
+            {/* Pond Filter */}
+            {farmer.ponds && farmer.ponds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                  <Filter className="h-3.5 w-3.5" /> Pond:
+                </span>
+                <select
+                  value={selectedPondFilter}
+                  onChange={(e) => setSelectedPondFilter(e.target.value)}
+                  className="bg-background border border-border text-foreground text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="all">All Ponds ({farmer.ponds.length})</option>
+                  {farmer.ponds.map((p) => (
+                    <option key={p._id} value={String(p._id)}>
+                      Pond {p.pondNumber}: {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {entriesLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full rounded-xl" />
+              <Skeleton className="h-32 w-full rounded-xl" />
+            </div>
+          ) : filteredDailyEntries.length === 0 ? (
+            <Card className="border-border/50 bg-card/60 p-12 text-center">
+              <Clock className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
+              <h3 className="text-sm font-semibold text-foreground">No Daily Log Entries Found</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                No continuous daily monitoring logs have been submitted by this farmer for the selected pond filter yet.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredDailyEntries.map((entry) => {
+                const samplingVideoUrl = resolveMediaUrl(entry.sampling?.samplingVideo);
+                const shrimpPhotoUrl = resolveMediaUrl(entry.shrimpHealth?.shrimpPhoto);
+                const feedBillsUrl = resolveMediaUrl(entry.feedManagement?.feedBills);
+                const waterReportUrl = resolveMediaUrl(entry.waterQuality?.waterReport);
+                const miscBillsUrl = resolveMediaUrl(entry.financials?.miscBills);
+                const elecBillsUrl = resolveMediaUrl(entry.financials?.electricityBills);
+                const labReportUrl = resolveMediaUrl(entry.shrimpHealth?.labReport);
+
+                const hasAnyMedia = Boolean(
+                  samplingVideoUrl ||
+                    shrimpPhotoUrl ||
+                    feedBillsUrl ||
+                    waterReportUrl ||
+                    miscBillsUrl ||
+                    elecBillsUrl ||
+                    labReportUrl
+                );
+
+                return (
+                  <Card key={entry._id} className="border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden hover:border-primary/40 transition-colors">
+                    <CardHeader className="pb-3 border-b border-border/30 bg-background/30">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="default" className="bg-gradient-to-r from-blue-600 to-cyan-600 text-xs font-mono font-bold px-2.5 py-0.5">
+                            Day {entry.dayNumber}
+                          </Badge>
+                          <span className="font-semibold text-sm text-foreground">
+                            {entry.pondName || 'Aquaculture Pond'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            📅 {formatDate(entry.date)}
+                          </span>
+                        </div>
+
+                        {entry.shrimpHealth?.status && (
+                          <Badge
+                            variant={entry.shrimpHealth.status === 'normal' ? 'default' : 'destructive'}
+                            className="capitalize text-xs font-semibold px-2"
+                          >
+                            {entry.shrimpHealth.status === 'normal' ? '✓ Health Normal' : '⚠ Health Deficiency'}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="p-5 space-y-4">
+                      {/* Metric summary grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 text-xs">
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">DO (Oxygen)</span>
+                          <span className="font-bold text-cyan-400 text-sm">
+                            {entry.waterQuality?.do ? `${entry.waterQuality.do} mg/L` : '—'}
+                          </span>
+                        </div>
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">Water pH</span>
+                          <span className="font-bold text-foreground text-sm">
+                            {entry.waterQuality?.ph ?? '—'}
+                          </span>
+                        </div>
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">Temperature</span>
+                          <span className="font-bold text-amber-400 text-sm">
+                            {entry.waterQuality?.temperature ? `${entry.waterQuality.temperature}°C` : '—'}
+                          </span>
+                        </div>
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">Feed Quantity</span>
+                          <span className="font-bold text-foreground text-sm">
+                            {entry.feedManagement?.feedQuantity ? `${entry.feedManagement.feedQuantity} kg` : '—'}
+                          </span>
+                        </div>
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">Survival Rate</span>
+                          <span className="font-bold text-emerald-400 text-sm">
+                            {entry.sampling?.survival ? `${entry.sampling.survival}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="bg-background/50 p-2.5 rounded-lg border border-border/30">
+                          <span className="text-muted-foreground text-[10px] uppercase font-medium block">Est. Biomass</span>
+                          <span className="font-bold text-indigo-400 text-sm">
+                            {entry.sampling?.biomass ? `${entry.sampling.biomass} kg` : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Attached Media Action Strip */}
+                      <div className="pt-2 border-t border-border/30 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground mr-1">Uploaded Evidence:</span>
+
+                          {/* Sampling Video Button */}
+                          {samplingVideoUrl ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Field Sampling Video`,
+                                  url: samplingVideoUrl,
+                                  type: 'video',
+                                  category: 'Daily Sampling',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                  subtitle: `Cast net vitality footage for ${entry.pondName}`,
+                                })
+                              }
+                            >
+                              <Play className="h-3.5 w-3.5 fill-current" /> Watch Sampling Video 🎬
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground/60 italic">No video</span>
+                          )}
+
+                          {/* Shrimp Health Photo Button */}
+                          {shrimpPhotoUrl && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-medium border border-cyan-500/30 text-cyan-300"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Shrimp Health Photo`,
+                                  url: shrimpPhotoUrl,
+                                  type: 'image',
+                                  category: 'Shrimp Health',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                  subtitle: `Health inspection photo (${entry.shrimpHealth?.status || 'Normal'})`,
+                                })
+                              }
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" /> Shrimp Photo 🦐
+                            </Button>
+                          )}
+
+                          {/* Feed Purchase Bill */}
+                          {feedBillsUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-medium"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Feed Purchase Invoice`,
+                                  url: feedBillsUrl,
+                                  type: 'document',
+                                  category: 'Feed Invoice',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                })
+                              }
+                            >
+                              <FileText className="h-3.5 w-3.5 text-amber-400" /> Feed Bill 🧾
+                            </Button>
+                          )}
+
+                          {/* Water Quality Lab Report */}
+                          {waterReportUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-medium"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Water Test Lab Report`,
+                                  url: waterReportUrl,
+                                  type: 'document',
+                                  category: 'Water Report',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                })
+                              }
+                            >
+                              <FileText className="h-3.5 w-3.5 text-blue-400" /> Water Report 🧪
+                            </Button>
+                          )}
+
+                          {/* Misc Bills */}
+                          {miscBillsUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Misc Expense Bill`,
+                                  url: miscBillsUrl,
+                                  type: 'document',
+                                  category: 'Misc Expense',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                })
+                              }
+                            >
+                              <FileText className="h-3.5 w-3.5" /> Misc Bill
+                            </Button>
+                          )}
+
+                          {/* Electricity / Generator Bills */}
+                          {elecBillsUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `Day ${entry.dayNumber} - Power & Fuel Invoice`,
+                                  url: elecBillsUrl,
+                                  type: 'document',
+                                  category: 'Power Bill',
+                                  dayNumber: entry.dayNumber,
+                                  pondName: entry.pondName,
+                                  timestamp: entry.date,
+                                })
+                              }
+                            >
+                              <FileText className="h-3.5 w-3.5" /> Power Bill
+                            </Button>
+                          )}
+                        </div>
+
+                        {!hasAnyMedia && (
+                          <span className="text-[11px] text-muted-foreground/60 italic">
+                            No files attached for this day.
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── TAB 2: MASTER MEDIA & VIDEO VAULT ─────────────────────────────── */}
+        <TabsContent value="vault" className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/40 p-4 rounded-xl border border-border/40">
+            <div>
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400" /> Centralized Media Vault for {farmer.name}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                All photos, field videos, invoices, and lab certificates uploaded by this farmer aggregated in one searchable gallery.
+              </p>
+            </div>
+
+            {/* Filter controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Category Filter */}
+              <div className="flex items-center gap-1 bg-background/80 p-1 rounded-lg border border-border/40 text-xs">
+                {[
+                  { label: 'All', val: 'all' },
+                  { label: 'Videos 🎬', val: 'video' },
+                  { label: 'Photos 📸', val: 'photo' },
+                  { label: 'Docs / Bills 🧾', val: 'document' },
+                ].map((cat) => (
+                  <button
+                    key={cat.val}
+                    onClick={() => setVaultCategoryFilter(cat.val)}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      vaultCategoryFilter === cat.val
+                        ? 'bg-primary text-primary-foreground font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Pond Filter */}
+              {farmer.ponds && farmer.ponds.length > 0 && (
+                <select
+                  value={selectedPondFilter}
+                  onChange={(e) => setSelectedPondFilter(e.target.value)}
+                  className="bg-background border border-border text-foreground text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="all">All Ponds</option>
+                  {farmer.ponds.map((p) => (
+                    <option key={p._id} value={String(p._id)}>
+                      Pond {p.pondNumber}: {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {entriesLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-xl" />
+              ))}
+            </div>
+          ) : filteredVaultMedia.length === 0 ? (
+            <Card className="border-border/50 bg-card/60 p-12 text-center">
+              <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
+              <h3 className="text-sm font-semibold text-foreground">No Media Files Matching Filter</h3>
+              <p className="text-xs text-muted-foreground mt-1">Try clearing or selecting a different media filter.</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredVaultMedia.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() =>
+                    setActiveMedia({
+                      title: item.title,
+                      url: item.url,
+                      type: item.mediaType,
+                      category: item.category,
+                      subtitle: item.subtitle,
+                      pondName: item.pondName,
+                      dayNumber: item.dayNumber,
+                      timestamp: item.timestamp,
+                    })
+                  }
+                  className="group relative rounded-xl border border-border/40 bg-card/50 overflow-hidden hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all cursor-pointer flex flex-col justify-between"
+                >
+                  {/* Media Visual Area */}
+                  <div className="relative h-36 w-full bg-black/40 overflow-hidden flex items-center justify-center">
+                    {item.mediaType === 'video' ? (
+                      <div className="relative w-full h-full flex items-center justify-center bg-zinc-950">
+                        <video src={item.url} className="w-full h-full object-cover opacity-60" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="rounded-full bg-rose-600/90 text-white p-3 shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="h-5 w-5 fill-current" />
+                          </div>
+                        </div>
+                        <Badge className="absolute bottom-2 right-2 bg-black/70 text-[10px] text-white">
+                          VIDEO 🎬
+                        </Badge>
+                      </div>
+                    ) : item.mediaType === 'document' ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-500/10 to-indigo-500/10 p-4 text-center">
+                        <FileText className="h-10 w-10 text-amber-400 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[11px] font-medium text-foreground truncate max-w-full">
+                          {item.title}
+                        </span>
+                        <Badge variant="outline" className="mt-2 text-[9px] uppercase tracking-wider">
+                          PDF Document
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.url}
+                          alt={item.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <ZoomIn className="h-6 w-6 text-white drop-shadow-md" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top badging */}
+                    <div className="absolute top-2 left-2 flex items-center gap-1">
+                      <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider bg-background/80 backdrop-blur-md">
+                        {item.category}
+                      </Badge>
+                      {item.dayNumber !== undefined && (
+                        <Badge variant="default" className="text-[10px] font-mono bg-blue-600">
+                          Day {item.dayNumber}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Metadata Description */}
+                  <div className="p-3 bg-card/80 border-t border-border/30 space-y-1">
+                    <p className="font-semibold text-xs text-foreground truncate" title={item.title}>
+                      {item.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">{item.subtitle}</p>
+                    <div className="pt-1 flex items-center justify-between text-[10px] text-muted-foreground/80">
+                      <span>{item.pondName || 'General'}</span>
+                      {item.timestamp && <span>{new Date(item.timestamp).toLocaleDateString()}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── TAB 3: FARMS & PONDS SETUP ────────────────────────────────────── */}
+        <TabsContent value="farms" className="space-y-6">
+          {!farmer.farms || farmer.farms.length === 0 ? (
+            <Card className="border-border/50 bg-card/60 p-12 text-center">
+              <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">No aquaculture farms registered under this farmer.</p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {farmer.farms.map((farm: Farm, idx: number) => {
+                const farmPonds = farmer.ponds?.filter((p) => String(p.farmId) === String(farm._id)) || [];
+                const farmPhotoUrl = resolveMediaUrl(farm.farmPhoto);
+
+                return (
+                  <Card key={farm._id} className="border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden shadow-sm">
+                    <CardHeader className="bg-background/40 border-b border-border/40 pb-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold">
+                            #{idx + 1}
+                          </div>
+                          <div>
+                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                              {farm.name || `Aquaculture Farm ${idx + 1}`}
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              {[farm.location?.place, farm.location?.taluk, farm.location?.district].filter(Boolean).join(', ')}
+                            </CardDescription>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {farmPhotoUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs gap-1.5"
+                              onClick={() =>
+                                setActiveMedia({
+                                  title: `${farm.name || 'Farm'} Photo`,
+                                  url: farmPhotoUrl,
+                                  type: 'image',
+                                  category: 'Farm Asset',
+                                })
+                              }
+                            >
+                              <ImageIcon className="h-3.5 w-3.5 text-cyan-400" /> Farm Photo
+                            </Button>
+                          )}
+                          <Badge variant="outline" className="text-xs font-semibold uppercase">
+                            Ownership: {farm.ownership?.type || 'Owned'}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs font-semibold">
+                            {farmPonds.length} Ponds
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="p-5">
+                      {farmPonds.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-3">No ponds configured under this farm.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {farmPonds.map((pond: Pond) => {
+                            const pondPhotoUrl = resolveMediaUrl(pond.photo);
+                            const oneTime = entriesData.oneTimeEntries.find((ot) => String(ot.pondId) === String(pond._id));
+                            const pcrCertUrl = resolveMediaUrl(oneTime?.seedSelection?.pcrCertificate);
+                            const seedBillUrl = resolveMediaUrl(oneTime?.seedSelection?.seedBills);
+                            const prepBillUrl = resolveMediaUrl(oneTime?.pondPreparation?.pondPrepBills);
+
+                            return (
+                              <div
+                                key={pond._id}
+                                className="rounded-xl border border-border/40 bg-card/40 p-4 space-y-3 flex flex-col justify-between hover:border-primary/40 transition-colors"
+                              >
+                                <div className="space-y-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <p className="font-semibold text-sm flex items-center gap-1.5">
+                                        <Waves className="h-4 w-4 text-cyan-400" />
+                                        Pond {pond.pondNumber}: {pond.name}
+                                      </p>
+                                      {pond.dimensionAcres && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                          {pond.dimensionAcres} Acres water spread
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {pondPhotoUrl && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs text-cyan-400 hover:bg-cyan-500/10"
+                                        onClick={() =>
+                                          setActiveMedia({
+                                            title: `Pond ${pond.pondNumber}: ${pond.name} Photo`,
+                                            url: pondPhotoUrl,
+                                            type: 'image',
+                                            category: 'Pond Layout',
+                                            pondName: pond.name,
+                                          })
+                                        }
+                                      >
+                                        <ImageIcon className="h-3.5 w-3.5 mr-1" /> Photo
+                                      </Button>
+                                    )}
+                                  </div>
+
+                                  {/* One-Time Setup Document Indicators */}
+                                  <div className="pt-2 border-t border-border/30 space-y-1.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                      One-Time Setup Records
+                                    </p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {pcrCertUrl ? (
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          className="h-6 text-[10px] px-2 gap-1 text-emerald-400 border border-emerald-500/30"
+                                          onClick={() =>
+                                            setActiveMedia({
+                                              title: `Pond ${pond.pondNumber} - PCR Seed Certificate`,
+                                              url: pcrCertUrl,
+                                              type: 'document',
+                                              category: 'PCR Certificate',
+                                              pondName: pond.name,
+                                              subtitle: 'Virus-Free Screening Lab Report',
+                                            })
+                                          }
+                                        >
+                                          ✓ PCR Seed Cert
+                                        </Button>
+                                      ) : (
+                                        <span className="text-[10px] text-muted-foreground/60 italic border border-dashed border-border/40 px-1.5 py-0.5 rounded">
+                                          No PCR Cert
+                                        </span>
+                                      )}
+
+                                      {seedBillUrl && (
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          className="h-6 text-[10px] px-2 gap-1"
+                                          onClick={() =>
+                                            setActiveMedia({
+                                              title: `Pond ${pond.pondNumber} - Seed Purchase Bill`,
+                                              url: seedBillUrl,
+                                              type: 'document',
+                                              category: 'Seed Bill',
+                                              pondName: pond.name,
+                                            })
+                                          }
+                                        >
+                                          Seed Bill
+                                        </Button>
+                                      )}
+
+                                      {prepBillUrl && (
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          className="h-6 text-[10px] px-2 gap-1"
+                                          onClick={() =>
+                                            setActiveMedia({
+                                              title: `Pond ${pond.pondNumber} - Preparation Bills`,
+                                              url: prepBillUrl,
+                                              type: 'document',
+                                              category: 'Pond Prep',
+                                              pondName: pond.name,
+                                            })
+                                          }
+                                        >
+                                          Prep Bills
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── TAB 4: PERSONAL & KYC DOCUMENTS ──────────────────────────────── */}
         <TabsContent value="kyc" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Personal Details */}
@@ -262,271 +989,120 @@ export default function FarmerDetailPage({ params }: PageProps) {
                   <span className="font-medium capitalize text-foreground">{farmer.gender || '—'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
-                  <span className="text-muted-foreground text-xs uppercase font-medium">Community</span>
-                  <span className="font-medium text-foreground">{farmer.community || '—'}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 py-2">
                   <span className="text-muted-foreground text-xs uppercase font-medium">SC / ST Category</span>
-                  <span className="font-medium text-foreground">{farmer.isScSt ? 'Yes' : 'No'}</span>
+                  <span className="font-medium text-foreground">{farmer.isScSt ? 'Yes (Subsidized)' : 'General'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
+                  <span className="text-muted-foreground text-xs uppercase font-medium">State & District</span>
+                  <span className="font-medium text-foreground">
+                    {[farmer.address?.district, farmer.address?.state].filter(Boolean).join(', ')}
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Bank Details */}
+            {/* Bank Information */}
             <Card className="border-border/50 bg-card/60 backdrop-blur-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-emerald-400" /> Bank & Settlement Account
+                  <CreditCard className="h-4 w-4 text-emerald-400" /> Bank Direct Benefit Transfer (DBT)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
-                  <span className="text-muted-foreground text-xs uppercase font-medium">Bank Name</span>
-                  <span className="font-medium text-foreground">{farmer.bankDetails?.bankName || '—'}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
-                  <span className="text-muted-foreground text-xs uppercase font-medium">Branch</span>
-                  <span className="font-medium text-foreground">{farmer.bankDetails?.branch || '—'}</span>
-                </div>
                 <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
                   <span className="text-muted-foreground text-xs uppercase font-medium">Account Holder</span>
                   <span className="font-medium text-foreground">{farmer.bankDetails?.accountHolderName || farmer.name}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
-                  <span className="text-muted-foreground text-xs uppercase font-medium">Account Number</span>
-                  <span className="font-mono font-medium text-foreground">{farmer.bankDetails?.accountNumber || '—'}</span>
+                  <span className="text-muted-foreground text-xs uppercase font-medium">Bank Name</span>
+                  <span className="font-medium text-foreground">{farmer.bankDetails?.bankName || '—'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4 py-2">
+                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
+                  <span className="text-muted-foreground text-xs uppercase font-medium">Account Number</span>
+                  <span className="font-mono font-medium text-foreground">
+                    {farmer.bankDetails?.accountNumber ? `•••• •••• ${farmer.bankDetails.accountNumber.slice(-4)}` : '—'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
                   <span className="text-muted-foreground text-xs uppercase font-medium">IFSC Code</span>
                   <span className="font-mono font-medium text-foreground">{farmer.bankDetails?.ifscCode || '—'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-2 border-b border-border/30">
+                  <span className="text-muted-foreground text-xs uppercase font-medium">Branch</span>
+                  <span className="font-medium text-foreground">{farmer.bankDetails?.branch || '—'}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* KYC Document Verification Cards (SeaweedFS storage) */}
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4 text-cyan-400" /> KYC & Regulatory Document Verification
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Official documents uploaded by the farmer and verified via SeaweedFS storage.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Farmer Photo */}
-                <DocCard
-                  title="Profile Photo"
-                  subtext="Farmer face capture"
-                  url={profilePhotoUrl}
-                  onInspect={() => profilePhotoUrl && setInspectModal({ title: 'Farmer Photo', url: profilePhotoUrl })}
-                />
-
-                {/* Aadhaar Card */}
-                <DocCard
-                  title="Aadhaar Card"
-                  subtext={farmer.identity?.aadharNumber ? `No: ${farmer.identity.aadharNumber}` : 'Government UID'}
-                  url={aadharUrl}
-                  onInspect={() => aadharUrl && setInspectModal({ title: 'Aadhaar Card Document', url: aadharUrl })}
-                />
-
-                {/* PAN Card */}
-                <DocCard
-                  title="PAN Card"
-                  subtext={farmer.identity?.panNumber ? `PAN: ${farmer.identity.panNumber}` : 'Income Tax ID'}
-                  url={panUrl}
-                  onInspect={() => panUrl && setInspectModal({ title: 'PAN Card Document', url: panUrl })}
-                />
-
-                {/* Registration Certificate */}
-                <DocCard
-                  title={`${farmer.registration?.regType?.toUpperCase() || 'CAA / MPEDA'} Cert`}
-                  subtext={farmer.registration?.regNumber ? `Reg: ${farmer.registration.regNumber}` : 'Aquaculture License'}
-                  url={regCertUrl}
-                  onInspect={() => regCertUrl && setInspectModal({ title: 'Registration Certificate', url: regCertUrl })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ── TAB 2: FARMS & PONDS ─────────────────────────────────────────── */}
-        <TabsContent value="farms" className="space-y-6">
-          {!farmer.farms || farmer.farms.length === 0 ? (
-            <Card className="border-border/50 bg-card/60 p-12 text-center">
-              <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">No registered farms associated with this farmer.</p>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {farmer.farms.map((farm: Farm) => {
-                const farmPonds = farmer.ponds?.filter((p: Pond) => String(p.farmId) === String(farm._id)) || [];
-                const farmPhotoUrl = resolveMediaUrl(farm.farmPhoto);
-
-                return (
-                  <Card key={farm._id} className="border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden shadow-sm">
-                    <CardHeader className="bg-muted/10 border-b border-border/30 pb-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-                            <Building2 className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-base font-semibold">
-                              {farm.location?.place || 'Unnamed Farm'}, {farm.location?.district}
-                            </CardTitle>
-                            <p className="text-xs text-muted-foreground">
-                              {farm.ownership?.type ? `Ownership: ${farm.ownership.type.toUpperCase()}` : ''}
-                              {farm.ownership?.patta ? ` • Patta: ${farm.ownership.patta}` : ''}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {farmPhotoUrl && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs gap-1.5"
-                              onClick={() => setInspectModal({ title: `Farm Photo — ${farm.location?.place}`, url: farmPhotoUrl })}
-                            >
-                              <Eye className="h-3.5 w-3.5" /> Farm Photo
-                            </Button>
-                          )}
-                          <Badge variant="secondary" className="text-xs font-semibold">
-                            {farmPonds.length} Ponds
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="p-5">
-                      {farmPonds.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-3">No ponds configured under this farm.</p>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {farmPonds.map((pond: Pond) => (
-                            <PondCard
-                              key={pond._id}
-                              pond={pond}
-                              onInspectPhoto={(url) => setInspectModal({ title: `Pond ${pond.pondNumber}: ${pond.name}`, url })}
-                              onInspectMedia={(title, url) => setInspectModal({ title, url })}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+          {/* KYC Documents Grid */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <FileText className="h-4 w-4 text-indigo-400" /> Government KYC & Registration Documents
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <DocCard
+                title="Aadhaar Card"
+                subtext={farmer.identity?.aadharNumber ? `UID: ${farmer.identity.aadharNumber}` : 'Govt Identity Document'}
+                url={aadharUrl}
+                onInspect={() =>
+                  aadharUrl &&
+                  setActiveMedia({
+                    title: `${farmer.name}'s Aadhaar Document`,
+                    url: aadharUrl,
+                    category: 'KYC Document',
+                    subtitle: farmer.identity?.aadharNumber ? `Aadhaar: ${farmer.identity.aadharNumber}` : undefined,
+                  })
+                }
+              />
+              <DocCard
+                title="PAN Card"
+                subtext={farmer.identity?.panNumber ? `PAN: ${farmer.identity.panNumber}` : 'Tax Identity Document'}
+                url={panUrl}
+                onInspect={() =>
+                  panUrl &&
+                  setActiveMedia({
+                    title: `${farmer.name}'s PAN Card`,
+                    url: panUrl,
+                    category: 'KYC Document',
+                    subtitle: farmer.identity?.panNumber ? `PAN: ${farmer.identity.panNumber}` : undefined,
+                  })
+                }
+              />
+              <DocCard
+                title="Authority Registration"
+                subtext={farmer.registration?.regNumber ? `${farmer.registration.regType?.toUpperCase()}: ${farmer.registration.regNumber}` : 'Aquaculture Registration Certificate'}
+                url={regCertUrl}
+                onInspect={() =>
+                  regCertUrl &&
+                  setActiveMedia({
+                    title: `${farmer.name}'s ${farmer.registration?.regType?.toUpperCase() || 'Registration'} Certificate`,
+                    url: regCertUrl,
+                    category: 'KYC Document',
+                  })
+                }
+              />
+              <DocCard
+                title="Passport Portrait"
+                subtext="Verified facial photograph"
+                url={profilePhotoUrl}
+                onInspect={() =>
+                  profilePhotoUrl &&
+                  setActiveMedia({
+                    title: `${farmer.name}'s Passport Photo`,
+                    url: profilePhotoUrl,
+                    type: 'image',
+                    category: 'Identity',
+                  })
+                }
+              />
             </div>
-          )}
-        </TabsContent>
-
-        {/* ── TAB 3: INSURANCE POLICIES ────────────────────────────────────── */}
-        <TabsContent value="insurance" className="space-y-6">
-          {!farmer.insurances || farmer.insurances.length === 0 ? (
-            <Card className="border-border/50 bg-card/60 p-12 text-center">
-              <ShieldCheck className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">No insurance policies registered for this farmer.</p>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {farmer.insurances.map((ins: Insurance) => {
-                const pond = farmer.ponds?.find(p => String(p._id) === String(ins.pondId));
-
-                return (
-                  <Card key={ins._id} className="border-border/50 bg-card/60 backdrop-blur-xl">
-                    <CardContent className="p-5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-base capitalize">{ins.species} Shrimp</p>
-                          <p className="text-xs text-muted-foreground">
-                            {pond ? `Pond ${pond.pondNumber}: ${pond.name}` : `Pond ID: ${String(typeof ins.pondId === 'object' ? (ins.pondId as Pond)._id : ins.pondId).slice(-6)}`}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={ins.status === 'active' ? 'default' : ins.status === 'expired' ? 'secondary' : 'destructive'}
-                          className="capitalize font-semibold text-xs px-2.5 py-0.5"
-                        >
-                          {ins.status}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-border/30">
-                        <div>
-                          <span className="text-muted-foreground uppercase block font-medium">Policy Type</span>
-                          <span className="font-semibold capitalize text-foreground">{ins.insuranceType}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground uppercase block font-medium">Coverage Period</span>
-                          <span className="font-semibold text-foreground">{ins.insurancePeriodDays} Days</span>
-                        </div>
-                        <div className="mt-2">
-                          <span className="text-muted-foreground uppercase block font-medium">Stocking Date</span>
-                          <span className="font-semibold text-foreground">{formatDate(ins.stockingDate)}</span>
-                        </div>
-                        <div className="mt-2">
-                          <span className="text-muted-foreground uppercase block font-medium">Stocking Density</span>
-                          <span className="font-semibold text-foreground">{ins.stockingDensity} / m²</span>
-                        </div>
-                        {ins.plannedHarvestDate && (
-                          <div className="mt-2 col-span-2">
-                            <span className="text-muted-foreground uppercase block font-medium">Planned Harvest</span>
-                            <span className="font-semibold text-foreground">{formatDate(ins.plannedHarvestDate)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          </div>
         </TabsContent>
       </Tabs>
 
-      {/* ── Document Inspection Modal ──────────────────────────────────────── */}
-      <Dialog open={!!inspectModal} onOpenChange={() => setInspectModal(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-card border-border p-0">
-          <DialogHeader className="p-5 border-b border-border/50">
-            <div className="flex items-center justify-between pr-6">
-              <DialogTitle className="text-base font-semibold">{inspectModal?.title}</DialogTitle>
-              {inspectModal?.url && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={() => window.open(inspectModal.url, '_blank')}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
-                </Button>
-              )}
-            </div>
-          </DialogHeader>
-
-          {inspectModal && (
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)] flex flex-col items-center justify-center bg-background/50">
-              {inspectModal.url.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={inspectModal.url}
-                  className="w-full h-[65vh] rounded-lg border border-border/50"
-                  title={inspectModal.title}
-                />
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={inspectModal.url}
-                  alt={inspectModal.title}
-                  className="max-h-[65vh] w-auto max-w-full rounded-lg object-contain shadow-lg"
-                />
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ── Unified Fine-Grained Media / Video Lightbox Modal ─────────────── */}
+      <MediaViewerDialog media={activeMedia} onClose={() => setActiveMedia(null)} />
     </div>
   );
 }
@@ -551,7 +1127,9 @@ function DocCard({
           <p className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</p>
           <Badge
             variant={url ? 'default' : 'outline'}
-            className={`text-[10px] px-1.5 py-0 ${url ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'text-muted-foreground'}`}
+            className={`text-[10px] px-1.5 py-0 ${
+              url ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'text-muted-foreground'
+            }`}
           >
             {url ? 'Available' : 'Missing'}
           </Badge>
@@ -564,278 +1142,20 @@ function DocCard({
           <Button variant="secondary" size="sm" className="w-full text-xs gap-1.5" onClick={onInspect}>
             <Eye className="h-3.5 w-3.5" /> Inspect
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="px-2.5"
-            onClick={() => window.open(url, '_blank')}
+          <a
+            href={url}
+            download
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-2.5 text-xs transition-colors"
             title="Download Document"
           >
             <Download className="h-3.5 w-3.5" />
-          </Button>
+          </a>
         </div>
       ) : (
         <div className="mt-4 text-center py-2 text-[11px] text-muted-foreground/60 italic border border-dashed border-border/40 rounded-lg">
           No file on record
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Sub-Component: Pond Card with Live Entries ──────────────────────────────
-
-function PondCard({
-  pond,
-  onInspectPhoto,
-  onInspectMedia,
-}: {
-  pond: Pond;
-  onInspectPhoto: (url: string) => void;
-  onInspectMedia: (title: string, url: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [entries, setEntries] = useState<{ daily: DailyEntry[]; oneTime: OneTimeEntry[] } | null>(null);
-
-  const pondPhotoUrl = resolveMediaUrl(pond.photo);
-
-  const fetchEntries = async () => {
-    if (entries) return;
-    setLoading(true);
-    try {
-      const json = await apiFetch<ApiResponse<{ dailyEntries: DailyEntry[]; oneTimeEntries: OneTimeEntry[] }>>(
-        `/api/dashboard/ponds/${pond._id}/entries`
-      );
-      if (json.success) {
-        setEntries({ daily: json.data.dailyEntries, oneTime: json.data.oneTimeEntries });
-      }
-    } catch (err) {
-      console.error('Failed to load pond entries', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggle = () => {
-    if (!expanded) fetchEntries();
-    setExpanded(!expanded);
-  };
-
-  return (
-    <div className="rounded-xl border border-border/40 bg-card/40 overflow-hidden flex flex-col justify-between">
-      <div className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="font-semibold text-sm flex items-center gap-1.5">
-              <Waves className="h-4 w-4 text-cyan-400" />
-              Pond {pond.pondNumber}: {pond.name}
-            </p>
-            {pond.dimensionAcres && (
-              <p className="text-xs text-muted-foreground mt-0.5">{pond.dimensionAcres} Acres dimension</p>
-            )}
-          </div>
-          {pondPhotoUrl && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
-              onClick={() => onInspectPhoto(pondPhotoUrl)}
-            >
-              Photo
-            </Button>
-          )}
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full text-xs justify-between"
-          onClick={toggle}
-        >
-          <span>{expanded ? 'Hide Entries' : 'View Operations & Entries'}</span>
-          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
-      </div>
-
-      {expanded && (
-        <div className="p-4 border-t border-border/30 bg-background/40 space-y-3">
-          {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-          ) : entries ? (
-            <div className="space-y-3">
-              {/* Daily entries count */}
-              <div>
-                <p className="text-[11px] font-semibold uppercase text-muted-foreground mb-1.5">
-                  Daily Entries ({entries.daily.length})
-                </p>
-                {entries.daily.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No daily entries submitted.</p>
-                ) : (
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {entries.daily.slice(0, 5).map((e) => (
-                      <DailyEntryItem
-                        key={e._id}
-                        entryId={e._id}
-                        summary={`Day ${e.dayNumber} — ${formatDate(e.date)}`}
-                        onInspectMedia={onInspectMedia}
-                      />
-                    ))}
-                    {entries.daily.length > 5 && (
-                      <p className="text-[11px] text-center text-muted-foreground pt-1">
-                        + {entries.daily.length - 5} older entries
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* One time entries */}
-              {entries.oneTime.length > 0 && (
-                <div className="pt-2 border-t border-border/20">
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground mb-1.5">
-                    One-Time Entries ({entries.oneTime.length})
-                  </p>
-                  <div className="space-y-1 text-xs">
-                    {entries.oneTime.map((ot) => (
-                      <div key={ot._id} className="bg-card/50 p-2 rounded border border-border/20">
-                        <span className="font-medium">{formatDate(ot.createdAt)}</span>
-                        {ot.stage && <span className="text-muted-foreground ml-2">Stage: {ot.stage}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-destructive">Failed to load entries.</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Sub-Component: Daily Entry Item with SeaweedFS Media ───────────────────
-
-function DailyEntryItem({
-  entryId,
-  summary,
-  onInspectMedia,
-}: {
-  entryId: string;
-  summary: string;
-  onInspectMedia: (title: string, url: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [entry, setEntry] = useState<DailyEntry | null>(null);
-
-  const fetchDetail = async () => {
-    if (entry) return;
-    setLoading(true);
-    try {
-      const json = await apiFetch<ApiResponse<DailyEntry>>(`/api/dashboard/entries/${entryId}`);
-      if (json.success) setEntry(json.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggle = () => {
-    if (!open) fetchDetail();
-    setOpen(!open);
-  };
-
-  return (
-    <div className="rounded border border-border/30 bg-card/60 text-xs">
-      <button
-        onClick={toggle}
-        className="w-full text-left p-2 flex items-center justify-between hover:bg-accent/30 transition-colors"
-      >
-        <span className="font-medium">{summary}</span>
-        <span className="text-[10px] text-muted-foreground">{open ? 'Close' : 'Inspect'}</span>
-      </button>
-
-      {open && (
-        <div className="p-3 border-t border-border/20 space-y-2 bg-background/50">
-          {loading ? (
-            <Skeleton className="h-12 w-full" />
-          ) : entry ? (
-            <div className="space-y-2">
-              {entry.waterQuality && (
-                <div className="grid grid-cols-2 gap-1 text-[11px] bg-card p-2 rounded">
-                  <span>pH: <strong>{entry.waterQuality.ph ?? '—'}</strong></span>
-                  <span>DO: <strong>{entry.waterQuality.do ?? '—'}</strong></span>
-                  <span>Temp: <strong>{entry.waterQuality.temperature ?? '—'}°C</strong></span>
-                  <span>Ammonia: <strong>{entry.waterQuality.ammonia ?? '—'}</strong></span>
-                </div>
-              )}
-
-              {/* Media Attachments (Bills & Shrimp photos) */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                {entry.shrimpHealth?.shrimpPhoto && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      const url = resolveMediaUrl(entry.shrimpHealth?.shrimpPhoto);
-                      if (url) onInspectMedia('Shrimp Health Photo', url);
-                    }}
-                  >
-                    Shrimp Photo
-                  </Button>
-                )}
-                {entry.feedManagement?.feedBills && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      const url = resolveMediaUrl(entry.feedManagement?.feedBills);
-                      if (url) onInspectMedia('Feed Bill Document', url);
-                    }}
-                  >
-                    Feed Bill
-                  </Button>
-                )}
-                {entry.financials?.miscBills && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      const url = resolveMediaUrl(entry.financials?.miscBills);
-                      if (url) onInspectMedia('Misc Bill Document', url);
-                    }}
-                  >
-                    Misc Bill
-                  </Button>
-                )}
-                {entry.waterQuality?.waterReport && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      const url = resolveMediaUrl(entry.waterQuality?.waterReport);
-                      if (url) onInspectMedia('Water Quality Report', url);
-                    }}
-                  >
-                    Water Report
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-[11px] text-destructive">Failed to load details.</p>
-          )}
         </div>
       )}
     </div>

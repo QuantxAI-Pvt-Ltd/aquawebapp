@@ -505,6 +505,7 @@ router.get('/entries/:id', async (req, res) => {
         const entry = await DailyEntry.findById(req.params.id).lean();
         if (!entry) return res.status(404).json({ success: false, error: 'Entry not found' });
         
+        if (entry.sampling?.samplingVideo) entry.sampling.samplingVideo = bufferToDataUrl(entry.sampling.samplingVideo, 'video/mp4');
         if (entry.feedManagement?.feedBills) entry.feedManagement.feedBills = bufferToDataUrl(entry.feedManagement.feedBills, 'application/pdf');
         if (entry.financials?.miscBills) entry.financials.miscBills = bufferToDataUrl(entry.financials.miscBills, 'application/pdf');
         if (entry.financials?.electricityBills) entry.financials.electricityBills = bufferToDataUrl(entry.financials.electricityBills, 'application/pdf');
@@ -513,6 +514,215 @@ router.get('/entries/:id', async (req, res) => {
         if (entry.shrimpHealth?.labReport) entry.shrimpHealth.labReport = bufferToDataUrl(entry.shrimpHealth.labReport, 'application/pdf');
 
         res.json({ success: true, data: entry });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/dashboard/farmers/:id/entries — all daily & one-time entries for a farmer across all ponds
+router.get('/farmers/:id/entries', async (req, res) => {
+    try {
+        const farmerId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(farmerId)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmer ID' });
+        }
+
+        const ponds = await Pond.find({ farmerId }).lean();
+        const pondIds = ponds.map(p => p._id);
+        const pondMap = new Map(ponds.map(p => [String(p._id), p]));
+
+        const [dailyRaw, oneTimeRaw] = await Promise.all([
+            DailyEntry.find({ pondId: { $in: pondIds } }).sort({ date: -1, dayNumber: -1 }).lean(),
+            OneTimeEntry.find({ pondId: { $in: pondIds } }).sort({ createdAt: -1 }).lean()
+        ]);
+
+        const dailyEntries = dailyRaw.map(e => {
+            const pond = pondMap.get(String(e.pondId));
+            return {
+                ...e,
+                pondName: pond?.name || `Pond ${pond?.pondNumber || ''}`,
+                pondNumber: pond?.pondNumber,
+                sampling: e.sampling ? {
+                    ...e.sampling,
+                    samplingVideo: bufferToDataUrl(e.sampling.samplingVideo, 'video/mp4')
+                } : undefined,
+                feedManagement: e.feedManagement ? {
+                    ...e.feedManagement,
+                    feedBills: bufferToDataUrl(e.feedManagement.feedBills, 'application/pdf')
+                } : undefined,
+                financials: e.financials ? {
+                    ...e.financials,
+                    miscBills: bufferToDataUrl(e.financials.miscBills, 'application/pdf'),
+                    electricityBills: bufferToDataUrl(e.financials.electricityBills, 'application/pdf')
+                } : undefined,
+                waterQuality: e.waterQuality ? {
+                    ...e.waterQuality,
+                    waterReport: bufferToDataUrl(e.waterQuality.waterReport, 'application/pdf')
+                } : undefined,
+                shrimpHealth: e.shrimpHealth ? {
+                    ...e.shrimpHealth,
+                    shrimpPhoto: bufferToDataUrl(e.shrimpHealth.shrimpPhoto, 'image/jpeg'),
+                    labReport: bufferToDataUrl(e.shrimpHealth.labReport, 'application/pdf')
+                } : undefined
+            };
+        });
+
+        const oneTimeEntries = oneTimeRaw.map(ot => {
+            const pond = pondMap.get(String(ot.pondId));
+            return {
+                ...ot,
+                pondName: pond?.name || `Pond ${pond?.pondNumber || ''}`,
+                pondNumber: pond?.pondNumber,
+                pondPreparation: ot.pondPreparation ? {
+                    ...ot.pondPreparation,
+                    pondPrepBills: bufferToDataUrl(ot.pondPreparation.pondPrepBills, 'application/pdf')
+                } : undefined,
+                seedSelection: ot.seedSelection ? {
+                    ...ot.seedSelection,
+                    pcrCertificate: bufferToDataUrl(ot.seedSelection.pcrCertificate, 'application/pdf'),
+                    seedBills: bufferToDataUrl(ot.seedSelection.seedBills, 'application/pdf')
+                } : undefined
+            };
+        });
+
+        res.json({
+            success: true,
+            data: { dailyEntries, oneTimeEntries }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/dashboard/farmers/:id/media-vault — comprehensive aggregated media across all categories for this farmer
+router.get('/farmers/:id/media-vault', async (req, res) => {
+    try {
+        const farmerId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(farmerId)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmer ID' });
+        }
+
+        const farmer = await Farmer.findById(farmerId).lean();
+        if (!farmer) return res.status(404).json({ success: false, error: 'Farmer not found' });
+
+        const [farms, ponds, insurances] = await Promise.all([
+            Farm.find({ farmerId }).lean(),
+            Pond.find({ farmerId }).lean(),
+            Insurance.find({ farmerId }).lean()
+        ]);
+
+        const pondIds = ponds.map(p => p._id);
+        const pondMap = new Map(ponds.map(p => [String(p._id), p]));
+
+        const [dailyRaw, oneTimeRaw] = await Promise.all([
+            DailyEntry.find({ pondId: { $in: pondIds } }).lean(),
+            OneTimeEntry.find({ pondId: { $in: pondIds } }).lean()
+        ]);
+
+        const vault = [];
+
+        // 1. Identity & KYC Media
+        if (farmer.identity?.photo) {
+            const url = bufferToDataUrl(farmer.identity.photo, 'image/jpeg');
+            if (url) vault.push({ id: 'kyc-photo', category: 'identity', mediaType: 'image', title: `${farmer.name} - Profile Photo`, subtitle: 'Identity KYC Photo', url, timestamp: farmer.createdAt });
+        }
+        if (farmer.identity?.aadharFile) {
+            const url = bufferToDataUrl(farmer.identity.aadharFile, 'application/pdf');
+            if (url) vault.push({ id: 'kyc-aadhar', category: 'identity', mediaType: url.toLowerCase().includes('.pdf') ? 'document' : 'image', title: 'Aadhaar Card Document', subtitle: farmer.identity.aadharNumber ? `UID: ${farmer.identity.aadharNumber}` : 'Govt Identity', url, timestamp: farmer.createdAt });
+        }
+        if (farmer.identity?.panFile) {
+            const url = bufferToDataUrl(farmer.identity.panFile, 'application/pdf');
+            if (url) vault.push({ id: 'kyc-pan', category: 'identity', mediaType: url.toLowerCase().includes('.pdf') ? 'document' : 'image', title: 'PAN Card Document', subtitle: farmer.identity.panNumber ? `PAN: ${farmer.identity.panNumber}` : 'Tax Identity', url, timestamp: farmer.createdAt });
+        }
+        if (farmer.registration?.regCertificate) {
+            const url = bufferToDataUrl(farmer.registration.regCertificate, 'application/pdf');
+            if (url) vault.push({ id: 'kyc-reg', category: 'identity', mediaType: 'document', title: `${farmer.registration.regType?.toUpperCase() || 'Registration'} Certificate`, subtitle: farmer.registration.regNumber ? `Reg: ${farmer.registration.regNumber}` : 'Aquaculture Authority', url, timestamp: farmer.createdAt });
+        }
+
+        // 2. Farm & Pond Photos
+        farms.forEach((f, idx) => {
+            if (f.farmPhoto) {
+                const url = bufferToDataUrl(f.farmPhoto, 'image/jpeg');
+                if (url) vault.push({ id: `farm-photo-${f._id}`, category: 'farm', mediaType: 'image', title: `${f.name || `Farm #${idx + 1}`} Photo`, subtitle: `${f.location?.place || ''}, ${f.location?.district || ''}`, url, timestamp: f.createdAt });
+            }
+        });
+
+        ponds.forEach(p => {
+            if (p.photo) {
+                const url = bufferToDataUrl(p.photo, 'image/jpeg');
+                if (url) vault.push({ id: `pond-photo-${p._id}`, category: 'pond', mediaType: 'image', title: `Pond ${p.pondNumber}: ${p.name} Photo`, subtitle: `${p.dimensionAcres ? `${p.dimensionAcres} Acres` : 'Pond View'}`, url, pondId: String(p._id), pondName: p.name, timestamp: p.createdAt });
+            }
+        });
+
+        // 3. One-Time Setup Documents
+        oneTimeRaw.forEach(ot => {
+            const pond = pondMap.get(String(ot.pondId));
+            const pName = pond ? `Pond ${pond.pondNumber}: ${pond.name}` : 'Pond';
+
+            if (ot.pondPreparation?.pondPrepBills) {
+                const url = bufferToDataUrl(ot.pondPreparation.pondPrepBills, 'application/pdf');
+                if (url) vault.push({ id: `ot-prep-${ot._id}`, category: 'setup', mediaType: 'document', title: `${pName} - Preparation Bills`, subtitle: 'Liming & Bleaching Invoices', url, pondId: String(ot.pondId), pondName: pName, timestamp: ot.createdAt });
+            }
+            if (ot.seedSelection?.pcrCertificate) {
+                const url = bufferToDataUrl(ot.seedSelection.pcrCertificate, 'application/pdf');
+                if (url) vault.push({ id: `ot-pcr-${ot._id}`, category: 'setup', mediaType: 'document', title: `${pName} - PCR Seed Certificate`, subtitle: 'Virus-Free Screening Lab Report', url, pondId: String(ot.pondId), pondName: pName, timestamp: ot.createdAt });
+            }
+            if (ot.seedSelection?.seedBills) {
+                const url = bufferToDataUrl(ot.seedSelection.seedBills, 'application/pdf');
+                if (url) vault.push({ id: `ot-seed-${ot._id}`, category: 'setup', mediaType: 'document', title: `${pName} - Seed Purchase Bill`, subtitle: 'Hatchery Seed Invoice', url, pondId: String(ot.pondId), pondName: pName, timestamp: ot.createdAt });
+            }
+        });
+
+        // 4. Daily Entry Media (Videos, Shrimp Photos, Feed Bills, Water Reports, Misc Bills)
+        dailyRaw.forEach(e => {
+            const pond = pondMap.get(String(e.pondId));
+            const pName = pond ? `Pond ${pond.pondNumber}: ${pond.name}` : 'Pond';
+            const dateStr = e.date ? new Date(e.date).toLocaleDateString() : '';
+
+            if (e.sampling?.samplingVideo) {
+                const url = bufferToDataUrl(e.sampling.samplingVideo, 'video/mp4');
+                if (url) vault.push({ id: `daily-video-${e._id}`, category: 'daily', mediaType: 'video', title: `${pName} - Day ${e.dayNumber} Sampling Video`, subtitle: `Cast Net Vitality (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.shrimpHealth?.shrimpPhoto) {
+                const url = bufferToDataUrl(e.shrimpHealth.shrimpPhoto, 'image/jpeg');
+                if (url) vault.push({ id: `daily-shrimp-${e._id}`, category: 'daily', mediaType: 'image', title: `${pName} - Day ${e.dayNumber} Shrimp Health Photo`, subtitle: `Status: ${e.shrimpHealth.status || 'Normal'} (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.shrimpHealth?.labReport) {
+                const url = bufferToDataUrl(e.shrimpHealth.labReport, 'application/pdf');
+                if (url) vault.push({ id: `daily-lab-${e._id}`, category: 'daily', mediaType: 'document', title: `${pName} - Day ${e.dayNumber} Health Lab Report`, subtitle: `Diagnostic Report (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.feedManagement?.feedBills) {
+                const url = bufferToDataUrl(e.feedManagement.feedBills, 'application/pdf');
+                if (url) vault.push({ id: `daily-feed-${e._id}`, category: 'daily', mediaType: 'document', title: `${pName} - Day ${e.dayNumber} Feed Bill`, subtitle: `Feed Purchase Invoice (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.waterQuality?.waterReport) {
+                const url = bufferToDataUrl(e.waterQuality.waterReport, 'application/pdf');
+                if (url) vault.push({ id: `daily-water-${e._id}`, category: 'daily', mediaType: 'document', title: `${pName} - Day ${e.dayNumber} Water Quality Report`, subtitle: `Parameters Lab Report (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.financials?.miscBills) {
+                const url = bufferToDataUrl(e.financials.miscBills, 'application/pdf');
+                if (url) vault.push({ id: `daily-misc-${e._id}`, category: 'daily', mediaType: 'document', title: `${pName} - Day ${e.dayNumber} Misc Bill`, subtitle: `Operational Expense (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+            if (e.financials?.electricityBills) {
+                const url = bufferToDataUrl(e.financials.electricityBills, 'application/pdf');
+                if (url) vault.push({ id: `daily-elec-${e._id}`, category: 'daily', mediaType: 'document', title: `${pName} - Day ${e.dayNumber} Power / Fuel Bill`, subtitle: `Utility Expense (${dateStr})`, url, pondId: String(e.pondId), pondName: pName, dayNumber: e.dayNumber, timestamp: e.date || e.createdAt });
+            }
+        });
+
+        // 5. Insurance Claims Evidence
+        insurances.forEach(ins => {
+            if (ins.claim?.evidencePhoto) {
+                const url = bufferToDataUrl(ins.claim.evidencePhoto, 'image/jpeg');
+                const pond = pondMap.get(String(typeof ins.pondId === 'object' ? ins.pondId?._id : ins.pondId));
+                const pName = pond ? `Pond ${pond.pondNumber}: ${pond.name}` : 'Pond';
+                if (url) vault.push({ id: `claim-ev-${ins._id}`, category: 'claim', mediaType: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.webm') ? 'video' : 'image', title: `${pName} - Claim Loss Evidence`, subtitle: `Reason: ${ins.claim.reason || 'Loss Incident'}`, url, pondId: String(ins.pondId), pondName: pName, timestamp: ins.claim.claimedAt || ins.createdAt });
+            }
+        });
+
+        res.json({
+            success: true,
+            data: vault
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
