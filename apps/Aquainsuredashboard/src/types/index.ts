@@ -73,6 +73,8 @@ export interface Pond {
   pondNumber: number;
   name: string;
   dimensionAcres?: number;
+  surveyNumber?: string;
+  pattaNumber?: string;
   photo?: MediaObject | string | null;
   address?: {
     village?: string;

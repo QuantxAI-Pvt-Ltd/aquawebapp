@@ -1,27 +1,26 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Menu } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from './ThemeToggle';
-import { useSidebar } from './DashboardShell';
 
 const pageTitles: Record<string, { title: string; description: string }> = {
   '/': { title: 'Overview', description: 'Key metrics and activity at a glance' },
-  '/farmers': { title: 'Farmer Data', description: 'Browse, filter, and inspect farmer records' },
+  '/farmers': { title: 'Farmer Ledger', description: 'Browse, filter, and inspect farmer records' },
   '/insurances': { title: 'Insurances & Claims Ledger', description: 'Monitor policies, review claims, and process payouts' },
-  '/images': { title: 'Image Inspection', description: 'Visual gallery of uploaded media' },
-  '/analytics': { title: 'Analytics', description: 'Trends, insights, and aggregations' },
+  '/images': { title: 'Image Vault', description: 'Visual gallery of uploaded media and legal proofs' },
+  '/analytics': { title: 'Analytics & Trends', description: 'Trends, insights, and aggregations' },
 };
 
 export default function Topbar() {
   const pathname = usePathname();
-  const { setMobileOpen } = useSidebar();
 
   let page = pageTitles[pathname];
   if (!page) {
-    if (pathname.startsWith('/farmers/')) {
+    if (pathname.includes('/ponds/')) {
+      page = { title: 'Pond Dossier & Telemetry', description: 'Real-time water metrics, biological specs, and telemetry history' };
+    } else if (pathname.startsWith('/farmers/')) {
       page = { title: 'Farmer Profile', description: 'Comprehensive farmer details, KYC documents, and farms' };
     } else {
       page = { title: 'Dashboard', description: '' };
@@ -29,17 +28,11 @@ export default function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/85 px-4 md:px-6 backdrop-blur-xl transition-colors">
-      {/* Mobile Hamburger Menu */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setMobileOpen(true)}
-        className="md:hidden h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
-        aria-label="Open mobile menu"
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card/85 px-4 md:px-6 backdrop-blur-xl transition-colors">
+      {/* Official Shadcn Sidebar Toggle Trigger */}
+      <SidebarTrigger className="h-8 w-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer" />
+
+      <Separator orientation="vertical" className="h-5 mx-1" />
 
       {/* Page Title & Breadcrumb Subtext */}
       <div className="flex flex-col min-w-0">
@@ -61,7 +54,7 @@ export default function Topbar() {
 
         {/* User Badge */}
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 text-xs font-bold text-white shadow-xs">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-xs font-bold text-white shadow-xs">
             A
           </div>
           <div className="hidden lg:flex flex-col text-left">

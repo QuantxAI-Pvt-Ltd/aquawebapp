@@ -23,6 +23,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+} from '@/components/ui/pagination';
+import {
   ArrowUpDown,
   Search,
   ChevronLeft,
@@ -34,12 +39,12 @@ import {
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatDate } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api';
-import type { Farmer, Pagination, ApiResponse } from '@/types';
+import type { Farmer, Pagination as IPagination, ApiResponse } from '@/types';
 
 export default function FarmersPage() {
   const router = useRouter();
   const [data, setData] = useState<Farmer[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 15, total: 0, pages: 0 });
+  const [pagination, setPagination] = useState<IPagination>({ page: 1, limit: 15, total: 0, pages: 0 });
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -88,7 +93,7 @@ export default function FarmersPage() {
         header: 'Farmer Name',
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-xs font-bold text-white shadow-sm">
               {row.original.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div className="min-w-0">
@@ -132,7 +137,7 @@ export default function FarmersPage() {
         header: 'Ponds',
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 text-sm">
-            <Waves className="h-3.5 w-3.5 text-cyan-400" />
+            <Waves className="h-3.5 w-3.5 text-primary" />
             <span className="font-semibold">{row.original.pondCount ?? 0}</span>
           </div>
         ),
@@ -142,7 +147,7 @@ export default function FarmersPage() {
         header: 'Policies',
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 text-sm">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             <span className="font-semibold">{row.original.insuranceCount ?? 0}</span>
           </div>
         ),
@@ -293,26 +298,39 @@ export default function FarmersPage() {
           {/* ── Pagination ──────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between border-t border-border/50 px-5 py-3.5 bg-card/30">
             <div className="text-xs text-muted-foreground font-medium">
-              Showing page {pagination.page} of {pagination.pages || 1} ({pagination.total} total)
+              Showing page {pagination.page} of {pagination.pages || 1} ({pagination.total} total farmers)
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.page <= 1}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.page >= pagination.pages}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-              >
-                Next <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
+            <Pagination className="mx-0 w-auto">
+              <PaginationContent>
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.page <= 1}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                    className="h-8 text-xs gap-1 rounded-lg cursor-pointer"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                  </Button>
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="px-3 text-xs font-bold text-foreground font-mono">
+                    {pagination.page} / {pagination.pages || 1}
+                  </span>
+                </PaginationItem>
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pagination.page >= pagination.pages}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                    className="h-8 text-xs gap-1 rounded-lg cursor-pointer"
+                  >
+                    Next <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         </CardContent>
       </Card>

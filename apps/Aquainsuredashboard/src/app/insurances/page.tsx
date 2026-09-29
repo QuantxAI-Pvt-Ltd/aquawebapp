@@ -17,8 +17,13 @@ import {
   Activity,
   User,
   ArrowRight,
+  Maximize2,
+  DollarSign,
+  Calendar,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,18 +37,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatDate } from '@/lib/formatters';
 import { api } from '@/lib/api';
@@ -65,9 +66,9 @@ export default function InsurancesPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
-  // Review Drawer state
+  // Fullscreen Review Modal state
   const [selectedPolicy, setSelectedPolicy] = useState<Insurance | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [settlementAmount, setSettlementAmount] = useState<number>(0);
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -113,12 +114,12 @@ export default function InsurancesPage() {
     };
   }, [statusFilter, debouncedSearch, refreshKey]);
 
-  // When opening review drawer, load pond recent entries for water quality context
-  const handleOpenDrawer = async (policy: Insurance) => {
+  // When opening full screen assessment, load pond recent entries for water quality context
+  const handleOpenAssessment = async (policy: Insurance) => {
     setSelectedPolicy(policy);
     setSettlementAmount(policy.claim?.settlementAmount || 0);
     setReviewerNotes(policy.claim?.reviewerNotes || '');
-    setDrawerOpen(true);
+    setModalOpen(true);
 
     const pId = typeof policy.pondId === 'object' ? policy.pondId?._id : policy.pondId;
     if (pId) {
@@ -140,7 +141,7 @@ export default function InsurancesPage() {
     if (!selectedPolicy) return;
 
     if (action === 'approve' && settlementAmount <= 0) {
-      alert('Please enter a valid settlement payout amount (₹).');
+      toast.error('Please enter a valid settlement payout amount (₹).');
       return;
     }
 
@@ -158,35 +159,38 @@ export default function InsurancesPage() {
       if (res.success) {
         setSelectedPolicy(res.data);
         setRefreshKey((k) => k + 1);
-        setDrawerOpen(false);
+        toast.success(
+          action === 'approve'
+            ? `Claim authorized! Settlement of ₹${Number(settlementAmount).toLocaleString('en-IN')} approved.`
+            : 'Claim officially rejected.'
+        );
       }
-    } catch (err: unknown) {
-      alert((err as Error).message || 'Failed to process claim review.');
+    } catch (err) {
+      console.error('Failed to submit review:', err);
+      toast.error('Error saving claim assessment. Please try again.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Metrics
   const counts = useMemo(() => {
     const total = insurances.length;
     const pending = insurances.filter(
-      (i) => i.status === 'claim_pending' || i.claim?.status === 'pending'
+      (i) => i.status === 'claim_pending' || i.claim?.status === 'pending' || i.claim?.status === 'under_review'
     ).length;
     const approved = insurances.filter(
-      (i) => i.status === 'claim_approved' || i.claim?.status === 'approved'
+      (i) => i.status === 'claim_approved' || i.status === 'claimed' || i.claim?.status === 'approved'
     ).length;
     const active = insurances.filter((i) => i.status === 'active').length;
     return { total, pending, approved, active };
   }, [insurances]);
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="animate-fade-in space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-            <ShieldCheck className="h-6 w-6 md:h-7 md:w-7 text-primary" />
+          <h1 className="text-xl md:text-2xl font-black tracking-tight text-foreground">
             Insurances & Claims Ledger
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
@@ -195,58 +199,58 @@ export default function InsurancesPage() {
         </div>
 
         {counts.pending > 0 && (
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold shadow-xs">
-            <AlertTriangle className="h-4 w-4 text-amber-500 animate-pulse" />
-            <span>{counts.pending} Claim(s) Awaiting Decision</span>
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#E23E57]/10 border border-[#E23E57]/30 text-[#E23E57] text-xs font-semibold shadow-xs">
+            <AlertTriangle className="h-4 w-4 text-[#E23E57] animate-pulse" />
+            <span>{counts.pending} Claim(s) Awaiting Assessment</span>
           </div>
         )}
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-border/60 bg-card/60 backdrop-blur-xl shadow-xs">
+        <Card className="border-border bg-card shadow-xs rounded-2xl">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">All Policies</p>
               <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.total}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
               <ShieldCheck className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-card/60 backdrop-blur-xl shadow-xs">
+        <Card className="border-border bg-card shadow-xs rounded-2xl">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Active Coverage</p>
-              <p className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{counts.active}</p>
+              <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.active}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
               <Waves className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={`shadow-xs transition backdrop-blur-xl ${counts.pending > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border/60 bg-card/60'}`}>
+        <Card className={`rounded-2xl shadow-xs transition ${counts.pending > 0 ? 'border-[#E23E57]/40 bg-[#E23E57]/5' : 'border-border bg-card'}`}>
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Pending Claims</p>
-              <p className="text-xl md:text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{counts.pending}</p>
+              <p className="text-xl md:text-2xl font-black text-[#E23E57] mt-0.5">{counts.pending}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <div className="h-10 w-10 rounded-xl bg-[#E23E57]/10 border border-[#E23E57]/20 flex items-center justify-center text-[#E23E57]">
               <Clock className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-card/60 backdrop-blur-xl shadow-xs">
+        <Card className="border-border bg-card shadow-xs rounded-2xl">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Approved / Settled</p>
-              <p className="text-xl md:text-2xl font-black text-primary mt-0.5">{counts.approved}</p>
+              <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Settled Claims</p>
+              <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.approved}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardContent>
@@ -254,37 +258,39 @@ export default function InsurancesPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <Card className="border-border/60 bg-card/60 backdrop-blur-xl shadow-xs">
+      <Card className="border-border bg-card shadow-xs rounded-2xl">
         <CardContent className="p-4 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
             {/* Status Filter Tabs */}
-            <div className="flex flex-wrap gap-1.5 p-1 bg-muted rounded-xl text-xs font-semibold text-muted-foreground w-full md:w-auto">
-              {[
-                { id: 'all', label: 'All Policies' },
-                { id: 'claim_pending', label: 'Pending Claims', count: counts.pending },
-                { id: 'claim_approved', label: 'Settled Claims' },
-                { id: 'active', label: 'Active Coverage' },
-                { id: 'claim_rejected', label: 'Rejected Claims' },
-                { id: 'expired', label: 'Expired' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setStatusFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                    statusFilter === tab.id
-                      ? 'bg-card text-foreground shadow-xs font-bold'
-                      : 'hover:text-foreground'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={statusFilter}
+              onValueChange={(val) => setStatusFilter(val)}
+              className="w-full md:w-auto"
+            >
+              <TabsList className="flex flex-wrap gap-1 p-1 bg-secondary/50 rounded-xl text-xs font-semibold text-muted-foreground w-full md:w-auto border border-border">
+                {[
+                  { id: 'all', label: 'All Policies' },
+                  { id: 'claim_pending', label: 'Pending Claims', count: counts.pending },
+                  { id: 'claim_approved', label: 'Settled Claims' },
+                  { id: 'active', label: 'Active Coverage' },
+                  { id: 'claim_rejected', label: 'Rejected Claims' },
+                  { id: 'expired', label: 'Expired' },
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer gap-1.5 select-none"
+                  >
+                    <span>{tab.label}</span>
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className="px-1.5 py-0.2 bg-[#E23E57] text-white rounded-full text-[10px] font-bold">
+                        {tab.count}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
             {/* Search Input */}
             <div className="relative w-full md:w-80">
@@ -300,102 +306,78 @@ export default function InsurancesPage() {
         </CardContent>
       </Card>
 
-      {/* Data Table */}
-      <Card className="border-border/60 bg-card/60 backdrop-blur-xl shadow-xs overflow-hidden">
+      {/* Policies Table */}
+      <Card className="border-border bg-card overflow-hidden shadow-xs rounded-2xl">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Policy</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Farmer</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Pond & Farm</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Culture Details</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Policy Status</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Claim Status</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider text-right">Actions</TableHead>
+            <TableHeader className="bg-secondary/30">
+              <TableRow className="border-border">
+                <TableHead className="w-[22%] font-bold text-xs uppercase text-muted-foreground align-middle">Farmer</TableHead>
+                <TableHead className="w-[18%] font-bold text-xs uppercase text-muted-foreground align-middle">Pond Details</TableHead>
+                <TableHead className="w-[15%] font-bold text-xs uppercase text-muted-foreground align-middle">Species & Density</TableHead>
+                <TableHead className="w-[14%] font-bold text-xs uppercase text-muted-foreground align-middle">Policy Status</TableHead>
+                <TableHead className="w-[18%] font-bold text-xs uppercase text-muted-foreground align-middle">Claim Assessment</TableHead>
+                <TableHead className="w-[13%] text-right font-bold text-xs uppercase text-muted-foreground align-middle pr-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={7} className="py-4">
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i} className="border-border">
+                    <TableCell className="align-middle"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="align-middle"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="align-middle"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="align-middle"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="align-middle"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right align-middle pr-4"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : insurances.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                    <ShieldCheck className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
-                    <p className="text-sm font-semibold text-foreground">No insurance records found</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Try clearing filters or search terms</p>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground text-sm align-middle">
+                    No insurance records found matching this criteria.
                   </TableCell>
                 </TableRow>
               ) : (
                 insurances.map((policy) => {
                   const farmer = typeof policy.farmerId === 'object' ? (policy.farmerId as Farmer) : null;
                   const pond = typeof policy.pondId === 'object' ? (policy.pondId as Pond) : null;
-                  const farm = typeof policy.farmId === 'object' ? (policy.farmId as Farm) : null;
                   const claim = policy.claim;
-                  const isClaimPending = policy.status === 'claim_pending' || claim?.status === 'pending';
-                  const isClaimApproved = policy.status === 'claim_approved' || claim?.status === 'approved';
+                  const isClaimPending = policy.status === 'claim_pending' || claim?.status === 'pending' || claim?.status === 'under_review';
+                  const isClaimApproved = policy.status === 'claim_approved' || policy.status === 'claimed' || claim?.status === 'approved';
                   const isClaimRejected = policy.status === 'claim_rejected' || claim?.status === 'rejected';
 
                   return (
-                    <TableRow key={policy._id} className="hover:bg-muted/40 transition-colors">
-                      {/* Policy Info */}
-                      <TableCell className="font-medium text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            isClaimPending ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-primary/10 text-primary'
-                          }`}>
-                            {isClaimPending ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
-                          </div>
-                          <div>
-                            <span className="font-bold text-foreground block capitalize">
-                              {policy.insuranceType} Plan
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              #{policy._id.slice(-6).toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Farmer Profile Link */}
-                      <TableCell className="text-xs">
+                    <TableRow key={policy._id} className="border-border hover:bg-secondary/20 transition-colors">
+                      {/* Farmer Name & Contact */}
+                      <TableCell className="font-medium text-xs align-middle">
                         {farmer ? (
-                          <Link
-                            href={`/farmers/${farmer._id}`}
-                            className="group flex flex-col hover:opacity-80 transition"
-                          >
-                            <span className="font-bold text-primary group-hover:underline flex items-center gap-1">
-                              {farmer.name}
-                              <ExternalLink size={10} className="text-primary/60 group-hover:opacity-100" />
+                          <div className="flex flex-col">
+                            <span className="font-bold text-foreground text-sm">{farmer.name}</span>
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
+                              <User size={11} className="text-primary" /> {farmer.phone}
                             </span>
-                            <span className="text-[11px] text-muted-foreground">{farmer.phone}</span>
-                            <span className="text-[10px] text-muted-foreground/80">{farmer.address?.district || 'District N/A'}</span>
-                          </Link>
+                          </div>
                         ) : (
-                          <span className="text-muted-foreground">ID: {String(policy.farmerId).slice(-6)}</span>
+                          <span className="text-muted-foreground italic">ID: {String(policy.farmerId).slice(-6)}</span>
                         )}
                       </TableCell>
 
-                      {/* Pond & Farm */}
-                      <TableCell className="text-xs">
+                      {/* Pond Info */}
+                      <TableCell className="text-xs align-middle">
                         <div className="flex flex-col">
-                          <span className="font-bold text-foreground">
-                            {pond?.name || `Pond ${pond?.pondNumber || ''}`}
+                          <span className="font-bold text-foreground flex items-center gap-1">
+                            <Waves size={13} className="text-primary" />
+                            {pond ? `Pond ${pond.pondNumber}: ${pond.name}` : 'Assigned Pond'}
                           </span>
                           <span className="text-[11px] text-muted-foreground">
-                            {farm?.name || farm?.location?.place || 'Farm'} {pond?.dimensionAcres ? `· ${pond.dimensionAcres} ac` : ''}
+                            {pond?.dimensionAcres ? `${pond.dimensionAcres} Acres` : 'Standard Pond'}
                           </span>
                         </div>
                       </TableCell>
 
-                      {/* Culture Details */}
-                      <TableCell className="text-xs">
+                      {/* Species */}
+                      <TableCell className="text-xs align-middle">
                         <div className="flex flex-col">
                           <span className="font-semibold capitalize text-foreground">{policy.species}</span>
                           <span className="text-[11px] text-muted-foreground">
@@ -405,28 +387,28 @@ export default function InsurancesPage() {
                       </TableCell>
 
                       {/* Policy Status Badge */}
-                      <TableCell className="text-xs">
+                      <TableCell className="text-xs align-middle">
                         {policy.status === 'active' ? (
-                          <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Active</Badge>
+                          <Badge className="bg-primary/15 text-primary border-primary/30">Active</Badge>
                         ) : policy.status === 'expired' ? (
                           <Badge variant="secondary" className="font-medium">Expired</Badge>
                         ) : (
-                          <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 capitalize">
+                          <Badge className="bg-[#E23E57]/15 text-[#E23E57] border-[#E23E57]/30 capitalize">
                             {policy.status.replace('_', ' ')}
                           </Badge>
                         )}
                       </TableCell>
 
                       {/* Claim Status */}
-                      <TableCell className="text-xs">
+                      <TableCell className="text-xs align-middle">
                         {claim?.claimedAt ? (
                           <div className="flex flex-col gap-0.5">
                             <span className={`inline-flex items-center gap-1 font-bold text-[11px] ${
                               isClaimApproved
-                                ? 'text-emerald-600 dark:text-emerald-400'
+                                ? 'text-primary'
                                 : isClaimRejected
                                 ? 'text-destructive'
-                                : 'text-amber-600 dark:text-amber-400 font-extrabold'
+                                : 'text-[#E23E57] font-extrabold'
                             }`}>
                               {isClaimApproved ? (
                                 <CheckCircle2 size={12} />
@@ -444,7 +426,7 @@ export default function InsurancesPage() {
                             <span className="text-[10px] text-muted-foreground">
                               {REASON_LABELS[claim.reason || ''] || claim.reason}
                             </span>
-                            <span className="text-[9px] text-muted-foreground/80">
+                            <span className="text-[9px] text-muted-foreground/80 font-mono">
                               Filed: {formatDate(claim.claimedAt)}
                             </span>
                           </div>
@@ -454,36 +436,29 @@ export default function InsurancesPage() {
                       </TableCell>
 
                       {/* Actions */}
-                      <TableCell className="text-right text-xs">
-                        {isClaimPending ? (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenDrawer(policy)}
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer"
-                          >
-                            <ShieldAlert size={14} />
-                            <span>Review Claim</span>
-                          </Button>
-                        ) : claim?.claimedAt ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenDrawer(policy)}
-                            className="h-8 px-2.5 text-xs text-foreground hover:bg-accent cursor-pointer"
-                          >
-                            <Eye size={14} className="mr-1 text-primary" />
-                            View Claim
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleOpenDrawer(policy)}
-                            className="h-8 px-2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
-                          >
-                            Details
-                          </Button>
-                        )}
+                      <TableCell className="text-right text-xs align-middle pr-4">
+                        <div className="flex items-center justify-end">
+                          {isClaimPending ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenAssessment(policy)}
+                              className="bg-[#E23E57] hover:bg-[#E23E57]/90 text-white font-bold text-xs h-8 px-3 rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <ShieldAlert size={14} />
+                              <span>Assess Claim</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenAssessment(policy)}
+                              className="h-8 px-3 text-xs text-foreground hover:bg-secondary rounded-xl cursor-pointer inline-flex items-center gap-1.5"
+                            >
+                              <Maximize2 size={13} className="text-primary" />
+                              <span>Full Assessment</span>
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -494,340 +469,368 @@ export default function InsurancesPage() {
         </div>
       </Card>
 
-      {/* Slide-over Claim Review & Details using shadcn Sheet */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col border-l border-border bg-card">
+      {/* ── EXPANSIVE FULL-SCREEN POLICY & CLAIM ASSESSMENT WORKSPACE ────── */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="!max-w-[96vw] !w-[96vw] 2xl:!max-w-[1600px] !h-[92vh] !max-h-[94vh] p-0 rounded-2xl bg-card border-border shadow-2xl flex flex-col overflow-hidden">
           {selectedPolicy && (
             <>
-              {/* Drawer Header */}
-              <SheetHeader className="p-5 border-b border-border bg-muted/40 text-left">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    selectedPolicy.claim?.status === 'approved'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                      : selectedPolicy.claim?.status === 'rejected'
-                      ? 'bg-destructive/10 text-destructive'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  }`}>
-                    <ShieldAlert size={20} />
+              {/* Header Bar */}
+              <DialogHeader className="px-6 py-4 border-b border-border bg-secondary/30 backdrop-blur-md shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-4 pr-8">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm ${
+                      selectedPolicy.claim?.status === 'approved'
+                        ? 'bg-primary'
+                        : selectedPolicy.claim?.status === 'rejected'
+                        ? 'bg-destructive'
+                        : 'bg-[#E23E57]'
+                    }`}>
+                      <ShieldAlert size={22} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <DialogTitle className="text-lg font-bold text-foreground">
+                          Policy & Claim Assessment Workspace
+                        </DialogTitle>
+                        <Badge variant="outline" className="font-mono text-xs border-border bg-card">
+                          ID: #{selectedPolicy._id}
+                        </Badge>
+                        <Badge className={`uppercase text-xs font-bold px-2 py-0.5 ${
+                          selectedPolicy.claim?.status === 'approved'
+                            ? 'bg-primary text-white'
+                            : selectedPolicy.claim?.status === 'rejected'
+                            ? 'bg-destructive text-white'
+                            : 'bg-[#E23E57] text-white'
+                        }`}>
+                          {selectedPolicy.claim?.status ? selectedPolicy.claim.status.replace('_', ' ') : selectedPolicy.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Technical review, loss assessment telemetry, and official government payout determination.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <SheetTitle className="text-base font-bold text-foreground">
-                      Policy & Claim Assessment
-                    </SheetTitle>
-                    <SheetDescription className="text-xs text-muted-foreground font-mono">
-                      ID: #{selectedPolicy._id}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
 
-              {/* Drawer Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Linked Farmer & Pond Card */}
-                <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
-                      <User size={12} /> Farmer Information
-                    </span>
+                  <div className="flex items-center gap-2">
                     {typeof selectedPolicy.farmerId === 'object' && (
                       <Link
                         href={`/farmers/${(selectedPolicy.farmerId as Farmer)._id}`}
-                        className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground transition-colors"
                       >
-                        <span>Full Farmer Dossier</span>
-                        <ArrowRight size={12} />
+                        <span>Open Farmer Profile</span>
+                        <ExternalLink size={13} className="text-primary" />
                       </Link>
                     )}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Farmer Name</span>
-                      <span className="font-bold text-foreground">
-                        {typeof selectedPolicy.farmerId === 'object' ? (selectedPolicy.farmerId as Farmer).name : 'N/A'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Contact</span>
-                      <span className="font-semibold text-foreground">
-                        {typeof selectedPolicy.farmerId === 'object' ? (selectedPolicy.farmerId as Farmer).phone : 'N/A'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Pond Name</span>
-                      <span className="font-semibold text-foreground">
-                        {typeof selectedPolicy.pondId === 'object' ? (selectedPolicy.pondId as Pond).name : 'Pond'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Culture Details</span>
-                      <span className="font-semibold text-foreground capitalize">
-                        {selectedPolicy.species} ({selectedPolicy.stockingDensity} PL/m²)
-                      </span>
-                    </div>
-                  </div>
                 </div>
+              </DialogHeader>
 
-                {/* Claim Evaluation Section */}
-                {selectedPolicy.claim?.claimedAt ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                        <FileText size={16} className="text-primary" />
-                        Claim Incident Dossier
-                      </h4>
-                      <Badge className={`uppercase text-xs font-bold ${
-                        selectedPolicy.claim.status === 'approved'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                          : selectedPolicy.claim.status === 'rejected'
-                          ? 'bg-destructive/10 text-destructive border-destructive/30'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                      }`}>
-                        {selectedPolicy.claim.status === 'approved'
-                          ? 'Settled'
-                          : selectedPolicy.claim.status === 'rejected'
-                          ? 'Rejected'
-                          : 'Under Review'}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border text-xs">
+              {/* ── Main Full-Screen Split Assessment Workspace ────────────── */}
+              <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border">
+                {/* ── LEFT COLUMN (45%): Incident Evidence & Environmental Telemetry ── */}
+                <div className="w-full lg:w-[46%] p-6 overflow-y-auto space-y-6 bg-secondary/10">
+                  {/* Linked Farmer & Pond Overview */}
+                  <Card className="border-border bg-card rounded-2xl shadow-xs">
+                    <CardHeader className="pb-3 border-b border-border bg-secondary/20">
+                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <User size={14} className="text-primary" /> Registered Producer & Pond Dossier
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 grid grid-cols-2 gap-3 text-xs">
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">Primary Reason</span>
-                        <span className="font-bold text-foreground">
-                          {REASON_LABELS[selectedPolicy.claim.reason || ''] || selectedPolicy.claim.reason}
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Farmer Name</span>
+                        <span className="font-bold text-foreground text-sm">
+                          {typeof selectedPolicy.farmerId === 'object' ? (selectedPolicy.farmerId as Farmer).name : 'N/A'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">Estimated Loss</span>
-                        <span className="font-bold text-destructive">
-                          {selectedPolicy.claim.estimatedLossPercent || 0}% Mortality
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">Notice Date</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Contact Phone</span>
                         <span className="font-semibold text-foreground">
-                          {formatDate(selectedPolicy.claim.claimedAt)}
+                          {typeof selectedPolicy.farmerId === 'object' ? (selectedPolicy.farmerId as Farmer).phone : 'N/A'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">Insurance Plan</span>
-                        <span className="font-semibold text-foreground capitalize">
-                          {selectedPolicy.insuranceType} Coverage
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Assigned Pond</span>
+                        <span className="font-bold text-foreground flex items-center gap-1">
+                          <Waves size={13} className="text-primary" />
+                          {typeof selectedPolicy.pondId === 'object' ? `${(selectedPolicy.pondId as Pond).name} (${(selectedPolicy.pondId as Pond).dimensionAcres || 0} Ac)` : 'Pond'}
                         </span>
                       </div>
-                    </div>
-
-                    {/* Incident Observations */}
-                    {selectedPolicy.claim.description && (
                       <div>
-                        <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">
-                          Farmer Observations
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Location / Taluk</span>
+                        <span className="font-medium text-foreground">
+                          {typeof selectedPolicy.farmerId === 'object' ? `${(selectedPolicy.farmerId as Farmer).address?.taluk || ''}, ${(selectedPolicy.farmerId as Farmer).address?.district || ''}` : 'Coastal District'}
                         </span>
-                        <p className="text-xs text-foreground bg-muted/30 p-3 rounded-xl border border-border whitespace-pre-wrap leading-relaxed">
-                          {selectedPolicy.claim.description}
-                        </p>
                       </div>
-                    )}
+                    </CardContent>
+                  </Card>
 
-                    {/* Photo Evidence */}
-                    {selectedPolicy.claim.evidencePhoto && (
-                      <div>
-                        <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">
-                          Incident Evidence Photo
-                        </span>
-                        {(() => {
-                          const url = resolveMediaUrl(selectedPolicy.claim.evidencePhoto);
+                  {/* Incident Description & Reason */}
+                  {selectedPolicy.claim?.claimedAt && (
+                    <Card className="border-border bg-card rounded-2xl shadow-xs">
+                      <CardHeader className="pb-3 border-b border-border bg-secondary/20">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <FileText size={14} className="text-[#E23E57]" /> Claim Incident Dossier
+                          </CardTitle>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            Filed: {formatDate(selectedPolicy.claim.claimedAt)}
+                          </span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4 text-xs">
+                        <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-secondary/30 border border-border">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground block">Incident Trigger</span>
+                            <span className="font-bold text-foreground text-sm">
+                              {REASON_LABELS[selectedPolicy.claim.reason || ''] || selectedPolicy.claim.reason}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground block">Reported Mortality</span>
+                            <span className="font-extrabold text-[#E23E57] text-base">
+                              {selectedPolicy.claim.estimatedLossPercent || 0}% Crop Loss
+                            </span>
+                          </div>
+                        </div>
 
-                          return url ? (
-                            <div
-                              onClick={() => setZoomImage(url)}
-                              className="relative group cursor-pointer rounded-xl overflow-hidden border border-border h-44 bg-muted flex items-center justify-center"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={url} alt="Incident Evidence" className="h-full w-full object-cover group-hover:scale-105 transition duration-300" />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold gap-1 transition">
-                                <Eye size={16} /> Click to Expand
-                              </div>
-                            </div>
-                          ) : null;
-                        })()}
-                      </div>
-                    )}
+                        {selectedPolicy.claim.description && (
+                          <div>
+                            <span className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">
+                              Farmer Field Observations:
+                            </span>
+                            <p className="text-xs text-foreground bg-secondary/20 p-3.5 rounded-xl border border-border leading-relaxed whitespace-pre-wrap">
+                              {selectedPolicy.claim.description}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Pre-Loss Water Quality History */}
-                    <div className="border-t border-border pt-4">
-                      <h5 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Activity size={14} className="text-primary" />
-                        Pre-Loss Pond Water Quality Log Check
-                      </h5>
+                        {/* Photo Evidence */}
+                        {selectedPolicy.claim.evidencePhoto && (
+                          <div>
+                            <span className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">
+                              Photographic Loss Evidence:
+                            </span>
+                            {(() => {
+                              const url = resolveMediaUrl(selectedPolicy.claim.evidencePhoto);
+                              return url ? (
+                                <div
+                                  onClick={() => setZoomImage(url)}
+                                  className="relative group cursor-pointer rounded-2xl overflow-hidden border border-border h-56 bg-black/60 flex items-center justify-center shadow-sm"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={url} alt="Claim Evidence" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold gap-1.5 transition">
+                                    <Eye size={16} /> Click to Fullscreen
+                                  </div>
+                                </div>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
 
+                  {/* Pre-Loss Environmental Telemetry */}
+                  <Card className="border-border bg-card rounded-2xl shadow-xs">
+                    <CardHeader className="pb-3 border-b border-border bg-secondary/20">
+                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Activity size={14} className="text-primary" /> Pre-Loss Pond Telemetry Audit
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
                       {loadingPondEntries ? (
-                        <Skeleton className="h-16 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
                       ) : pondEntries?.dailyEntries && pondEntries.dailyEntries.length > 0 ? (
-                        <div className="space-y-2">
-                          <p className="text-[11px] text-muted-foreground">
-                            Latest recorded daily entry (Day {pondEntries.dailyEntries[0].dayNumber} · {formatDate(pondEntries.dailyEntries[0].date)}):
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Audited water parameters from latest daily telemetry log (Day {pondEntries.dailyEntries[0].dayNumber} · {formatDate(pondEntries.dailyEntries[0].date)}):
                           </p>
-                          <div className="grid grid-cols-4 gap-2 bg-primary/5 p-2.5 rounded-xl border border-primary/20 text-xs">
-                            <div>
-                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">pH</span>
-                              <span className="font-bold text-primary">
-                                {pondEntries.dailyEntries[0].waterQuality?.ph ?? 'N/A'}
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="bg-secondary/30 p-2.5 rounded-xl border border-border text-center">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">DO (Oxygen)</span>
+                              <span className="font-bold text-primary text-sm">
+                                {pondEntries.dailyEntries[0].waterQuality?.do ? `${pondEntries.dailyEntries[0].waterQuality.do} mg/L` : '—'}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">DO (mg/L)</span>
-                              <span className="font-bold text-primary">
-                                {pondEntries.dailyEntries[0].waterQuality?.do ?? 'N/A'}
+                            <div className="bg-secondary/30 p-2.5 rounded-xl border border-border text-center">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">pH Level</span>
+                              <span className="font-bold text-foreground text-sm">
+                                {pondEntries.dailyEntries[0].waterQuality?.ph ?? '—'}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Temp (°C)</span>
-                              <span className="font-bold text-primary">
-                                {pondEntries.dailyEntries[0].waterQuality?.temperature ?? 'N/A'}
+                            <div className="bg-secondary/30 p-2.5 rounded-xl border border-border text-center">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Temp</span>
+                              <span className="font-bold text-primary text-sm">
+                                {pondEntries.dailyEntries[0].waterQuality?.temperature ? `${pondEntries.dailyEntries[0].waterQuality.temperature}°C` : '—'}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Ammonia</span>
-                              <span className="font-bold text-primary">
-                                {pondEntries.dailyEntries[0].waterQuality?.ammonia ?? 'N/A'}
+                            <div className="bg-secondary/30 p-2.5 rounded-xl border border-border text-center">
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ammonia</span>
+                              <span className="font-bold text-[#E23E57] text-sm">
+                                {pondEntries.dailyEntries[0].waterQuality?.ammonia ? `${pondEntries.dailyEntries[0].waterQuality.ammonia} mg/L` : '—'}
                               </span>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground italic bg-muted/40 p-2.5 rounded-xl">
-                          No previous daily entries logged for this pond.
+                        <p className="text-xs text-muted-foreground italic bg-secondary/20 p-3 rounded-xl">
+                          No previous daily telemetry entries found for this pond.
                         </p>
                       )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── RIGHT COLUMN (54%): Policy Matrix, Financial Assessment & Determination ── */}
+                <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-card">
+                  {/* Policy Parameters & Culture Matrix */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-secondary/30 p-3.5 rounded-2xl border border-border">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Species Stocked</span>
+                      <span className="font-bold text-foreground text-sm capitalize">{selectedPolicy.species}</span>
                     </div>
+                    <div className="bg-secondary/30 p-3.5 rounded-2xl border border-border">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Stocking Density</span>
+                      <span className="font-bold text-foreground text-sm">{selectedPolicy.stockingDensity} PL/m²</span>
+                    </div>
+                    <div className="bg-secondary/30 p-3.5 rounded-2xl border border-border">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Stocking Date</span>
+                      <span className="font-bold text-foreground text-sm">{formatDate(selectedPolicy.stockingDate)}</span>
+                    </div>
+                    <div className="bg-secondary/30 p-3.5 rounded-2xl border border-border">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Policy Plan</span>
+                      <span className="font-bold text-primary text-sm capitalize">{selectedPolicy.insuranceType} Plan</span>
+                    </div>
+                  </div>
 
-                    {/* Decision Action Area */}
-                    <div className="border-t border-border pt-5 space-y-4">
-                      <h5 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        Insurance Inspector Determination
-                      </h5>
+                  {/* Compensation & Valuation Benchmarking */}
+                  <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
+                    <CardHeader className="pb-3 border-b border-border">
+                      <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <DollarSign size={16} className="text-primary" />
+                        Loss Valuation & Payout Determination Matrix
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Calculated benchmark assistance based on registered acreage, stocking density, and validated mortality.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-5">
+                      {/* Settlement Payout Entry */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                          Authorized Government Settlement Payout (₹)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-muted-foreground">₹</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1000}
+                            placeholder="Enter verified payout amount (e.g. 250000)"
+                            value={settlementAmount || ''}
+                            onChange={(e) => setSettlementAmount(Number(e.target.value))}
+                            className="pl-8 text-base font-bold bg-background border-border rounded-xl h-11"
+                            disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Direct Benefit Transfer (DBT) will disburse this amount to the farmer&apos;s verified bank account.
+                        </p>
+                      </div>
 
-                      {selectedPolicy.claim.status === 'approved' ? (
-                        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-2">
-                          <div className="flex items-center justify-between font-bold text-emerald-600 dark:text-emerald-400">
-                            <span className="flex items-center gap-1">
-                              <CheckCircle2 size={16} /> Settlement Approved
+                      {/* Reviewer Technical Notes */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                          Underwriter Assessment & Field Justification
+                        </label>
+                        <Textarea
+                          rows={4}
+                          placeholder="Document observations from site inspections, water parameters, biometric sampling, and biosecurity audits..."
+                          value={reviewerNotes}
+                          onChange={(e) => setReviewerNotes(e.target.value)}
+                          className="w-full text-xs bg-background border border-border rounded-xl p-3 focus-visible:ring-1 focus-visible:ring-primary leading-relaxed"
+                          disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                        />
+                      </div>
+
+                      {/* Status Summary & Execution Buttons */}
+                      {selectedPolicy.claim?.status === 'approved' ? (
+                        <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-xs space-y-2">
+                          <div className="flex items-center justify-between font-bold text-primary">
+                            <span className="flex items-center gap-1.5 text-sm">
+                              <CheckCircle2 size={18} /> Claim Officially Authorized & Settled
                             </span>
-                            <span className="text-sm font-extrabold">
+                            <span className="text-base font-black">
                               ₹{Number(selectedPolicy.claim.settlementAmount || 0).toLocaleString('en-IN')}
                             </span>
                           </div>
                           {selectedPolicy.claim.reviewedAt && (
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[11px] text-muted-foreground">
                               Approved on {formatDate(selectedPolicy.claim.reviewedAt)}
                             </p>
                           )}
                           {selectedPolicy.claim.reviewerNotes && (
-                            <p className="text-foreground pt-1 border-t border-emerald-500/20">
-                              <span className="font-bold">Inspector Notes: </span>
-                              {selectedPolicy.claim.reviewerNotes}
+                            <p className="text-foreground pt-2 border-t border-primary/20">
+                              <strong>Inspector Notes: </strong>{selectedPolicy.claim.reviewerNotes}
                             </p>
                           )}
                         </div>
-                      ) : selectedPolicy.claim.status === 'rejected' ? (
-                        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
-                          <div className="font-bold text-destructive flex items-center gap-1">
-                            <XCircle size={16} /> Claim Rejected
+                      ) : selectedPolicy.claim?.status === 'rejected' ? (
+                        <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
+                          <div className="font-bold text-destructive flex items-center gap-1.5 text-sm">
+                            <XCircle size={18} /> Claim Rejected
                           </div>
                           {selectedPolicy.claim.reviewedAt && (
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[11px] text-muted-foreground">
                               Rejected on {formatDate(selectedPolicy.claim.reviewedAt)}
                             </p>
                           )}
                           {selectedPolicy.claim.reviewerNotes && (
-                            <p className="text-foreground pt-1 border-t border-destructive/20">
-                              <span className="font-bold">Rejection Reason: </span>
-                              {selectedPolicy.claim.reviewerNotes}
+                            <p className="text-foreground pt-2 border-t border-destructive/20">
+                              <strong>Rejection Justification: </strong>{selectedPolicy.claim.reviewerNotes}
                             </p>
                           )}
                         </div>
                       ) : (
-                        /* Pending Claim Form */
-                        <div className="space-y-3.5 bg-amber-500/5 p-4 rounded-xl border border-amber-500/30">
-                          <div>
-                            <label className="text-[11px] font-bold text-foreground uppercase tracking-wider block mb-1">
-                              Settlement Payout Amount (₹ INR)
-                            </label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="1000"
-                              value={settlementAmount}
-                              onChange={(e) => setSettlementAmount(Number(e.target.value))}
-                              placeholder="e.g. 150000"
-                              className="bg-background text-sm font-bold text-foreground border-border"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[11px] font-bold text-foreground uppercase tracking-wider block mb-1">
-                              Inspection Remarks & Audit Justification
-                            </label>
-                            <textarea
-                              rows={3}
-                              value={reviewerNotes}
-                              onChange={(e) => setReviewerNotes(e.target.value)}
-                              placeholder="Enter notes on pond inspection, verification of evidence, and settlement rationale..."
-                              className="w-full text-xs p-2.5 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </div>
-
-                          <div className="flex gap-2.5 pt-2">
-                            <Button
-                              onClick={() => handleReviewClaim('approve')}
-                              disabled={actionLoading}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl shadow-xs flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                              <CheckCircle2 size={16} />
-                              <span>Approve & Authorize Payout</span>
-                            </Button>
-                            <Button
-                              onClick={() => handleReviewClaim('reject')}
-                              disabled={actionLoading}
-                              variant="destructive"
-                              className="font-bold text-xs h-9 rounded-xl shadow-xs flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                              <XCircle size={16} />
-                              <span>Reject Claim</span>
-                            </Button>
-                          </div>
+                        <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                          <Button
+                            onClick={() => handleReviewClaim('approve')}
+                            disabled={actionLoading}
+                            className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                          >
+                            <CheckCircle2 size={16} />
+                            <span>Authorize Verified Settlement Payout</span>
+                          </Button>
+                          <Button
+                            onClick={() => handleReviewClaim('reject')}
+                            disabled={actionLoading}
+                            variant="destructive"
+                            className="flex-1 font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                          >
+                            <XCircle size={16} />
+                            <span>Reject Claim</span>
+                          </Button>
                         </div>
                       )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <ShieldCheck size={36} className="mx-auto text-muted-foreground/50 mb-2" />
-                    <p className="text-sm font-semibold text-foreground">Active Policy Coverage</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      No insurance claims have been submitted on this policy yet.
-                    </p>
-                  </div>
-                )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      {/* Image Zoom Modal using shadcn Dialog */}
-      <Dialog open={Boolean(zoomImage)} onOpenChange={(open) => !open && setZoomImage(null)}>
-        <DialogContent className="max-w-2xl p-2 bg-black/90 border-border/40 overflow-hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Incident Evidence Zoom</DialogTitle>
-          </DialogHeader>
+      {/* Image zoom modal */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-black border-zinc-800">
           {zoomImage && (
-            <div className="flex items-center justify-center">
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={zoomImage} alt="Zoomed Evidence" className="max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl" />
+              <img src={zoomImage} alt="Enlarged" className="max-h-[80vh] w-auto object-contain rounded-md" />
             </div>
           )}
         </DialogContent>

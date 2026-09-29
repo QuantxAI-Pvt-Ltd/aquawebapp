@@ -17,11 +17,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+} from '@/components/ui/pagination';
 import { ChevronLeft, ChevronRight, ImageIcon, Download, ExternalLink, FileText, AlertCircle } from 'lucide-react';
 import { formatDateTime } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/fileUtils';
-import type { ImageItem, Pagination, ApiResponse } from '@/types';
+import type { ImageItem, Pagination as IPagination, ApiResponse } from '@/types';
 
 const IMAGE_SOURCES = [
   { value: 'farmer-photo', label: 'Farmer Profile Photos' },
@@ -36,7 +41,7 @@ const IMAGE_SOURCES = [
 export default function ImagesPage() {
   const [source, setSource] = useState('farmer-photo');
   const [images, setImages] = useState<ImageItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 24, total: 0, pages: 0 });
+  const [pagination, setPagination] = useState<IPagination>({ page: 1, limit: 24, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
@@ -135,7 +140,7 @@ export default function ImagesPage() {
               >
                 {isPdf ? (
                   <div className="h-full w-full flex flex-col items-center justify-center bg-muted/20 p-2 text-center">
-                    <FileText className="h-8 w-8 text-cyan-400 mb-1" />
+                    <FileText className="h-8 w-8 text-primary mb-1" />
                     <span className="text-[11px] font-medium text-foreground">PDF Document</span>
                   </div>
                 ) : isBroken ? (
@@ -172,27 +177,37 @@ export default function ImagesPage() {
 
       {/* ── Pagination ─────────────────────────────────────────────────────── */}
       {pagination.pages > 1 && (
-        <div className="flex items-center justify-center gap-4 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" /> Previous
-          </Button>
-          <span className="text-sm text-muted-foreground font-medium">
-            Page {pagination.page} of {pagination.pages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page >= pagination.pages}
-            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-          >
-            Next <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
+        <Pagination className="pt-2">
+          <PaginationContent>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                className="h-8 text-xs gap-1 rounded-lg cursor-pointer"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Previous
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <span className="px-3 text-xs font-bold text-foreground font-mono">
+                Page {pagination.page} of {pagination.pages}
+              </span>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.pages}
+                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                className="h-8 text-xs gap-1 rounded-lg cursor-pointer"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
 
       {/* ── Image Preview Modal ────────────────────────────────────────────── */}

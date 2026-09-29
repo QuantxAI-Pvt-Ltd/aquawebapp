@@ -24,7 +24,6 @@ import {
   Waves,
   Calendar,
   Info,
-  CheckCircle2,
   Copy,
   Check,
 } from 'lucide-react';
@@ -140,21 +139,21 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
 
   return (
     <Dialog open={!!media} onOpenChange={() => onClose()}>
-      <DialogContent className="!max-w-[95vw] !w-[95vw] 2xl:!max-w-[1500px] !h-[90vh] !max-h-[92vh] p-0 rounded-2xl bg-card border-border/80 shadow-2xl flex flex-col overflow-hidden">
+      <DialogContent className="!max-w-[95vw] !w-[95vw] 2xl:!max-w-[1500px] !h-[90vh] !max-h-[92vh] p-0 rounded-2xl bg-card border-border shadow-2xl flex flex-col overflow-hidden">
         {/* ── Dialog Header ── */}
-        <DialogHeader className="px-6 py-3.5 border-b border-border/50 bg-background/90 backdrop-blur-md shrink-0">
+        <DialogHeader className="px-6 py-3.5 border-b border-border bg-card/95 backdrop-blur-md shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
             <div className="flex items-center gap-3">
               {inferredType === 'video' ? (
-                <div className="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
+                <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center border border-primary/30">
                   <VideoIcon className="h-4 w-4" />
                 </div>
               ) : inferredType === 'document' ? (
-                <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                  <FileText className="h-4 w-4" />
+                <div className="h-8 w-8 rounded-lg bg-secondary text-foreground flex items-center justify-center border border-border">
+                  <FileText className="h-4 w-4 text-primary" />
                 </div>
               ) : (
-                <div className="h-8 w-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
+                <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center border border-primary/30">
                   <ImageIcon className="h-4 w-4" />
                 </div>
               )}
@@ -164,12 +163,12 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                     {media.title}
                   </DialogTitle>
                   {media.category && (
-                    <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border-primary/40 text-primary bg-primary/10">
                       {media.category}
                     </Badge>
                   )}
                   {media.dayNumber !== undefined && (
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-mono">
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-mono bg-primary text-white">
                       Day {media.dayNumber}
                     </Badge>
                   )}
@@ -185,17 +184,17 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5"
+                className="h-8 text-xs gap-1.5 border-border hover:bg-secondary text-foreground"
                 onClick={handleCopyLink}
                 title="Copy Media URL"
               >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
                 <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy Link'}</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5"
+                className="h-8 text-xs gap-1.5 border-border hover:bg-secondary text-foreground"
                 onClick={() => window.open(url, '_blank')}
                 title="Open in new window"
               >
@@ -207,10 +206,10 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                 download
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-2.5 text-xs font-medium transition-colors"
+                className="inline-flex items-center justify-center rounded-md border border-border bg-card hover:bg-secondary h-8 px-2.5 text-xs font-medium text-foreground transition-colors"
                 title="Download original file"
               >
-                <Download className="h-3.5 w-3.5 mr-1" />
+                <Download className="h-3.5 w-3.5 mr-1 text-primary" />
                 <span className="hidden sm:inline">Download</span>
               </a>
             </div>
@@ -260,28 +259,28 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
             </div>
 
             {/* Bottom Canvas Toolbar (Image zoom / Video player controls) */}
-            <div className="px-4 py-2.5 bg-background/90 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+            <div className="px-4 py-2.5 bg-card/95 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
               {inferredType === 'image' ? (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground font-mono text-[11px]">Zoom: {Math.round(zoom * 100)}%</span>
-                  <Button variant="secondary" size="sm" className="h-7 px-2.5" onClick={handleZoomOut} disabled={zoom <= 0.5}>
+                  <Button variant="secondary" size="sm" className="h-7 px-2.5 bg-secondary text-foreground" onClick={handleZoomOut} disabled={zoom <= 0.5}>
                     <ZoomOut className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="secondary" size="sm" className="h-7 px-2.5" onClick={handleZoomIn} disabled={zoom >= 3}>
+                  <Button variant="secondary" size="sm" className="h-7 px-2.5 bg-secondary text-foreground" onClick={handleZoomIn} disabled={zoom >= 3}>
                     <ZoomIn className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleResetZoom}>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-medium" onClick={handleResetZoom}>
                     Reset 100%
                   </Button>
                   <div className="h-4 w-px bg-border mx-1" />
-                  <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleRotate}>
-                    <RotateCw className="h-3.5 w-3.5" />
-                    <span className="text-[11px]">{rotation}°</span>
+                  <Button variant="outline" size="sm" className="h-7 px-2 gap-1 border-border" onClick={handleRotate}>
+                    <RotateCw className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[11px] font-semibold">{rotation}°</span>
                   </Button>
                 </div>
               ) : inferredType === 'video' ? (
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" className="h-7 px-3 gap-1.5 font-medium" onClick={togglePlay}>
+                  <Button variant="secondary" size="sm" className="h-7 px-3 gap-1.5 font-medium bg-primary text-white" onClick={togglePlay}>
                     {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
                     <span>{isPlaying ? 'Pause' : 'Play'}</span>
                   </Button>
@@ -295,7 +294,7 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                       key={speed}
                       variant={playbackRate === speed ? 'default' : 'ghost'}
                       size="sm"
-                      className="h-7 px-2 text-[11px] font-mono"
+                      className={`h-7 px-2 text-[11px] font-mono ${playbackRate === speed ? 'bg-primary text-white' : ''}`}
                       onClick={() => handleSpeedChange(speed)}
                     >
                       {speed}x
@@ -304,22 +303,22 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
-                  <FileText className="h-3.5 w-3.5 text-amber-400" />
+                  <FileText className="h-3.5 w-3.5 text-primary" />
                   <span>Document Preview • SeaweedFS Storage Stream</span>
                 </div>
               )}
 
-              <span className="text-[11px] text-muted-foreground font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono font-semibold">
                 {inferredType.toUpperCase()}
               </span>
             </div>
           </div>
 
           {/* ── RIGHT: Details & Verification Sidebar (Horizontally Adjacent) ── */}
-          <div className="w-full lg:w-80 xl:w-96 bg-card/95 border-t lg:border-t-0 lg:border-l border-border/50 p-5 flex flex-col justify-between overflow-y-auto shrink-0 gap-4">
+          <div className="w-full lg:w-80 xl:w-96 bg-card border-t lg:border-t-0 lg:border-l border-border p-5 flex flex-col justify-between overflow-y-auto shrink-0 gap-4">
             <div className="space-y-4">
               {/* Header section */}
-              <div className="pb-3 border-b border-border/40">
+              <div className="pb-3 border-b border-border">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Info className="h-3.5 w-3.5 text-primary" /> Entry & Evidence Details
                 </p>
@@ -331,29 +330,29 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
               {/* Information Cards */}
               <div className="space-y-2.5 text-xs">
                 {media.pondName && (
-                  <div className="bg-background/60 p-3 rounded-xl border border-border/40 flex items-center justify-between">
+                  <div className="bg-secondary/40 p-3 rounded-xl border border-border flex items-center justify-between">
                     <span className="text-muted-foreground text-[11px]">Associated Pond</span>
                     <span className="font-semibold text-foreground flex items-center gap-1">
-                      <Waves className="h-3.5 w-3.5 text-cyan-400" />
+                      <Waves className="h-3.5 w-3.5 text-primary" />
                       {media.pondName}
                     </span>
                   </div>
                 )}
 
                 {media.dayNumber !== undefined && (
-                  <div className="bg-background/60 p-3 rounded-xl border border-border/40 flex items-center justify-between">
+                  <div className="bg-secondary/40 p-3 rounded-xl border border-border flex items-center justify-between">
                     <span className="text-muted-foreground text-[11px]">Culture Cycle Day</span>
-                    <Badge variant="default" className="font-mono bg-blue-600">
+                    <Badge variant="default" className="font-mono bg-primary text-white">
                       Day {media.dayNumber}
                     </Badge>
                   </div>
                 )}
 
                 {media.timestamp && (
-                  <div className="bg-background/60 p-3 rounded-xl border border-border/40 flex items-center justify-between">
+                  <div className="bg-secondary/40 p-3 rounded-xl border border-border flex items-center justify-between">
                     <span className="text-muted-foreground text-[11px]">Date Logged</span>
                     <span className="font-medium text-foreground flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-amber-400" />
+                      <Calendar className="h-3.5 w-3.5 text-primary" />
                       {new Date(media.timestamp).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
@@ -364,7 +363,7 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                 )}
 
                 {media.category && (
-                  <div className="bg-background/60 p-3 rounded-xl border border-border/40 flex items-center justify-between">
+                  <div className="bg-secondary/40 p-3 rounded-xl border border-border flex items-center justify-between">
                     <span className="text-muted-foreground text-[11px]">Category</span>
                     <span className="font-semibold text-foreground uppercase text-[11px]">
                       {media.category}
@@ -375,45 +374,45 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
 
               {/* Operational Metrics if available */}
               {media.metrics && (
-                <div className="pt-2 border-t border-border/40 space-y-2">
+                <div className="pt-2 border-t border-border space-y-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Day Operations Log
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {media.metrics.do !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">DO (Oxygen)</span>
-                        <span className="font-bold text-cyan-400">{media.metrics.do} mg/L</span>
+                        <span className="font-bold text-primary">{media.metrics.do} mg/L</span>
                       </div>
                     )}
                     {media.metrics.ph !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">pH</span>
                         <span className="font-bold text-foreground">{media.metrics.ph}</span>
                       </div>
                     )}
                     {media.metrics.temperature !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">Temperature</span>
-                        <span className="font-bold text-amber-400">{media.metrics.temperature}°C</span>
+                        <span className="font-bold text-primary">{media.metrics.temperature}°C</span>
                       </div>
                     )}
                     {media.metrics.feedQuantity !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">Feed Given</span>
                         <span className="font-bold text-foreground">{media.metrics.feedQuantity} kg</span>
                       </div>
                     )}
                     {media.metrics.survival !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">Survival Rate</span>
-                        <span className="font-bold text-emerald-400">{media.metrics.survival}%</span>
+                        <span className="font-bold text-primary">{media.metrics.survival}%</span>
                       </div>
                     )}
                     {media.metrics.biomass !== undefined && (
-                      <div className="bg-background/40 p-2 rounded-lg border border-border/30">
+                      <div className="bg-secondary/30 p-2 rounded-lg border border-border">
                         <span className="text-[10px] text-muted-foreground block">Biomass</span>
-                        <span className="font-bold text-indigo-400">{media.metrics.biomass} kg</span>
+                        <span className="font-bold text-primary">{media.metrics.biomass} kg</span>
                       </div>
                     )}
                   </div>
@@ -422,20 +421,20 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-3 border-t border-border/40 space-y-2">
+            <div className="pt-3 border-t border-border space-y-2">
               <a
                 href={url}
                 download
                 target="_blank"
                 rel="noreferrer"
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground h-10 text-xs font-semibold shadow-md transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-white h-10 text-xs font-semibold shadow-sm transition-colors"
               >
                 <Download className="h-4 w-4" /> Download Original File
               </a>
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full h-9 text-xs gap-1.5"
+                className="w-full h-9 text-xs gap-1.5 border-border hover:bg-secondary text-foreground"
                 onClick={() => window.open(url, '_blank')}
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Open in Full Browser Tab

@@ -7,188 +7,96 @@ import {
   Users,
   ShieldCheck,
   BarChart3,
-  ChevronLeft,
   Waves,
+  ImageIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useSidebar } from './DashboardShell';
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+  SidebarRail,
+} from '@/components/ui/sidebar';
 
 const navItems = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
-  { href: '/farmers', label: 'Farmer Data', icon: Users },
+  { href: '/farmers', label: 'Farmer Ledger', icon: Users },
   { href: '/insurances', label: 'Insurances & Claims', icon: ShieldCheck },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/analytics', label: 'Analytics & Trends', icon: BarChart3 },
+  { href: '/images', label: 'Image Vault', icon: ImageIcon },
 ];
 
-interface SidebarProps {
-  isMobile?: boolean;
-  onMobileNavigate?: () => void;
-}
-
-export default function Sidebar({ isMobile = false, onMobileNavigate }: SidebarProps) {
+export default function AppSidebar() {
   const pathname = usePathname();
-  const { collapsed, toggleCollapsed } = useSidebar();
-
-  const isActuallyCollapsed = !isMobile && collapsed;
 
   return (
-    <aside
-      className={cn(
-        'flex flex-col border-r border-border bg-card overflow-hidden select-none',
-        'transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
-        isMobile
-          ? 'h-full w-full'
-          : cn(
-              'fixed left-0 top-0 z-40 h-screen',
-              isActuallyCollapsed ? 'w-[68px]' : 'w-[240px]'
-            )
-      )}
-    >
+    <Sidebar collapsible="icon" className="border-r border-border bg-card">
       {/* Brand Header */}
-      <div className="flex h-16 shrink-0 items-center border-b border-border px-3.5 overflow-hidden">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-400 text-white shadow-sm shadow-teal-500/20">
-          <Waves className="h-5 w-5" />
+      <SidebarHeader className="h-16 shrink-0 border-b border-border flex flex-row items-center px-4 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-white shadow-sm">
+            <Waves className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden truncate">
+            <span className="text-base font-bold tracking-tight text-foreground">AquaInsure</span>
+            <span className="text-xs font-medium text-muted-foreground">Govt Scheme Admin</span>
+          </div>
         </div>
-        <div
-          className={cn(
-            'flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ml-3',
-            isActuallyCollapsed
-              ? 'max-w-0 opacity-0 -translate-x-2 pointer-events-none'
-              : 'max-w-[160px] opacity-100 translate-x-0'
-          )}
-        >
-          <span className="text-sm font-bold tracking-tight text-foreground truncate">
-            AquaInsure
-          </span>
-          <span className="text-[11px] font-medium text-muted-foreground truncate">
-            Platform Admin
-          </span>
+      </SidebarHeader>
+
+      {/* Sidebar Content Menu */}
+      <SidebarContent className="p-2.5 group-data-[collapsible=icon]:p-0">
+        <SidebarGroup className="p-0 group-data-[collapsible=icon]:p-0">
+          <SidebarGroupLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-2.5 group-data-[collapsible=icon]:hidden mb-1">
+            Platform Modules
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:py-2.5 group-data-[collapsible=icon]:items-center">
+              {navItems.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/' && pathname.startsWith(item.href));
+
+                return (
+                  <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
+                    <SidebarMenuButton
+                      render={<Link href={item.href} />}
+                      isActive={isActive}
+                      tooltip={item.label}
+                      className={
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-bold shadow-xs hover:bg-primary/90'
+                          : 'hover:bg-secondary text-foreground font-medium'
+                      }
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="text-sm">{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* Footer Info */}
+      <SidebarFooter className="border-t border-border p-3 group-data-[collapsible=icon]:hidden">
+        <div className="p-2.5 rounded-xl bg-secondary/40 border border-border text-[11px] space-y-1">
+          <p className="font-bold text-foreground flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> AquaInsure Govt Portal
+          </p>
+          <p className="text-muted-foreground text-[10px]">Zero Premium Assistance Scheme</p>
         </div>
-      </div>
+      </SidebarFooter>
 
-      {/* Nav Items */}
-      <nav className="flex-1 flex flex-col gap-1.5 p-3 overflow-y-auto overflow-x-hidden w-full">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== '/' && pathname.startsWith(item.href));
-
-          const navLink = (
-            <Link
-              href={item.href}
-              onClick={() => {
-                if (isMobile && onMobileNavigate) {
-                  onMobileNavigate();
-                }
-              }}
-              className={cn(
-                'group relative flex items-center h-10 w-full rounded-xl px-0.5 text-sm font-medium transition-colors duration-150 select-none overflow-hidden cursor-pointer',
-                isActive
-                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:bg-accent/80 hover:text-foreground'
-              )}
-            >
-              {/* Rigid Icon Box: Center is always at X=34px from sidebar edge */}
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center">
-                <item.icon
-                  className={cn(
-                    'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105',
-                    isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
-                  )}
-                />
-              </div>
-
-              {/* Sliding Text Label */}
-              <div
-                className={cn(
-                  'overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center pr-2',
-                  isActuallyCollapsed
-                    ? 'max-w-0 opacity-0 -translate-x-2 pointer-events-none'
-                    : 'max-w-[160px] opacity-100 translate-x-0 ml-1.5'
-                )}
-              >
-                <span className="truncate">{item.label}</span>
-              </div>
-            </Link>
-          );
-
-          return (
-            <Tooltip key={item.href} disabled={!isActuallyCollapsed}>
-              <TooltipTrigger render={navLink} />
-              {isActuallyCollapsed && (
-                <TooltipContent
-                  side="right"
-                  sideOffset={10}
-                  className="font-medium text-xs py-1.5 px-2.5 shadow-md bg-foreground text-background"
-                >
-                  {item.label}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          );
-        })}
-      </nav>
-
-      {/* Collapse Toggle Button (Desktop only) */}
-      {!isMobile && (
-        <div className="border-t border-border p-3 shrink-0">
-          {(() => {
-            const toggleButton = (
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                className="group relative flex items-center h-10 w-full rounded-xl px-0.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-accent/80 hover:text-foreground select-none overflow-hidden cursor-pointer"
-                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                {/* Rigid Icon Box with rotating chevron */}
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center">
-                  <ChevronLeft
-                    className={cn(
-                      'h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] text-muted-foreground group-hover:text-foreground',
-                      isActuallyCollapsed && 'rotate-180'
-                    )}
-                  />
-                </div>
-
-                {/* Sliding Text Label */}
-                <div
-                  className={cn(
-                    'overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] flex items-center pr-2',
-                    isActuallyCollapsed
-                      ? 'max-w-0 opacity-0 -translate-x-2 pointer-events-none'
-                      : 'max-w-[160px] opacity-100 translate-x-0 ml-1.5'
-                  )}
-                >
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                    Collapse sidebar
-                  </span>
-                </div>
-              </button>
-            );
-
-            return (
-              <Tooltip disabled={!isActuallyCollapsed}>
-                <TooltipTrigger render={toggleButton} />
-                {isActuallyCollapsed && (
-                  <TooltipContent
-                    side="right"
-                    sideOffset={10}
-                    className="font-medium text-xs py-1.5 px-2.5 shadow-md bg-foreground text-background"
-                  >
-                    Expand sidebar
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            );
-          })()}
-        </div>
-      )}
-    </aside>
+      <SidebarRail />
+    </Sidebar>
   );
 }
-
