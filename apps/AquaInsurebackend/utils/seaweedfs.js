@@ -114,28 +114,20 @@ async function uploadToSeaweedFSMaster(buffer, filename = 'file.bin', mimeType =
 }
 
 /**
- * Uploads a Buffer directly to SeaweedFS Filer.
+ * Uploads a Buffer directly to SeaweedFS Filer via HTTP PUT binary stream.
  */
 async function uploadToSeaweedFSFiler(buffer, key, mimeType = 'application/octet-stream', bucket = DEFAULT_BUCKET) {
   return new Promise((resolve, reject) => {
     const cleanKey = key.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
-    const filename = path.basename(cleanKey) || 'file.bin';
-    const boundary = '----SeaweedFSFilerBoundary' + Math.random().toString(36).substring(2);
-    const postDataHeader = Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
-    );
-    const postDataFooter = Buffer.from(`\r\n--${boundary}--\r\n`);
-    const fullPayload = Buffer.concat([postDataHeader, buffer, postDataFooter]);
-
     const targetPath = `/buckets/${bucket}/${cleanKey}`;
     const parsed = new URL(targetPath, FILER_ENDPOINT);
     const transport = parsed.protocol === 'https:' ? https : http;
 
     const req = transport.request(parsed, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': fullPayload.length,
+        'Content-Type': mimeType,
+        'Content-Length': buffer.length,
       },
       timeout: 30000,
     }, (res) => {
@@ -159,7 +151,7 @@ async function uploadToSeaweedFSFiler(buffer, key, mimeType = 'application/octet
 
     req.on('error', reject);
     req.on('timeout', () => req.destroy(new Error('SeaweedFS Filer upload timeout')));
-    req.write(fullPayload);
+    req.write(buffer);
     req.end();
   });
 }
@@ -393,29 +385,94 @@ function mimeToExtension(mimeType = '') {
 
 /**
  * Extracts a Buffer and mimeType from a Base64 string, data URI, or raw Buffer.
+ * If the input is already a MediaObject, S3/Filer key, or stream URL, returns it directly as a MediaObject.
  */
 function parseBase64Media(val) {
   if (!val) return null;
-  if (typeof val === 'object' && val.url) return { isMediaObject: true, mediaObject: val };
-  if (typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))) return null;
+
+  // 1. MediaObject with url or key property
+  if (typeof val === 'object') {
+    if (val.url || val.key) {
+      const cleanKey = (val.key || '').replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+      return {
+        isMediaObject: true,
+        mediaObject: {
+          key: cleanKey,
+          bucket: val.bucket || DEFAULT_BUCKET,
+          url: val.url || (cleanKey ? `/api/media/stream?key=${encodeURIComponent(cleanKey)}` : ''),
+          mimeType: val.mimeType || 'image/jpeg',
+          size: val.size || 0,
+          uploadedAt: val.uploadedAt || new Date(),
+        },
+      };
+    }
+    return null;
+  }
 
   if (Buffer.isBuffer(val)) {
     return { buffer: val, mimeType: 'application/octet-stream', ext: 'bin' };
   }
 
   if (typeof val === 'string') {
-    let mimeType = 'image/jpeg';
-    let rawBase64 = val;
+    const trimmed = val.trim();
+    if (!trimmed) return null;
 
-    const dataUriMatch = val.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/s);
+    // 2. Check if it is an already-uploaded S3/Filer key, stream endpoint, or HTTP(S) URL
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('blob:') ||
+      trimmed.startsWith('/api/media/stream') ||
+      /^\d+,[0-9a-zA-Z]+$/.test(trimmed) ||
+      ((trimmed.startsWith('farmers/') ||
+        trimmed.startsWith('farms/') ||
+        trimmed.startsWith('ponds/') ||
+        trimmed.startsWith('claims/') ||
+        trimmed.startsWith('general/') ||
+        trimmed.startsWith('aquainsure/')) &&
+        trimmed.length < 500 &&
+        !trimmed.includes(';base64,'))
+    ) {
+      let cleanKey = trimmed;
+      if (trimmed.startsWith('/api/media/stream') || trimmed.includes('/api/media/stream')) {
+        const match = trimmed.match(/[?&]key=([^&]+)/);
+        if (match) cleanKey = decodeURIComponent(match[1]);
+      }
+      cleanKey = cleanKey.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+      return {
+        isMediaObject: true,
+        mediaObject: {
+          key: cleanKey,
+          bucket: DEFAULT_BUCKET,
+          url: trimmed.startsWith('/api/media/stream') || trimmed.startsWith('http')
+            ? trimmed
+            : `/api/media/stream?key=${encodeURIComponent(cleanKey)}`,
+          mimeType: 'image/jpeg',
+          size: 0,
+          uploadedAt: new Date(),
+        },
+      };
+    }
+
+    let mimeType = 'image/jpeg';
+    let rawBase64 = trimmed;
+
+    const dataUriMatch = trimmed.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/s);
     if (dataUriMatch) {
       mimeType = dataUriMatch[1];
       rawBase64 = dataUriMatch[2];
     } else {
       // Basic magic bytes detection for raw Base64 strings
-      if (val.startsWith('JVBERi0')) mimeType = 'application/pdf';
-      else if (val.startsWith('/9j/')) mimeType = 'image/jpeg';
-      else if (val.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+      if (trimmed.startsWith('JVBERi0')) mimeType = 'application/pdf';
+      else if (trimmed.startsWith('/9j/')) mimeType = 'image/jpeg';
+      else if (trimmed.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+      else {
+        // Not a recognized base64 image or data URI header
+        // Only attempt base64 parsing if length > 200 and valid base64 character set
+        if (trimmed.length < 200 || !/^[A-Za-z0-9+/=]+$/.test(trimmed.replace(/\s+/g, ''))) {
+          return null;
+        }
+      }
     }
 
     try {

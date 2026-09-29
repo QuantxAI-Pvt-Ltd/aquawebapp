@@ -21,8 +21,18 @@ function inspectField(val) {
     return { type: 'pointer', key: val.key, url: val.url, bytes: JSON.stringify(val).length };
   }
 
-  // Already a URL string
-  if (typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/'))) {
+  // Already a URL string or storage key
+  if (
+    typeof val === 'string' &&
+    (val.startsWith('http://') ||
+      val.startsWith('https://') ||
+      val.startsWith('/') ||
+      val.startsWith('farmers/') ||
+      val.startsWith('farms/') ||
+      val.startsWith('ponds/') ||
+      val.startsWith('claims/') ||
+      val.startsWith('aquainsure/'))
+  ) {
     return { type: 'url_string', url: val, bytes: val.length };
   }
 

@@ -59,22 +59,35 @@ const { uploadBase64, parseBase64Media, StorageHierarchy } = require('../utils/s
 
 const safeUploadBase64 = async (val, keyFn) => {
     if (!val) return null;
-    if (typeof val === 'object' && val.url) return val;
-    try {
-        const res = await uploadBase64(val, keyFn);
-        if (res && res.url) return res;
-    } catch (err) {
-        console.warn('[SeaweedFS] Entry upload failed, fallback to inline MediaObject:', err.message);
+    if (typeof val === 'object' && (val.url || val.key)) {
+        const cleanKey = (val.key || '').replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+        return {
+            key: cleanKey,
+            bucket: val.bucket || 'aquainsure',
+            url: val.url || (cleanKey ? `/api/media/stream?key=${encodeURIComponent(cleanKey)}` : ''),
+            mimeType: val.mimeType || 'image/jpeg',
+            size: val.size || 0,
+            uploadedAt: val.uploadedAt || new Date()
+        };
     }
     const parsed = parseBase64Media(val);
+    if (parsed && parsed.isMediaObject) {
+        return parsed.mediaObject;
+    }
     if (parsed && parsed.buffer) {
+        try {
+            const res = await uploadBase64(val, keyFn);
+            if (res && res.url) return res;
+        } catch (err) {
+            console.warn('[SeaweedFS] Entry upload failed, fallback to inline MediaObject:', err.message);
+        }
         const key = typeof keyFn === 'function' ? keyFn(parsed.ext || 'bin') : 'fallback';
         const dataUrl = typeof val === 'string' && val.startsWith('data:')
             ? val
             : `data:${parsed.mimeType || 'application/octet-stream'};base64,${parsed.buffer.toString('base64')}`;
         return {
             key,
-            bucket: 'aquainsure-media',
+            bucket: 'aquainsure',
             url: dataUrl,
             mimeType: parsed.mimeType || 'application/octet-stream',
             size: parsed.buffer.length,
