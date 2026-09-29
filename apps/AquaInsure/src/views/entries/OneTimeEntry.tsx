@@ -58,14 +58,23 @@ const OneTimeEntry = () => {
               case 'farmer_registration':
                 navigate('/farmer-registration', { replace: true });
                 return;
+              case 'farmer_address':
+                navigate('/farmer-address', { replace: true });
+                return;
+              case 'farmer_kyc':
+                navigate('/farmer-kyc', { replace: true });
+                return;
               case 'farm_registration':
                 navigate('/farm-registration', { replace: true });
                 return;
-              case 'insurance_registration':
-                navigate('/insurance-registration', { replace: true });
+              case 'farm_setup':
+                navigate('/farm-setup', { replace: true });
                 return;
               case 'insured_ponds':
                 navigate('/insured-ponds', { replace: true });
+                return;
+              case 'insurance_registration':
+                navigate('/insurance-registration', { replace: true });
                 return;
               default:
                 navigate('/farmer-registration', { replace: true });

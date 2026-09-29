@@ -21,44 +21,72 @@ const getFarmerOnboardingStatus = async (farmerId) => {
         return { onboardingStep: 'farmer_registration', isProfileComplete: false, farmerName: null, farmData: null };
     }
 
-    if (!farmer.address?.village || farmer.address.village === '-' || !farmer.address?.state || farmer.address.state === '-') {
+    const farm = await Farm.findOne({ farmerId }).lean();
+    const ponds = farm ? await Pond.find({ $or: [{ farmerId }, { farmId: farm._id }] }).sort({ pondNumber: 1 }).lean() : [];
+    const insurance = await Insurance.findOne({
+        $or: [
+            { farmerId },
+            ...(farm ? [{ farmId: farm._id }] : [])
+        ]
+    }).lean();
+
+    const farmData = farm ? {
+        farmId: farm._id,
+        ponds
+    } : null;
+
+    // 1. If insurance policy is already active/registered with farm and ponds, the profile is 100% complete!
+    if (insurance && insurance.stockingDate && farm && ponds.length > 0) {
+        return { onboardingStep: 'completed', isProfileComplete: true, farmerName: farmer.name, farmData };
+    }
+
+    // 2. Step 2: Farmer Address
+    const hasAddress = farmer.address && (
+        (farmer.address.state && farmer.address.state !== '-') ||
+        (farmer.address.district && farmer.address.district !== '-') ||
+        (farmer.address.taluk && farmer.address.taluk !== '-') ||
+        (farmer.address.village && farmer.address.village !== '-')
+    );
+    if (!hasAddress) {
         return { onboardingStep: 'farmer_address', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
-    if (!farmer.bankDetails?.accountNumber && !farmer.registration?.regNumber && !farmer.identity?.aadharNumber) {
+    // 3. Step 3: Farmer KYC
+    const hasKyc = farmer.bankDetails?.accountNumber ||
+                   farmer.registration?.regNumber ||
+                   farmer.identity?.aadharNumber ||
+                   farmer.identity?.panNumber;
+    if (!hasKyc) {
         return { onboardingStep: 'farmer_kyc', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
-    const farm = await Farm.findOne({ farmerId }).lean();
+    // 4. Step 4: Farm Location
     if (!farm) {
         return { onboardingStep: 'farm_registration', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
-
-    if (!farm.location?.district || farm.location.district === '-') {
+    const hasFarmLocation = farm.location && (
+        (farm.location.district && farm.location.district !== '-') ||
+        (farm.location.taluk && farm.location.taluk !== '-') ||
+        (farm.location.place && farm.location.place !== '-')
+    );
+    if (!hasFarmLocation) {
         return { onboardingStep: 'farm_registration', isProfileComplete: false, farmerName: farmer.name, farmData: null };
     }
 
+    // 5. Step 5: Farm Setup (ownership, patta, totalPonds)
     const hasPatta = farm.ownership?.patta || farm.patta;
     if (!hasPatta || !farm.totalPonds) {
-        return { onboardingStep: 'farm_setup', isProfileComplete: false, farmerName: farmer.name, farmData: null };
+        return { onboardingStep: 'farm_setup', isProfileComplete: false, farmerName: farmer.name, farmData };
     }
 
-    const ponds = await Pond.find({ $or: [{ farmerId }, { farmId: farm._id }] }).sort({ pondNumber: 1 }).lean();
+    // 6. Step 6: Insured Ponds
+    if (ponds.length === 0) {
+        return { onboardingStep: 'insured_ponds', isProfileComplete: false, farmerName: farmer.name, farmData };
+    }
 
-    const farmData = {
-        farmId: farm._id,
-        ponds
-    };
-
-    const insurance = await Insurance.findOne({ $or: [{ farmerId }, { farmId: farm._id }] }).lean();
+    // 7. Step 7: Insurance Registration
     if (!insurance || !insurance.stockingDate) {
         return { onboardingStep: 'insurance_registration', isProfileComplete: false, farmerName: farmer.name, farmData };
-    }
-
-    // Check if pond dimensions have been filled in insured-ponds
-    const hasPondDetails = ponds.length > 0 && ponds.some(p => p.dimensionAcres && Number(p.dimensionAcres) > 0);
-    if (!hasPondDetails) {
-        return { onboardingStep: 'insured_ponds', isProfileComplete: false, farmerName: farmer.name, farmData };
     }
 
     return { onboardingStep: 'completed', isProfileComplete: true, farmerName: farmer.name, farmData };
