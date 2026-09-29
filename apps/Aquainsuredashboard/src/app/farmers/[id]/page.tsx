@@ -484,6 +484,15 @@ export default function FarmerDetailPage({ params }: PageProps) {
                                   pondName: entry.pondName,
                                   timestamp: entry.date,
                                   subtitle: `Cast net vitality footage for ${entry.pondName}`,
+                                  metrics: {
+                                    do: entry.waterQuality?.do,
+                                    ph: entry.waterQuality?.ph,
+                                    temperature: entry.waterQuality?.temperature,
+                                    feedQuantity: entry.feedManagement?.feedQuantity,
+                                    survival: entry.sampling?.survival,
+                                    biomass: entry.sampling?.biomass,
+                                    healthStatus: entry.shrimpHealth?.status,
+                                  },
                                 })
                               }
                             >
@@ -509,6 +518,15 @@ export default function FarmerDetailPage({ params }: PageProps) {
                                   pondName: entry.pondName,
                                   timestamp: entry.date,
                                   subtitle: `Health inspection photo (${entry.shrimpHealth?.status || 'Normal'})`,
+                                  metrics: {
+                                    do: entry.waterQuality?.do,
+                                    ph: entry.waterQuality?.ph,
+                                    temperature: entry.waterQuality?.temperature,
+                                    feedQuantity: entry.feedManagement?.feedQuantity,
+                                    survival: entry.sampling?.survival,
+                                    biomass: entry.sampling?.biomass,
+                                    healthStatus: entry.shrimpHealth?.status,
+                                  },
                                 })
                               }
                             >
@@ -531,6 +549,11 @@ export default function FarmerDetailPage({ params }: PageProps) {
                                   dayNumber: entry.dayNumber,
                                   pondName: entry.pondName,
                                   timestamp: entry.date,
+                                  metrics: {
+                                    feedQuantity: entry.feedManagement?.feedQuantity,
+                                    survival: entry.sampling?.survival,
+                                    biomass: entry.sampling?.biomass,
+                                  },
                                 })
                               }
                             >
@@ -553,6 +576,11 @@ export default function FarmerDetailPage({ params }: PageProps) {
                                   dayNumber: entry.dayNumber,
                                   pondName: entry.pondName,
                                   timestamp: entry.date,
+                                  metrics: {
+                                    do: entry.waterQuality?.do,
+                                    ph: entry.waterQuality?.ph,
+                                    temperature: entry.waterQuality?.temperature,
+                                  },
                                 })
                               }
                             >
