@@ -127,6 +127,9 @@ router.get('/stream', async (req, res) => {
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     stream.pipe(res);
   } catch (err) {

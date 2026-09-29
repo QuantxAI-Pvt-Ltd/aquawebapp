@@ -18,7 +18,8 @@ app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow media to load across origins
     crossOriginEmbedderPolicy: false,
-    frameguard: { action: "sameorigin" },
+    frameguard: false, // Allow iframing across local dashboard & farmer apps
+    contentSecurityPolicy: false, // Disable default Helmet CSP that blocks iframes via frame-ancestors 'self'
     noSniff: true,
     hsts: {
       maxAge: 63072000,

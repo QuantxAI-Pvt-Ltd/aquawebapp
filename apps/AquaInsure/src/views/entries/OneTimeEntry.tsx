@@ -407,7 +407,7 @@ const OneTimeEntry = () => {
                 initial={{ opacity: 0, scale: 0.92, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.92, y: 10 }}
-                className="w-full max-w-lg bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex flex-col max-h-[85vh]"
+                className="w-full max-w-4xl w-[94vw] bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex flex-col max-h-[90vh]"
               >
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-3.5 bg-stone-900/90 border-b border-white/10 text-white shrink-0">
@@ -435,31 +435,18 @@ const OneTimeEntry = () => {
                 </div>
 
                 {/* Media Container */}
-                <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[260px]">
+                <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[320px]">
                   {viewerModal.url.toLowerCase().includes('.pdf') || viewerModal.url.startsWith('data:application/pdf') ? (
-                    <div className="flex flex-col items-center justify-center gap-4 py-8 text-center px-4">
-                      <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
-                        <FileText size={32} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white mb-1">PDF Document</p>
-                        <p className="text-xs text-stone-400 max-w-xs">This PDF document can be viewed or downloaded in a new browser tab.</p>
-                      </div>
-                      <a
-                        href={viewerModal.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md inline-flex items-center gap-2 transition-all"
-                      >
-                        <ExternalLink size={14} />
-                        <span>Open PDF Document</span>
-                      </a>
-                    </div>
+                    <iframe
+                      src={viewerModal.url}
+                      className="w-full h-[70vh] rounded-2xl border-0 bg-white"
+                      title={viewerModal.title}
+                    />
                   ) : (
                     <img
                       src={viewerModal.url}
                       alt={viewerModal.title}
-                      className="max-h-[65vh] w-full rounded-2xl object-contain shadow-md"
+                      className="max-h-[72vh] w-full rounded-2xl object-contain shadow-md"
                     />
                   )}
                 </div>
