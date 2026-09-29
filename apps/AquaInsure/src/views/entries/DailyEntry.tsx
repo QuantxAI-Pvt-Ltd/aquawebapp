@@ -879,10 +879,20 @@ const DailyEntry = () => {
         const localPond = localPonds.find((lp: any) =>
           (lp._id || lp.pondId) === (activePond._id || activePond.pondId)
         );
-        // Photos are stored on the server — never in localStorage
-        const photo = activePond.photo || null;
+        // Photos are stored on the server
+        const photo = activePond.photo || localPond?.photo || null;
         const acres = localPond?.dimensionAcres ?? activePond.dimensionAcres ?? null;
-        const addr = localPond?.address || activePond.address || {};
+        
+        // Resolve address: check pond address, fallback to farm location
+        const pondAddr = activePond.address || localPond?.address || {};
+        const farmLoc = farmData.location || {};
+        const addr = {
+          village: pondAddr.village && pondAddr.village !== '-' ? pondAddr.village : (farmLoc.place || farmLoc.taluk || ''),
+          taluk: pondAddr.taluk && pondAddr.taluk !== '-' ? pondAddr.taluk : (farmLoc.taluk || ''),
+          district: pondAddr.district && pondAddr.district !== '-' ? pondAddr.district : (farmLoc.district || ''),
+          state: pondAddr.state && pondAddr.state !== '-' ? pondAddr.state : (farmLoc.state || ''),
+          pinCode: pondAddr.pinCode && pondAddr.pinCode !== '000000' ? pondAddr.pinCode : (farmLoc.pinCode || ''),
+        };
         const srcUrl = resolveMediaUrl(photo);
 
         return (
