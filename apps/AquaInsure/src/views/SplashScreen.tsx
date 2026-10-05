@@ -21,22 +21,40 @@ const SplashScreen = () => {
 
     const checkSessionAndNavigate = async () => {
       try {
+        const hasLang = !!localStorage.getItem('shrimpguard-lang');
         const sessionStr = localStorage.getItem('aqua-session');
-        if (!sessionStr) {
+
+        // 1. If language was never chosen, always route to language selection first
+        if (!hasLang) {
           navigate('/language', { replace: true });
           return;
         }
 
-        const session = JSON.parse(sessionStr);
-        if (!session?.token) {
-          navigate('/language', { replace: true });
+        // 2. If no active session, route to login
+        if (!sessionStr) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        let session: any = null;
+        try {
+          session = JSON.parse(sessionStr);
+        } catch {
+          localStorage.removeItem('aqua-session');
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        if (!session?.token || !session?.farmerId) {
+          localStorage.removeItem('aqua-session');
+          navigate('/login', { replace: true });
           return;
         }
 
         const res = await axios.get('/api/auth/status');
         if (ignore) return;
 
-        if (res.data.success) {
+        if (res.data?.success) {
           const { isProfileComplete, onboardingStep, farmData, name } = res.data;
           if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
           if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
@@ -72,17 +90,19 @@ const SplashScreen = () => {
             navigate('/dashboard', { replace: true });
           }
         } else {
+          localStorage.removeItem('aqua-session');
           navigate('/login', { replace: true });
         }
       } catch (err) {
         if (!ignore) {
-          const isComplete = localStorage.getItem('aqua-reg-complete') === '1';
-          const session = localStorage.getItem('aqua-session');
-          if (session) {
-            navigate(isComplete ? '/dashboard' : '/farmer-registration', { replace: true });
-          } else {
-            navigate('/language', { replace: true });
-          }
+          // Token is expired, invalid, or server rejected auth - purge stale session
+          localStorage.removeItem('aqua-session');
+          localStorage.removeItem('shrimpguard-farmer');
+          localStorage.removeItem('aqua-farm');
+          localStorage.removeItem('aqua-reg-complete');
+
+          const hasLang = !!localStorage.getItem('shrimpguard-lang');
+          navigate(hasLang ? '/login' : '/language', { replace: true });
         }
       }
     };

@@ -72,37 +72,39 @@ export default function FarmerRegistration() {
     if (typeof window === "undefined") return;
 
     try {
-      const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
+      const sessStr = localStorage.getItem("aqua-session");
+      const sess = sessStr ? JSON.parse(sessStr) : null;
+      if (!sess?.token || !sess?.farmerId) {
+        const hasLang = !!localStorage.getItem("shrimpguard-lang");
+        navigate(hasLang ? "/login" : "/language", { replace: true });
+        return;
+      }
       setSession(sess);
 
-      if (sess.farmerId) {
-        axios
-          .get(`/api/farmers/${sess.farmerId}`)
-          .then((res) => {
-            if (res.data?.success && res.data?.data) {
-              const f = res.data.data;
-              reset({
-                name: f.name || "",
-                fatherName: f.fatherName || "",
-                phone: f.phone || sess.phone || "",
-                gender: f.gender || undefined,
-                isScSt: !!f.isScSt,
-                dob: f.dob ? f.dob.split("T")[0] : "",
-              });
-            }
-          })
-          .catch((err) => {
-            console.warn("Could not load from backend, fallback to local storage:", err);
-            const draftStr = localStorage.getItem("draft_farmer");
-            if (draftStr) reset(JSON.parse(draftStr));
-          });
-      } else if (sess.phone) {
-        setValue("phone", sess.phone);
-      }
+      axios
+        .get(`/api/farmers/${sess.farmerId}`)
+        .then((res) => {
+          if (res.data?.success && res.data?.data) {
+            const f = res.data.data;
+            reset({
+              name: f.name && f.name !== 'New Farmer' ? f.name : "",
+              fatherName: f.fatherName && f.fatherName !== 'N/A' ? f.fatherName : "",
+              phone: f.phone || sess.phone || "",
+              gender: f.gender || undefined,
+              isScSt: !!f.isScSt,
+              dob: f.dob ? f.dob.split("T")[0] : "",
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn("Could not load from backend, fallback to local storage:", err);
+          const draftStr = localStorage.getItem("draft_farmer");
+          if (draftStr) reset(JSON.parse(draftStr));
+        });
     } catch (e) {
       console.error("Hydration error:", e);
     }
-  }, [reset, setValue]);
+  }, [reset, setValue, navigate]);
 
   const formValues = watch();
 

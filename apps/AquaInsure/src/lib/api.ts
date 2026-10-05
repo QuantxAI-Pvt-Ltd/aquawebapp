@@ -39,13 +39,15 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (typeof window !== 'undefined' && error?.response?.status === 401) {
+    if (typeof window !== 'undefined' && (error?.response?.status === 401 || error?.response?.status === 403)) {
       const currentPath = window.location.pathname;
-      // If not already on login or landing page, purge stale auth and redirect
-      if (!currentPath.includes('/login') && !currentPath.includes('/signup') && !currentPath.endsWith('/language/')) {
+      // If not already on login, signup or language page, purge stale auth and redirect
+      if (!currentPath.includes('/login') && !currentPath.includes('/signup') && !currentPath.includes('/language')) {
         console.warn('[Auth Interceptor] Session token expired or invalid. Redirecting to login.');
         localStorage.removeItem('aqua-session');
-        localStorage.removeItem('shrimpguard-user');
+        localStorage.removeItem('shrimpguard-farmer');
+        localStorage.removeItem('aqua-farm');
+        localStorage.removeItem('aqua-reg-complete');
         window.location.href = '/aquainsure/login/';
       }
     }

@@ -110,6 +110,20 @@ const Dashboard = () => {
   useEffect(() => {
     const sessionStr = localStorage.getItem('aqua-session');
     if (!sessionStr) {
+      const hasLang = !!localStorage.getItem('shrimpguard-lang');
+      navigate(hasLang ? '/login' : '/language', { replace: true });
+      return;
+    }
+
+    try {
+      const sess = JSON.parse(sessionStr);
+      if (!sess?.token || !sess?.farmerId) {
+        localStorage.removeItem('aqua-session');
+        navigate('/login', { replace: true });
+        return;
+      }
+    } catch {
+      localStorage.removeItem('aqua-session');
       navigate('/login', { replace: true });
       return;
     }
@@ -118,7 +132,7 @@ const Dashboard = () => {
     if (regComplete !== '1') {
       axios.get('/api/auth/status')
         .then((res) => {
-          if (res.data.success) {
+          if (res.data?.success) {
             const { isProfileComplete, onboardingStep, farmData, name } = res.data;
             if (name) localStorage.setItem('shrimpguard-farmer', JSON.stringify({ name }));
             if (farmData) localStorage.setItem('aqua-farm', JSON.stringify(farmData));
@@ -154,7 +168,12 @@ const Dashboard = () => {
           }
         })
         .catch(() => {
-          navigate('/farmer-registration', { replace: true });
+          // If auth check fails, token is invalid/expired - purge session and redirect to login
+          localStorage.removeItem('aqua-session');
+          localStorage.removeItem('shrimpguard-farmer');
+          localStorage.removeItem('aqua-farm');
+          localStorage.removeItem('aqua-reg-complete');
+          navigate('/login', { replace: true });
         });
     }
   }, [navigate]);

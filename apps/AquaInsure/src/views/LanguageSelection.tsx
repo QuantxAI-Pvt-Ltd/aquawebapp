@@ -26,7 +26,11 @@ const LanguageSelection = () => {
     localStorage.setItem('shrimpguard-lang', code);
   };
 
-  const handleContinue = () => navigate('/login');
+  const handleContinue = () => {
+    localStorage.setItem('shrimpguard-lang', selected);
+    i18n.changeLanguage(selected);
+    navigate('/login');
+  };
 
   return (
     <div

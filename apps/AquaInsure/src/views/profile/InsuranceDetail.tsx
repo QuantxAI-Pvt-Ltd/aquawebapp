@@ -231,7 +231,7 @@ export default function InsuranceDetail() {
                             const canClaim = policy.status === "active";
 
                             return (
-                                <div>
+                                <div key={policy._id || `policy-${i}`}>
 
                                     {/* Policy header */}
                                     <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3">
@@ -241,7 +241,7 @@ export default function InsuranceDetail() {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-stone-800 capitalize">
-                                                    {policy.pondId?.name ? `${policy.pondId.name} Â· ` : ""}
+                                                    {policy.pondId?.name ? `${policy.pondId.name} · ` : ""}
                                                     {policy.insuranceType} Policy
                                                 </p>
                                                 <p className="text-xs text-stone-400">{policy.species}</p>
@@ -334,13 +334,13 @@ export default function InsuranceDetail() {
                             const isRejected = c?.status === "rejected";
 
                             return (
-                                <div>
+                                <div key={item._id || `claim-${idx}`} className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-3">
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
                                             <h4 className="text-sm font-bold text-stone-800">
                                                 {item.pondId?.name || `Pond ${item.pondId?.pondNumber || ''}`}
                                             </h4>
-                                            <p className="text-[11px] text-stone-400">{item.species} Â· {item.insuranceType} Policy</p>
+                                            <p className="text-[11px] text-stone-400">{item.species} · {item.insuranceType} Policy</p>
                                         </div>
                                         <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${
                                             isApproved ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
@@ -365,7 +365,7 @@ export default function InsuranceDetail() {
                                     {isApproved && (
                                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between text-xs font-bold text-emerald-800 mb-2">
                                             <span>Approved Settlement</span>
-                                            <span className="text-sm">â‚¹{Number(c?.settlementAmount || 0).toLocaleString('en-IN')}</span>
+                                            <span className="text-sm">₹{Number(c?.settlementAmount || 0).toLocaleString('en-IN')}</span>
                                         </div>
                                     )}
 
@@ -411,7 +411,7 @@ export default function InsuranceDetail() {
                                     <div>
                                         <h3 className="text-sm font-bold text-stone-800">File Insurance Claim</h3>
                                         <p className="text-[11px] text-stone-400">
-                                            {activeClaimPolicy.pondId?.name || `Pond ${activeClaimPolicy.pondId?.pondNumber || ''}`} Â· {activeClaimPolicy.species}
+                                            {activeClaimPolicy.pondId?.name || `Pond ${activeClaimPolicy.pondId?.pondNumber || ''}`} · {activeClaimPolicy.species}
                                         </p>
                                     </div>
                                 </div>

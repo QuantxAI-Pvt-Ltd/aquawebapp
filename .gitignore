@@ -43,4 +43,17 @@ yarn-error.log*
 *.pem
 *.tmp
 .localstorage*
+*.tsbuildinfo
+
+# SeaweedFS local data & keys
+*.dat
+*.idx
+*.vif
+.mini*
+mini.options
+vol_dir.uuid
+filerldb2/
+m9333/
+worker/
+admin/
 

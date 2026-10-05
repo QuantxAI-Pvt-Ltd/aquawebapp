@@ -59,7 +59,13 @@ export default function FarmRegistration() {
     if (typeof window === "undefined") return;
 
     try {
-      const sess = JSON.parse(localStorage.getItem("aqua-session") || "{}");
+      const sessStr = localStorage.getItem("aqua-session");
+      const sess = sessStr ? JSON.parse(sessStr) : null;
+      if (!sess?.token || !sess?.farmerId) {
+        const hasLang = !!localStorage.getItem("shrimpguard-lang");
+        navigate(hasLang ? "/login" : "/language", { replace: true });
+        return;
+      }
       if (sess.farmerId) {
         axios
           .get(`/api/farmers/${sess.farmerId}`)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -13,6 +13,30 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const Login = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hasLang = !!localStorage.getItem('shrimpguard-lang');
+    if (!hasLang) {
+      navigate('/language', { replace: true });
+      return;
+    }
+
+    const sessionStr = localStorage.getItem('aqua-session');
+    if (sessionStr) {
+      try {
+        const sess = JSON.parse(sessionStr);
+        if (sess?.token && sess?.farmerId) {
+          const isComplete = localStorage.getItem('aqua-reg-complete') === '1';
+          if (isComplete) {
+            navigate('/dashboard', { replace: true });
+          }
+        }
+      } catch {
+        localStorage.removeItem('aqua-session');
+      }
+    }
+  }, [navigate]);
 
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');

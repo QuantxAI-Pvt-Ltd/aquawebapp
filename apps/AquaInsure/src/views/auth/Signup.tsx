@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -13,6 +13,14 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const Signup = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hasLang = !!localStorage.getItem('shrimpguard-lang');
+    if (!hasLang) {
+      navigate('/language', { replace: true });
+    }
+  }, [navigate]);
 
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
