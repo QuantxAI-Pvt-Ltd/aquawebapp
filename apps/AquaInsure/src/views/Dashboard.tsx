@@ -63,7 +63,7 @@ const dashboardCards = [
     icon: Waves,
     labelKey: "dashboard.insuredPonds",
     descKey: "dashboard.descInsuredPonds",
-    path: "/insured-ponds",
+    path: "/insured-ponds?view=readonly",
     accent: "#0d9488",
     iconBg: "linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)",
     iconBorder: "#99f6e4",
