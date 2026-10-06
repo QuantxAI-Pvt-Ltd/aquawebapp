@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mic, Upload, ScanLine, CheckCircle2, Loader2, Camera } from "lucide-react";
+import { Mic, Upload, ScanLine, CheckCircle2, Loader2, Camera, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +19,7 @@ import BottomNav from "@/components/BottomNav";
 import SyncIndicator from "@/components/SyncIndicator";
 import RegistrationHeader from "@/components/RegistrationHeader";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { uploadToSeaweedFS } from "@/lib/fileUtils";
+import { uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import axios, { API_BASE_URL } from "@/lib/api";
 import CameraCapture from "@/components/CameraCapture";
 
@@ -43,6 +43,9 @@ export default function FarmerRegistration() {
   const { t } = useTranslation();
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [existingPhoto, setExistingPhoto] = useState<any>(null);
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<string | null>(null);
   const [aadharOcrLoading, setAadharOcrLoading] = useState(false);
   const [aadharOcrDone, setAadharOcrDone] = useState(false);
   const aadharInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +89,9 @@ export default function FarmerRegistration() {
         .then((res) => {
           if (res.data?.success && res.data?.data) {
             const f = res.data.data;
+            if (f.identity?.photo) {
+              setExistingPhoto(f.identity.photo);
+            }
             reset({
               name: f.name && f.name !== 'New Farmer' ? f.name : "",
               fatherName: f.fatherName && f.fatherName !== 'N/A' ? f.fatherName : "",
@@ -107,6 +113,19 @@ export default function FarmerRegistration() {
   }, [reset, setValue, navigate]);
 
   const formValues = watch();
+  const watchedPhoto = watch("photo");
+
+  useEffect(() => {
+    if (watchedPhoto instanceof File) {
+      const url = URL.createObjectURL(watchedPhoto);
+      setLocalPhotoUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setLocalPhotoUrl(null);
+    }
+  }, [watchedPhoto]);
+
+  const activePhotoUrl = localPhotoUrl || (existingPhoto ? resolveMediaUrl(existingPhoto) : null);
 
   // Cloud Autosave directly to DB
   const { syncStatus } = useAutoSave(formValues, async () => {
@@ -161,7 +180,10 @@ export default function FarmerRegistration() {
 
       if (photoMedia) {
         payload.identity = { photo: photoMedia.key || photoMedia.url };
+      } else if (existingPhoto) {
+        payload.identity = { photo: existingPhoto };
       }
+
       if (aadharMedia) {
         payload.identity = {
           ...(payload.identity || {}),
@@ -408,34 +430,115 @@ export default function FarmerRegistration() {
 
               {/* Farmer Photo */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-500 ml-0.5">
-                  {t("farmer.photo")}
-                </label>
-                <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-between h-12 px-4 rounded-xl border border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 transition-colors">
-                    <span className="text-sm text-stone-400 truncate max-w-[170px]">
-                      {watch("photo")
-                        ? watch("photo") instanceof File
-                          ? (watch("photo") as File).name
-                          : "Photo selected"
-                        : t("common.upload")}
-                    </span>
-                    <Upload size={16} className="text-teal-600 shrink-0 ml-2" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => setValue("photo", e.target.files?.[0], { shouldDirty: true })}
-                    />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-500 ml-0.5">
+                    {t("farmer.photo")}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsCameraOpen(true)}
-                    className="flex items-center justify-center w-14 h-12 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-teal-600 transition-colors"
-                  >
-                    <Camera size={18} />
-                  </button>
+                  {activePhotoUrl && (
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
+                      Photo Added ✓
+                    </span>
+                  )}
                 </div>
+
+                {activePhotoUrl ? (
+                  <div className="flex items-center gap-3 p-3 rounded-2xl border border-teal-200 bg-teal-50/50 shadow-xs">
+                    {/* Thumbnail with Click to Preview */}
+                    <div
+                      className="relative w-14 h-14 rounded-xl overflow-hidden border border-teal-300 shrink-0 cursor-pointer group shadow-xs bg-stone-100"
+                      onClick={() => setPreviewPhotoModal(activePhotoUrl)}
+                      title="Tap to preview photo"
+                    >
+                      <img
+                        src={activePhotoUrl}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye size={16} className="text-white drop-shadow" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-stone-800 truncate">
+                        {watchedPhoto instanceof File
+                          ? watchedPhoto.name
+                          : "Profile Photo"}
+                      </p>
+                      <p className="text-[10px] text-stone-500 mt-0.5">
+                        Tap thumbnail to preview
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhotoModal(activePhotoUrl)}
+                          className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 transition-colors"
+                        >
+                          <Eye size={12} />
+                          <span>Preview</span>
+                        </button>
+                        <span className="text-stone-300 text-xs">•</span>
+                        <label className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 cursor-pointer transition-colors">
+                          <Upload size={12} />
+                          <span>Change</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setValue("photo", file, { shouldDirty: true });
+                            }}
+                          />
+                        </label>
+                        <span className="text-stone-300 text-xs">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCameraOpen(true)}
+                          className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 transition-colors"
+                        >
+                          <Camera size={12} />
+                          <span>Retake</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setValue("photo", undefined, { shouldDirty: true });
+                        setExistingPhoto(null);
+                      }}
+                      className="p-1.5 text-stone-400 hover:text-red-500 rounded-lg hover:bg-white/80 transition-colors"
+                      title="Remove photo"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <label className="flex-1 flex items-center justify-between h-12 px-4 rounded-xl border border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 transition-colors">
+                      <span className="text-sm text-stone-400 truncate max-w-[170px]">
+                        {t("common.upload")}
+                      </span>
+                      <Upload size={16} className="text-teal-600 shrink-0 ml-2" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setValue("photo", e.target.files?.[0], { shouldDirty: true })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      className="flex items-center justify-center w-14 h-12 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-teal-600 transition-colors"
+                      title="Take photo with camera"
+                    >
+                      <Camera size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -468,6 +571,40 @@ export default function FarmerRegistration() {
           </form>
         </div>
       </div>
+
+      {/* Photo Preview Modal */}
+      {previewPhotoModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setPreviewPhotoModal(null)}
+        >
+          <div
+            className="relative max-w-lg w-full bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 z-[101]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-black/40">
+              <div className="flex items-center gap-2">
+                <Eye size={15} className="text-teal-400" />
+                <span className="text-xs font-semibold tracking-wide text-white/90">Profile Photo Preview</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoModal(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-stone-950/80 max-h-[75vh] overflow-hidden">
+              <img
+                src={previewPhotoModal}
+                alt="Profile Preview"
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

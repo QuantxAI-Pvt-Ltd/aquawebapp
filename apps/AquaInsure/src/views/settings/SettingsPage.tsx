@@ -20,10 +20,12 @@ import {
   Compass,
   Tractor,
   Waves,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import BottomNav from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
+import { resolveMediaUrl } from '@/lib/fileUtils';
 import axios from '@/lib/api';
 
 const SettingsPage = () => {
@@ -33,6 +35,8 @@ const SettingsPage = () => {
   const [farmer, setFarmer] = useState<any>(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<string | null>(null);
+  const [settingsImgError, setSettingsImgError] = useState(false);
 
   useEffect(() => {
     const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
@@ -70,6 +74,7 @@ const SettingsPage = () => {
   const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
   const farmerName = farmer?.name || session.name || 'Shrimp Farmer';
   const farmerPhone = farmer?.phone || session.phone || 'Verified Account';
+  const photoUrl = resolveMediaUrl(farmer?.identity?.photo);
 
   const registrationModules = [
     {
@@ -211,12 +216,30 @@ const SettingsPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm flex items-center gap-3.5"
           >
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shadow-teal-900/10 shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1c6b5a, #2d9b7f)' }}
-            >
-              {farmerName.charAt(0).toUpperCase()}
-            </div>
+            {photoUrl && !settingsImgError ? (
+              <div
+                className="relative w-12 h-12 rounded-2xl overflow-hidden border border-teal-500/30 shrink-0 shadow-md shadow-teal-900/10 cursor-pointer group bg-stone-100 transition-transform active:scale-95"
+                onClick={() => setPreviewPhotoModal(photoUrl)}
+                title="Tap to preview photo"
+              >
+                <img
+                  src={photoUrl}
+                  alt={farmerName}
+                  onError={() => setSettingsImgError(true)}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Eye size={16} className="text-white drop-shadow" />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shadow-teal-900/10 shrink-0"
+                style={{ background: 'linear-gradient(135deg, #1c6b5a, #2d9b7f)' }}
+              >
+                {farmerName.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-sm font-bold text-stone-800 truncate">{farmerName}</h2>
@@ -432,6 +455,40 @@ const SettingsPage = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Photo Preview Lightbox */}
+      {previewPhotoModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setPreviewPhotoModal(null)}
+        >
+          <div
+            className="relative max-w-lg w-full bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 z-[101]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-black/40">
+              <div className="flex items-center gap-2">
+                <Eye size={15} className="text-teal-400" />
+                <span className="text-xs font-semibold tracking-wide text-white/90">Profile Photo Preview</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoModal(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-stone-950/80 max-h-[75vh] overflow-hidden">
+              <img
+                src={previewPhotoModal}
+                alt="Profile Preview"
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

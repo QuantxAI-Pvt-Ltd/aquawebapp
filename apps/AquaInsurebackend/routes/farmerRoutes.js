@@ -101,6 +101,30 @@ const safeUploadBase64 = async (val, keyFn) => {
             uploadedAt: val.uploadedAt || new Date()
         };
     }
+    if (typeof val === 'string') {
+        const clean = val.trim();
+        if (clean.startsWith('farmers/') || clean.startsWith('farms/') || clean.startsWith('ponds/') || clean.startsWith('claims/') || clean.startsWith('aquainsure/')) {
+            const cleanKey = clean.replace(/^\/+/, '').replace(/^aquainsure\/?/, '');
+            return {
+                key: cleanKey,
+                bucket: 'aquainsure',
+                url: `/api/media/stream?key=${encodeURIComponent(cleanKey)}`,
+                mimeType: 'image/jpeg',
+                size: 0,
+                uploadedAt: new Date()
+            };
+        }
+        if (clean.startsWith('/api/media/stream') || clean.startsWith('http://') || clean.startsWith('https://')) {
+            return {
+                key: '',
+                bucket: 'aquainsure',
+                url: clean,
+                mimeType: 'image/jpeg',
+                size: 0,
+                uploadedAt: new Date()
+            };
+        }
+    }
     const parsed = parseBase64Media(val);
     if (parsed && parsed.isMediaObject) {
         return parsed.mediaObject;
@@ -192,26 +216,43 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Forbidden. You do not have permission to edit this profile.' });
         }
 
+        const existingFarmer = await Farmer.findById(farmerId);
+        if (!existingFarmer) {
+            return res.status(404).json({ success: false, error: 'Farmer not found' });
+        }
+
         const [regCertObj, aadharObj, panObj, photoObj] = await Promise.all([
-            data.registration?.regCertificate ? safeUploadBase64(data.registration.regCertificate, (ext) => StorageHierarchy.farmerRegCert(farmerId, ext)) : null,
-            data.identity?.aadharFile ? safeUploadBase64(data.identity.aadharFile, (ext) => StorageHierarchy.farmerAadhar(farmerId, ext)) : null,
-            data.identity?.panFile ? safeUploadBase64(data.identity.panFile, (ext) => StorageHierarchy.farmerPan(farmerId, ext)) : null,
-            data.identity?.photo ? safeUploadBase64(data.identity.photo, (ext) => StorageHierarchy.farmerPhoto(farmerId, ext)) : null,
+            data.registration?.regCertificate !== undefined ? safeUploadBase64(data.registration.regCertificate, (ext) => StorageHierarchy.farmerRegCert(farmerId, ext)) : null,
+            data.identity?.aadharFile !== undefined ? safeUploadBase64(data.identity.aadharFile, (ext) => StorageHierarchy.farmerAadhar(farmerId, ext)) : null,
+            data.identity?.panFile !== undefined ? safeUploadBase64(data.identity.panFile, (ext) => StorageHierarchy.farmerPan(farmerId, ext)) : null,
+            data.identity?.photo !== undefined ? safeUploadBase64(data.identity.photo, (ext) => StorageHierarchy.farmerPhoto(farmerId, ext)) : null,
         ]);
 
         const updateData = { ...data };
         if (data.registration) {
+            const existingReg = (existingFarmer.registration?.toObject ? existingFarmer.registration.toObject() : existingFarmer.registration) || {};
             updateData.registration = {
+                ...existingReg,
                 ...data.registration,
-                regCertificate: regCertObj !== null ? regCertObj : (data.registration.regCertificate || null)
+                regCertificate: data.registration.regCertificate !== undefined
+                    ? (regCertObj !== null ? regCertObj : (data.registration.regCertificate || null))
+                    : (existingReg.regCertificate || null)
             };
         }
         if (data.identity) {
+            const existingIdent = (existingFarmer.identity?.toObject ? existingFarmer.identity.toObject() : existingFarmer.identity) || {};
             updateData.identity = {
+                ...existingIdent,
                 ...data.identity,
-                aadharFile: aadharObj !== null ? aadharObj : (data.identity.aadharFile || null),
-                panFile: panObj !== null ? panObj : (data.identity.panFile || null),
-                photo: photoObj !== null ? photoObj : (data.identity.photo || null)
+                aadharFile: data.identity.aadharFile !== undefined
+                    ? (aadharObj !== null ? aadharObj : (data.identity.aadharFile || null))
+                    : (existingIdent.aadharFile || null),
+                panFile: data.identity.panFile !== undefined
+                    ? (panObj !== null ? panObj : (data.identity.panFile || null))
+                    : (existingIdent.panFile || null),
+                photo: data.identity.photo !== undefined
+                    ? (photoObj !== null ? photoObj : (data.identity.photo || null))
+                    : (existingIdent.photo || null)
             };
             if (!updateData.identity.aadharNumber || String(updateData.identity.aadharNumber).trim() === '') {
                 delete updateData.identity.aadharNumber;
@@ -220,16 +261,26 @@ router.patch('/:farmerId', requireAuth, async (req, res) => {
                 delete updateData.identity.panNumber;
             }
         }
+        if (data.address) {
+            const existingAddr = (existingFarmer.address?.toObject ? existingFarmer.address.toObject() : existingFarmer.address) || {};
+            updateData.address = {
+                ...existingAddr,
+                ...data.address
+            };
+        }
+        if (data.bankDetails) {
+            const existingBank = (existingFarmer.bankDetails?.toObject ? existingFarmer.bankDetails.toObject() : existingFarmer.bankDetails) || {};
+            updateData.bankDetails = {
+                ...existingBank,
+                ...data.bankDetails
+            };
+        }
 
         const farmer = await Farmer.findByIdAndUpdate(
             farmerId,
             { $set: updateData },
             { returnDocument: 'after', runValidators: false }
         );
-
-        if (!farmer) {
-            return res.status(404).json({ success: false, error: 'Farmer not found' });
-        }
 
         res.status(200).json({ success: true, data: farmer });
     } catch (err) {
@@ -250,7 +301,13 @@ router.get('/:farmerId', async (req, res) => {
 
         const resolveField = (field) => {
             if (!field) return null;
-            if (typeof field === 'object' && field.url) return field.url;
+            if (typeof field === 'object') {
+                if (field.url) return field.url;
+                if (field.key) return `/api/media/stream?key=${encodeURIComponent(field.key)}`;
+                if (field.buffer && Buffer.isBuffer(field.buffer)) {
+                    return `data:image/jpeg;base64,${field.buffer.toString('base64')}`;
+                }
+            }
             if (typeof field === 'string') {
                 if (field.startsWith('http://') || field.startsWith('https://') || field.startsWith('/') || field.startsWith('data:')) {
                     return field;
@@ -259,9 +316,6 @@ router.get('/:farmerId', async (req, res) => {
                     return `/api/media/stream?key=${encodeURIComponent(field)}`;
                 }
                 return `data:image/jpeg;base64,${field}`;
-            }
-            if (field.buffer && Buffer.isBuffer(field.buffer)) {
-                return `data:image/jpeg;base64,${field.buffer.toString('base64')}`;
             }
             if (Buffer.isBuffer(field)) {
                 return `data:image/jpeg;base64,${field.toString('base64')}`;

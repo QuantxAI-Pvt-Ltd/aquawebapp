@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, User, FileText, X } from "lucide-react";
+import { ChevronLeft, User, FileText, X, Eye } from "lucide-react";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
 import { resolveMediaUrl } from "@/lib/fileUtils";
@@ -21,6 +21,7 @@ export default function FarmerProfile() {
     const { t } = useTranslation();
     const [farmer, setFarmer] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [avatarImgError, setAvatarImgError] = useState(false);
     const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
     useEffect(() => {
@@ -68,22 +69,40 @@ export default function FarmerProfile() {
                             const photoUrl = resolveMediaUrl(farmer.identity?.photo);
                             return (
                                 <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-4">
-                                    {photoUrl ? (
-                                        <div className="w-14 h-14 rounded-2xl overflow-hidden border border-amber-100 shrink-0 shadow-xs cursor-pointer" onClick={() => setPreviewDoc(photoUrl)}>
+                                    {photoUrl && !avatarImgError ? (
+                                        <div
+                                            className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-200/80 shrink-0 shadow-xs cursor-pointer group transition-all duration-200 hover:ring-2 hover:ring-amber-400/60 active:scale-95 bg-stone-100"
+                                            onClick={() => setPreviewDoc(photoUrl)}
+                                            title="Click to preview photo"
+                                        >
                                             <img
                                                 src={photoUrl}
                                                 alt={farmer.name}
-                                                className="w-full h-full object-cover"
+                                                onError={() => setAvatarImgError(true)}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
+                                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Eye size={18} className="text-white drop-shadow" />
+                                            </div>
                                         </div>
                                     ) : (
-                                        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                                            <User size={24} className="text-amber-500" />
+                                        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center shrink-0 shadow-xs">
+                                            <User size={26} className="text-amber-500" />
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-base font-bold text-stone-800">{farmer.name}</p>
-                                        <p className="text-xs text-stone-400">{farmer.phone}</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-base font-bold text-stone-800 truncate">{farmer.name}</p>
+                                        <p className="text-xs text-stone-400 font-medium">{farmer.phone}</p>
+                                        {photoUrl && !avatarImgError && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewDoc(photoUrl)}
+                                                className="mt-1 text-[11px] font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-1 transition-colors"
+                                            >
+                                                <Eye size={12} />
+                                                <span>Preview Photo</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -179,17 +198,33 @@ export default function FarmerProfile() {
             {/* Document / Photo Preview Modal */}
             {previewDoc && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs animate-in fade-in duration-200"
                     onClick={() => setPreviewDoc(null)}
                 >
-                    <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl bg-black z-[101]">
-                        <button
-                            onClick={() => setPreviewDoc(null)}
-                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black z-10"
-                        >
-                            <X size={18} />
-                        </button>
-                        <img src={previewDoc} alt="Document" className="max-h-[80vh] w-auto object-contain mx-auto" />
+                    <div
+                        className="relative max-w-lg w-full bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 z-[101]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-black/40">
+                            <div className="flex items-center gap-2">
+                                <Eye size={15} className="text-amber-400" />
+                                <span className="text-xs font-semibold tracking-wide text-white/90">Preview</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPreviewDoc(null)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-center bg-stone-950/80 max-h-[75vh] overflow-hidden">
+                            <img
+                                src={previewDoc}
+                                alt="Document preview"
+                                className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
+                            />
+                        </div>
                     </div>
                 </div>
             )}
