@@ -163,35 +163,82 @@ export default function FarmerAddress() {
     const recognition = new SR();
     recognition.lang = localStorage.getItem("shrimpguard-lang") === "ta" ? "ta-IN" : "en-IN";
     recognition.onresult = (e: any) => {
-      setValue(field, e.results[0][0].transcript, { shouldDirty: true });
+      let text = e.results[0][0].transcript || "";
+      if (field === "pinCode") {
+        text = text.replace(/\D/g, "").slice(0, 6);
+      }
+      setValue(field, text, { shouldDirty: true, shouldValidate: true });
     };
     recognition.start();
     toast.info(t("common.listening"));
   };
 
-  const renderField = (name: keyof AddressForm, label: string, placeholder: string, type = "text") => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-stone-500 ml-0.5">{label}</label>
-      <div className="relative">
-        <Input
-          {...register(name)}
-          placeholder={placeholder}
-          type={type}
-          className="h-12 rounded-xl text-base sm:text-sm pr-11 border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-400"
-        />
-        <button
-          type="button"
-          onClick={() => handleSpeak(name)}
-          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-teal-600 hover:text-teal-700 transition-colors bg-transparent border-0 p-1"
-        >
-          <Mic size={16} />
-        </button>
+  const renderField = (name: keyof AddressForm, label: string, placeholder: string, type = "text") => {
+    const isPinCode = name === "pinCode";
+    let fieldProps: any = register(name);
+    if (isPinCode) {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("pinCode") || "",
+        maxLength: 6,
+        inputMode: "numeric" as const,
+        pattern: "[0-9]*",
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.replace(/\D/g, "").slice(0, 6);
+          e.target.value = sanitized;
+          setValue("pinCode", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    }
+
+    return (
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-stone-500 ml-0.5">{label}</label>
+        <div className="relative">
+          <Input
+            {...fieldProps}
+            placeholder={placeholder}
+            type={type}
+            className="h-12 rounded-xl text-base sm:text-sm pr-11 border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-400"
+          />
+          <button
+            type="button"
+            onClick={() => handleSpeak(name)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-teal-600 hover:text-teal-700 transition-colors bg-transparent border-0 p-1"
+          >
+            <Mic size={16} />
+          </button>
+        </div>
+        {errors[name] && (
+          <p className="text-red-500 text-xs mt-1 pl-0.5">{t(errors[name]?.message as string)}</p>
+        )}
       </div>
-      {errors[name] && (
-        <p className="text-red-500 text-xs mt-1 pl-0.5">{t(errors[name]?.message as string)}</p>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div
