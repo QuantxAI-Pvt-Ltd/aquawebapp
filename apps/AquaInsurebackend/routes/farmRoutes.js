@@ -168,25 +168,38 @@ router.post('/', requireAuth, async (req, res) => {
 
 // @route   GET /api/farms/ponds
 // @desc    Get all real Pond documents for a farmer
-// @query   farmerId
+// @query   farmerId, farmId
 router.get('/ponds', async (req, res) => {
     try {
-        const { farmerId } = req.query;
-        if (!farmerId) return res.status(400).json({ success: false, error: 'farmerId required' });
-        const ponds = await Pond.find({ farmerId }).sort({ pondNumber: 1 }).lean();
+        const { farmerId, farmId } = req.query;
+        const query = {};
+        if (farmerId) {
+            query.farmerId = mongoose.Types.ObjectId.isValid(farmerId) ? new mongoose.Types.ObjectId(farmerId) : farmerId;
+        }
+        if (farmId) {
+            query.farmId = mongoose.Types.ObjectId.isValid(farmId) ? new mongoose.Types.ObjectId(farmId) : farmId;
+        }
+        if (!query.farmerId && !query.farmId) {
+            return res.status(400).json({ success: false, error: 'farmerId or farmId required' });
+        }
+        const ponds = await Pond.find(query).sort({ pondNumber: 1 }).lean();
 
         // Convert photo: SeaweedFS MediaObject URL or Buffer → accessible URL
         const pondsWithPhoto = ponds.map(p => {
             let photoUrl = null;
             if (p.photo) {
-                if (typeof p.photo === 'object' && p.photo.url) {
-                    photoUrl = p.photo.url;
+                if (typeof p.photo === 'object') {
+                    if (p.photo.url) {
+                        photoUrl = p.photo.url;
+                    } else if (p.photo.key) {
+                        photoUrl = `/api/media/stream?key=${encodeURIComponent(p.photo.key)}`;
+                    } else if (p.photo.buffer && Buffer.isBuffer(p.photo.buffer)) {
+                        photoUrl = `data:image/jpeg;base64,${p.photo.buffer.toString('base64')}`;
+                    }
                 } else if (typeof p.photo === 'string' && (p.photo.startsWith('http://') || p.photo.startsWith('https://') || p.photo.startsWith('/') || p.photo.startsWith('data:'))) {
                     photoUrl = p.photo;
                 } else if (typeof p.photo === 'string' && (p.photo.includes('/') || p.photo.includes(','))) {
                     photoUrl = `/api/media/stream?key=${encodeURIComponent(p.photo)}`;
-                } else if (p.photo.buffer && Buffer.isBuffer(p.photo.buffer)) {
-                    photoUrl = `data:image/jpeg;base64,${p.photo.buffer.toString('base64')}`;
                 } else if (Buffer.isBuffer(p.photo)) {
                     photoUrl = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
                 } else if (typeof p.photo === 'string') {
