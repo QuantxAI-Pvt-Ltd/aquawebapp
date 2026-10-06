@@ -125,9 +125,39 @@ const Signup = () => {
                 <span className="pl-3.5 shrink-0 text-amber-500"><Phone className="w-4 h-4" /></span>
                 <Input
                   value={phone}
-                  onChange={e => { setPhone(e.target.value); setErrors(p => ({ ...p, phone: '' })); }}
+                  onChange={e => {
+                    const sanitized = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(sanitized);
+                    setErrors(p => ({ ...p, phone: '' }));
+                  }}
+                  onKeyDown={e => {
+                    if (
+                      [
+                        'Backspace',
+                        'Delete',
+                        'Tab',
+                        'Escape',
+                        'Enter',
+                        'ArrowLeft',
+                        'ArrowRight',
+                        'ArrowUp',
+                        'ArrowDown',
+                        'Home',
+                        'End',
+                      ].includes(e.key) ||
+                      e.ctrlKey ||
+                      e.metaKey
+                    ) {
+                      return;
+                    }
+                    if (!/^[0-9]$/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder={t('auth.mobilePlaceholder')}
                   type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={10}
                   className="bg-transparent h-12 pl-3 pr-4 text-base sm:text-sm font-medium text-stone-800 placeholder:text-stone-400 border-0 focus-visible:ring-0"
                 />

@@ -215,10 +215,42 @@ const Login = () => {
                 </span>
                 <Input
                   value={phone}
-                  onChange={e => { setPhone(e.target.value); setPhoneError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  onChange={e => {
+                    const sanitized = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(sanitized);
+                    setPhoneError('');
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      handleLogin();
+                      return;
+                    }
+                    if (
+                      [
+                        'Backspace',
+                        'Delete',
+                        'Tab',
+                        'Escape',
+                        'ArrowLeft',
+                        'ArrowRight',
+                        'ArrowUp',
+                        'ArrowDown',
+                        'Home',
+                        'End',
+                      ].includes(e.key) ||
+                      e.ctrlKey ||
+                      e.metaKey
+                    ) {
+                      return;
+                    }
+                    if (!/^[0-9]$/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder={t('auth.mobilePlaceholder')}
                   type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={10}
                   className="border-0 bg-transparent h-12 pl-3 pr-4 text-base sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-stone-300 text-stone-800"
                 />
