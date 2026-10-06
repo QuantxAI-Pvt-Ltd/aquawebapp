@@ -114,7 +114,7 @@ export default function FarmerKYC() {
 
       const draftAadhaar = localStorage.getItem("draft_farmer_aadharNumber");
       if (draftAadhaar) {
-        setValue("aadharNumber", draftAadhaar, { shouldDirty: true });
+        setValue("aadharNumber", draftAadhaar.replace(/\D/g, "").slice(0, 12), { shouldDirty: true });
       }
     } catch (e) {
       console.error("KYC hydration error:", e);
@@ -208,20 +208,207 @@ export default function FarmerKYC() {
     }
   };
 
-  const renderField = (name: keyof KYCForm, label: string, placeholder: string, type = "text") => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-stone-500 ml-0.5">{label}</label>
-      <Input
-        {...register(name)}
-        placeholder={placeholder}
-        type={type}
-        className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-400"
-      />
-      {errors[name] && (
-        <p className="text-red-500 text-xs mt-1 pl-0.5">{t(errors[name]?.message as string)}</p>
-      )}
-    </div>
-  );
+  const renderField = (name: keyof KYCForm, label: string, placeholder: string, type = "text") => {
+    let fieldProps: any = register(name);
+
+    if (name === "aadharNumber") {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("aadharNumber") || "",
+        maxLength: 12,
+        inputMode: "numeric" as const,
+        pattern: "[0-9]*",
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.replace(/\D/g, "").slice(0, 12);
+          e.target.value = sanitized;
+          setValue("aadharNumber", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    } else if (name === "accountNumber") {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("accountNumber") || "",
+        maxLength: 18,
+        inputMode: "numeric" as const,
+        pattern: "[0-9]*",
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.replace(/\D/g, "").slice(0, 18);
+          e.target.value = sanitized;
+          setValue("accountNumber", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    } else if (name === "accountHolderName") {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("accountHolderName") || "",
+        maxLength: 60,
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[a-zA-Z\s]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+          e.target.value = sanitized;
+          setValue("accountHolderName", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    } else if (name === "ifscCode") {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("ifscCode") || "",
+        maxLength: 11,
+        autoCapitalize: "characters",
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[a-zA-Z0-9]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11);
+          e.target.value = sanitized;
+          setValue("ifscCode", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    } else if (name === "panNumber") {
+      fieldProps = {
+        ...fieldProps,
+        value: watch("panNumber") || "",
+        maxLength: 10,
+        autoCapitalize: "characters",
+        onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (
+            [
+              "Backspace",
+              "Delete",
+              "Tab",
+              "Escape",
+              "Enter",
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "Home",
+              "End",
+            ].includes(e.key) ||
+            e.ctrlKey ||
+            e.metaKey
+          ) {
+            return;
+          }
+          if (!/^[a-zA-Z0-9]$/.test(e.key)) {
+            e.preventDefault();
+          }
+        },
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+          const sanitized = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+          e.target.value = sanitized;
+          setValue("panNumber", sanitized, { shouldValidate: true, shouldDirty: true });
+        },
+      };
+    }
+
+    return (
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-stone-500 ml-0.5">{label}</label>
+        <Input
+          {...fieldProps}
+          placeholder={placeholder}
+          type={type}
+          className="h-12 rounded-xl text-base sm:text-sm border-stone-200 bg-stone-50 focus-visible:ring-teal-500/25 focus-visible:border-teal-500 placeholder:text-stone-400"
+        />
+        {errors[name] && (
+          <p className="text-red-500 text-xs mt-1 pl-0.5">{t(errors[name]?.message as string)}</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
