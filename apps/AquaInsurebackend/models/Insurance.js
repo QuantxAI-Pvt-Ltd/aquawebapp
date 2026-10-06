@@ -37,7 +37,7 @@ const insuranceSchema = new mongoose.Schema({
     },
 
     claim: {
-        claimedAt: { type: Date },
+        claimedAt: { type: Date, default: null },
         reason: {
             type: String,
             enum: ['disease_outbreak', 'mass_mortality', 'flooding_calamity', 'water_toxicity', 'other']
@@ -47,10 +47,9 @@ const insuranceSchema = new mongoose.Schema({
         evidencePhoto: { type: mediaObjectSchema, default: null },
         status: {
             type: String,
-            enum: ['pending', 'under_review', 'approved', 'rejected'],
-            default: 'pending'
+            enum: ['pending', 'under_review', 'approved', 'rejected']
         },
-        reviewedAt: { type: Date },
+        reviewedAt: { type: Date, default: null },
         reviewerNotes: { type: String, default: '' },
         settlementAmount: { type: Number, default: 0 }
     }

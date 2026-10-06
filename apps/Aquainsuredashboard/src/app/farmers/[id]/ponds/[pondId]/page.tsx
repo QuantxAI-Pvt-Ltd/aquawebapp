@@ -100,7 +100,7 @@ function PondChartTooltip({ active, payload, label }: any) {
   return null;
 }
 
-export default function PondDossierPage({ params }: PageProps) {
+export default function PondDossierPage({ params }: { params: Promise<{ id: string; pondId: string }> }) {
   const resolvedParams = use(params);
   const { id: farmerId, pondId } = resolvedParams;
   const router = useRouter();

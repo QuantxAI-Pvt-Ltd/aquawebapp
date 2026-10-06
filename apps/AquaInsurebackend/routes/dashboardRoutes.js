@@ -746,17 +746,17 @@ router.get('/insurances', async (req, res) => {
             } else if (status === 'claim_pending') {
                 query.$or = [
                     { status: 'claim_pending' },
-                    { 'claim.status': { $in: ['pending', 'under_review'] } }
+                    { 'claim.claimedAt': { $ne: null }, 'claim.status': { $in: ['pending', 'under_review'] } }
                 ];
             } else if (status === 'claim_approved') {
                 query.$or = [
                     { status: { $in: ['claim_approved', 'claimed'] } },
-                    { 'claim.status': 'approved' }
+                    { 'claim.claimedAt': { $ne: null }, 'claim.status': 'approved' }
                 ];
             } else if (status === 'claim_rejected') {
                 query.$or = [
                     { status: 'claim_rejected' },
-                    { 'claim.status': 'rejected' }
+                    { 'claim.claimedAt': { $ne: null }, 'claim.status': 'rejected' }
                 ];
             } else {
                 query.status = status;
@@ -793,7 +793,7 @@ router.get('/insurances', async (req, res) => {
             }
         }
 
-        const [total, insurances] = await Promise.all([
+        const [total, insurances, pendingClaimsCount, approvedClaimsCount, activeCount] = await Promise.all([
             Insurance.countDocuments(query),
             Insurance.find(query)
                 .populate('farmerId', 'name phone aadharNumber address')
@@ -802,7 +802,20 @@ router.get('/insurances', async (req, res) => {
                 .sort({ 'claim.claimedAt': -1, createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit))
-                .lean()
+                .lean(),
+            Insurance.countDocuments({
+                $or: [
+                    { status: 'claim_pending' },
+                    { 'claim.claimedAt': { $ne: null }, 'claim.status': { $in: ['pending', 'under_review'] } }
+                ]
+            }),
+            Insurance.countDocuments({
+                $or: [
+                    { status: { $in: ['claim_approved', 'claimed'] } },
+                    { 'claim.claimedAt': { $ne: null }, 'claim.status': 'approved' }
+                ]
+            }),
+            Insurance.countDocuments({ status: 'active' })
         ]);
 
         res.json({
@@ -812,6 +825,12 @@ router.get('/insurances', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 totalPages: Math.ceil(total / parseInt(limit)),
+                counts: {
+                    total,
+                    pending: pendingClaimsCount,
+                    approved: approvedClaimsCount,
+                    active: activeCount
+                },
                 insurances
             }
         });

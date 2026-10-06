@@ -66,6 +66,13 @@ export default function InsurancesPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
+  const [serverCounts, setServerCounts] = useState<{
+    total: number;
+    pending: number;
+    approved: number;
+    active: number;
+  } | null>(null);
+
   // Fullscreen Review Modal state
   const [selectedPolicy, setSelectedPolicy] = useState<Insurance | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -93,12 +100,21 @@ export default function InsurancesPage() {
           success: boolean;
           data: {
             total: number;
+            counts?: {
+              total: number;
+              pending: number;
+              approved: number;
+              active: number;
+            };
             insurances: Insurance[];
           };
         }>(`/api/dashboard/insurances?${params.toString()}`);
 
         if (isCurrent) {
           setInsurances(res.data.insurances || []);
+          if (res.data.counts) {
+            setServerCounts(res.data.counts);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch insurances:', err);
@@ -174,16 +190,17 @@ export default function InsurancesPage() {
   };
 
   const counts = useMemo(() => {
+    if (serverCounts) return serverCounts;
     const total = insurances.length;
     const pending = insurances.filter(
-      (i) => i.status === 'claim_pending' || i.claim?.status === 'pending' || i.claim?.status === 'under_review'
+      (i) => (i.status === 'claim_pending' || (i.claim?.status === 'pending' || i.claim?.status === 'under_review')) && (!!i.claim?.claimedAt || i.status === 'claim_pending')
     ).length;
     const approved = insurances.filter(
-      (i) => i.status === 'claim_approved' || i.status === 'claimed' || i.claim?.status === 'approved'
+      (i) => (i.status === 'claim_approved' || i.status === 'claimed' || i.claim?.status === 'approved') && (!!i.claim?.claimedAt || i.status.startsWith('claim'))
     ).length;
     const active = insurances.filter((i) => i.status === 'active').length;
     return { total, pending, approved, active };
-  }, [insurances]);
+  }, [insurances, serverCounts]);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -343,9 +360,10 @@ export default function InsurancesPage() {
                   const farmer = typeof policy.farmerId === 'object' ? (policy.farmerId as Farmer) : null;
                   const pond = typeof policy.pondId === 'object' ? (policy.pondId as Pond) : null;
                   const claim = policy.claim;
-                  const isClaimPending = policy.status === 'claim_pending' || claim?.status === 'pending' || claim?.status === 'under_review';
-                  const isClaimApproved = policy.status === 'claim_approved' || policy.status === 'claimed' || claim?.status === 'approved';
-                  const isClaimRejected = policy.status === 'claim_rejected' || claim?.status === 'rejected';
+                  const hasClaim = !!claim?.claimedAt || policy.status.startsWith('claim');
+                  const isClaimPending = hasClaim && (policy.status === 'claim_pending' || claim?.status === 'pending' || claim?.status === 'under_review');
+                  const isClaimApproved = hasClaim && (policy.status === 'claim_approved' || policy.status === 'claimed' || claim?.status === 'approved');
+                  const isClaimRejected = hasClaim && (policy.status === 'claim_rejected' || claim?.status === 'rejected');
 
                   return (
                     <TableRow key={policy._id} className="border-border hover:bg-secondary/20 transition-colors">
@@ -455,7 +473,7 @@ export default function InsurancesPage() {
                               className="h-8 px-3 text-xs text-foreground hover:bg-secondary rounded-xl cursor-pointer inline-flex items-center gap-1.5"
                             >
                               <Maximize2 size={13} className="text-primary" />
-                              <span>Full Assessment</span>
+                              <span>View Policy</span>
                             </Button>
                           )}
                         </div>
@@ -475,56 +493,67 @@ export default function InsurancesPage() {
           {selectedPolicy && (
             <>
               {/* Header Bar */}
-              <DialogHeader className="px-6 py-4 border-b border-border bg-secondary/30 backdrop-blur-md shrink-0">
-                <div className="flex flex-wrap items-center justify-between gap-4 pr-8">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm ${
-                      selectedPolicy.claim?.status === 'approved'
-                        ? 'bg-primary'
-                        : selectedPolicy.claim?.status === 'rejected'
-                        ? 'bg-destructive'
-                        : 'bg-[#E23E57]'
-                    }`}>
-                      <ShieldAlert size={22} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <DialogTitle className="text-lg font-bold text-foreground">
-                          Policy & Claim Assessment Workspace
-                        </DialogTitle>
-                        <Badge variant="outline" className="font-mono text-xs border-border bg-card">
-                          ID: #{selectedPolicy._id}
-                        </Badge>
-                        <Badge className={`uppercase text-xs font-bold px-2 py-0.5 ${
-                          selectedPolicy.claim?.status === 'approved'
-                            ? 'bg-primary text-white'
+              {(() => {
+                const modalHasClaim = !!selectedPolicy.claim?.claimedAt || selectedPolicy.status.startsWith('claim');
+                return (
+                  <DialogHeader className="px-6 py-4 border-b border-border bg-secondary/30 backdrop-blur-md shrink-0">
+                    <div className="flex flex-wrap items-center justify-between gap-4 pr-8">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm ${
+                          !modalHasClaim
+                            ? 'bg-primary'
+                            : selectedPolicy.claim?.status === 'approved'
+                            ? 'bg-primary'
                             : selectedPolicy.claim?.status === 'rejected'
-                            ? 'bg-destructive text-white'
-                            : 'bg-[#E23E57] text-white'
+                            ? 'bg-destructive'
+                            : 'bg-[#E23E57]'
                         }`}>
-                          {selectedPolicy.claim?.status ? selectedPolicy.claim.status.replace('_', ' ') : selectedPolicy.status}
-                        </Badge>
+                          {!modalHasClaim ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <DialogTitle className="text-lg font-bold text-foreground">
+                              {!modalHasClaim ? 'Insurance Policy Dossier' : 'Policy & Claim Assessment Workspace'}
+                            </DialogTitle>
+                            <Badge variant="outline" className="font-mono text-xs border-border bg-card">
+                              ID: #{selectedPolicy._id}
+                            </Badge>
+                            <Badge className={`uppercase text-xs font-bold px-2 py-0.5 ${
+                              !modalHasClaim
+                                ? 'bg-primary/20 text-primary border-primary/30'
+                                : selectedPolicy.claim?.status === 'approved'
+                                ? 'bg-primary text-white'
+                                : selectedPolicy.claim?.status === 'rejected'
+                                ? 'bg-destructive text-white'
+                                : 'bg-[#E23E57] text-white'
+                            }`}>
+                              {!modalHasClaim ? selectedPolicy.status : (selectedPolicy.claim?.status ? selectedPolicy.claim.status.replace('_', ' ') : selectedPolicy.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {!modalHasClaim
+                              ? 'Active pond insurance coverage, pond parameters, and historical telemetry dossier.'
+                              : 'Technical review, loss assessment telemetry, and official government payout determination.'}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Technical review, loss assessment telemetry, and official government payout determination.
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {typeof selectedPolicy.farmerId === 'object' && (
-                      <Link
-                        href={`/farmers/${(selectedPolicy.farmerId as Farmer)._id}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground transition-colors"
-                      >
-                        <span>Open Farmer Profile</span>
-                        <ExternalLink size={13} className="text-primary" />
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </DialogHeader>
+                      <div className="flex items-center gap-2">
+                        {typeof selectedPolicy.farmerId === 'object' && (
+                          <Link
+                            href={`/farmers/${(selectedPolicy.farmerId as Farmer)._id}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground transition-colors"
+                          >
+                            <span>Open Farmer Profile</span>
+                            <ExternalLink size={13} className="text-primary" />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </DialogHeader>
+                );
+              })()}
 
               {/* ── Main Full-Screen Split Assessment Workspace ────────────── */}
               <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border">
@@ -707,116 +736,148 @@ export default function InsurancesPage() {
                   </div>
 
                   {/* Compensation & Valuation Benchmarking */}
-                  <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
-                    <CardHeader className="pb-3 border-b border-border">
-                      <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-                        <DollarSign size={16} className="text-primary" />
-                        Loss Valuation & Payout Determination Matrix
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Calculated benchmark assistance based on registered acreage, stocking density, and validated mortality.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-5 space-y-5">
-                      {/* Settlement Payout Entry */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
-                          Authorized Government Settlement Payout (₹)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-muted-foreground">₹</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1000}
-                            placeholder="Enter verified payout amount (e.g. 250000)"
-                            value={settlementAmount || ''}
-                            onChange={(e) => setSettlementAmount(Number(e.target.value))}
-                            className="pl-8 text-base font-bold bg-background border-border rounded-xl h-11"
-                            disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
-                          />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          Direct Benefit Transfer (DBT) will disburse this amount to the farmer&apos;s verified bank account.
-                        </p>
-                      </div>
+                  {(() => {
+                    const modalHasClaim = !!selectedPolicy.claim?.claimedAt || selectedPolicy.status.startsWith('claim');
+                    if (!modalHasClaim) {
+                      return (
+                        <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
+                          <CardHeader className="pb-3 border-b border-border">
+                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                              <ShieldCheck size={16} className="text-primary" />
+                              Active Insurance Policy Dossier
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              Continuous biometric monitoring & coverage status.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="p-6 text-center space-y-3">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto">
+                              <ShieldCheck size={24} />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-foreground">Active Coverage — No Incident Claim Filed</h4>
+                              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto leading-relaxed">
+                                This pond policy is currently in good standing with active coverage. When the farmer files an incident claim through the mobile application, loss assessment evidence, water telemetry alerts, and DBT settlement tools will be activated here.
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
 
-                      {/* Reviewer Technical Notes */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
-                          Underwriter Assessment & Field Justification
-                        </label>
-                        <Textarea
-                          rows={4}
-                          placeholder="Document observations from site inspections, water parameters, biometric sampling, and biosecurity audits..."
-                          value={reviewerNotes}
-                          onChange={(e) => setReviewerNotes(e.target.value)}
-                          className="w-full text-xs bg-background border border-border rounded-xl p-3 focus-visible:ring-1 focus-visible:ring-primary leading-relaxed"
-                          disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
-                        />
-                      </div>
+                    return (
+                      <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
+                        <CardHeader className="pb-3 border-b border-border">
+                          <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <DollarSign size={16} className="text-primary" />
+                            Loss Valuation & Payout Determination Matrix
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Calculated benchmark assistance based on registered acreage, stocking density, and validated mortality.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-5">
+                          {/* Settlement Payout Entry */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                              Authorized Government Settlement Payout (₹)
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-muted-foreground">₹</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={1000}
+                                placeholder="Enter verified payout amount (e.g. 250000)"
+                                value={settlementAmount || ''}
+                                onChange={(e) => setSettlementAmount(Number(e.target.value))}
+                                className="pl-8 text-base font-bold bg-background border-border rounded-xl h-11"
+                                disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Direct Benefit Transfer (DBT) will disburse this amount to the farmer&apos;s verified bank account.
+                            </p>
+                          </div>
 
-                      {/* Status Summary & Execution Buttons */}
-                      {selectedPolicy.claim?.status === 'approved' ? (
-                        <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-xs space-y-2">
-                          <div className="flex items-center justify-between font-bold text-primary">
-                            <span className="flex items-center gap-1.5 text-sm">
-                              <CheckCircle2 size={18} /> Claim Officially Authorized & Settled
-                            </span>
-                            <span className="text-base font-black">
-                              ₹{Number(selectedPolicy.claim.settlementAmount || 0).toLocaleString('en-IN')}
-                            </span>
+                          {/* Reviewer Technical Notes */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                              Underwriter Assessment & Field Justification
+                            </label>
+                            <Textarea
+                              rows={4}
+                              placeholder="Document observations from site inspections, water parameters, biometric sampling, and biosecurity audits..."
+                              value={reviewerNotes}
+                              onChange={(e) => setReviewerNotes(e.target.value)}
+                              className="w-full text-xs bg-background border border-border rounded-xl p-3 focus-visible:ring-1 focus-visible:ring-primary leading-relaxed"
+                              disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                            />
                           </div>
-                          {selectedPolicy.claim.reviewedAt && (
-                            <p className="text-[11px] text-muted-foreground">
-                              Approved on {formatDate(selectedPolicy.claim.reviewedAt)}
-                            </p>
+
+                          {/* Status Summary & Execution Buttons */}
+                          {selectedPolicy.claim?.status === 'approved' ? (
+                            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-xs space-y-2">
+                              <div className="flex items-center justify-between font-bold text-primary">
+                                <span className="flex items-center gap-1.5 text-sm">
+                                  <CheckCircle2 size={18} /> Claim Officially Authorized & Settled
+                                </span>
+                                <span className="text-base font-black">
+                                  ₹{Number(selectedPolicy.claim.settlementAmount || 0).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                              {selectedPolicy.claim.reviewedAt && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Approved on {formatDate(selectedPolicy.claim.reviewedAt)}
+                                </p>
+                              )}
+                              {selectedPolicy.claim.reviewerNotes && (
+                                <p className="text-foreground pt-2 border-t border-primary/20">
+                                  <strong>Inspector Notes: </strong>{selectedPolicy.claim.reviewerNotes}
+                                </p>
+                              )}
+                            </div>
+                          ) : selectedPolicy.claim?.status === 'rejected' ? (
+                            <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
+                              <div className="font-bold text-destructive flex items-center gap-1.5 text-sm">
+                                <XCircle size={18} /> Claim Rejected
+                              </div>
+                              {selectedPolicy.claim.reviewedAt && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Rejected on {formatDate(selectedPolicy.claim.reviewedAt)}
+                                </p>
+                              )}
+                              {selectedPolicy.claim.reviewerNotes && (
+                                <p className="text-foreground pt-2 border-t border-destructive/20">
+                                  <strong>Rejection Justification: </strong>{selectedPolicy.claim.reviewerNotes}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                              <Button
+                                onClick={() => handleReviewClaim('approve')}
+                                disabled={actionLoading}
+                                className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                              >
+                                <CheckCircle2 size={16} />
+                                <span>Authorize Verified Settlement Payout</span>
+                              </Button>
+                              <Button
+                                onClick={() => handleReviewClaim('reject')}
+                                disabled={actionLoading}
+                                variant="destructive"
+                                className="flex-1 font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                              >
+                                <XCircle size={16} />
+                                <span>Reject Claim</span>
+                              </Button>
+                            </div>
                           )}
-                          {selectedPolicy.claim.reviewerNotes && (
-                            <p className="text-foreground pt-2 border-t border-primary/20">
-                              <strong>Inspector Notes: </strong>{selectedPolicy.claim.reviewerNotes}
-                            </p>
-                          )}
-                        </div>
-                      ) : selectedPolicy.claim?.status === 'rejected' ? (
-                        <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
-                          <div className="font-bold text-destructive flex items-center gap-1.5 text-sm">
-                            <XCircle size={18} /> Claim Rejected
-                          </div>
-                          {selectedPolicy.claim.reviewedAt && (
-                            <p className="text-[11px] text-muted-foreground">
-                              Rejected on {formatDate(selectedPolicy.claim.reviewedAt)}
-                            </p>
-                          )}
-                          {selectedPolicy.claim.reviewerNotes && (
-                            <p className="text-foreground pt-2 border-t border-destructive/20">
-                              <strong>Rejection Justification: </strong>{selectedPolicy.claim.reviewerNotes}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                          <Button
-                            onClick={() => handleReviewClaim('approve')}
-                            disabled={actionLoading}
-                            className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
-                          >
-                            <CheckCircle2 size={16} />
-                            <span>Authorize Verified Settlement Payout</span>
-                          </Button>
-                          <Button
-                            onClick={() => handleReviewClaim('reject')}
-                            disabled={actionLoading}
-                            variant="destructive"
-                            className="flex-1 font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
-                          >
-                            <XCircle size={16} />
-                            <span>Reject Claim</span>
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
                 </div>
               </div>
             </>
