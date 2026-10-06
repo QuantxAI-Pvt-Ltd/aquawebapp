@@ -285,10 +285,10 @@ export default function FarmerKYC() {
           setValue("accountNumber", sanitized, { shouldValidate: true, shouldDirty: true });
         },
       };
-    } else if (name === "accountHolderName") {
+    } else if (name === "accountHolderName" || name === "bankName" || name === "branch") {
       fieldProps = {
         ...fieldProps,
-        value: watch("accountHolderName") || "",
+        value: watch(name as any) || "",
         maxLength: 60,
         onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
           if (
@@ -317,7 +317,7 @@ export default function FarmerKYC() {
         onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
           const sanitized = e.target.value.replace(/[^a-zA-Z\s]/g, "");
           e.target.value = sanitized;
-          setValue("accountHolderName", sanitized, { shouldValidate: true, shouldDirty: true });
+          setValue(name, sanitized, { shouldValidate: true, shouldDirty: true });
         },
       };
     } else if (name === "ifscCode") {
