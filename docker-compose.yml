@@ -5,10 +5,10 @@ services:
     container_name: aquainsure-seaweedfs
     restart: unless-stopped
     ports:
-      - "8333:8333"   # S3 Gateway
-      - "8888:8888"   # Filer HTTP API & Visual File Manager Web UI
-      - "9333:9333"   # Master Web Dashboard & Cluster Health
-      - "8085:8085"   # Volume Server (remapped from default 8080)
+      - "${SEAWEED_S3_PORT:-8333}:8333"
+      - "${SEAWEED_FILER_PORT:-8888}:8888"
+      - "${SEAWEED_MASTER_PORT:-9333}:9333"
+      - "${SEAWEED_VOLUME_PORT:-8085}:8085"
     command: >
       server
       -dir=/data
@@ -17,7 +17,7 @@ services:
       -ip=seaweedfs
       -volume.port=8085
       -s3.port=8333
-      -volume.max=100
+      -volume.max=${SEAWEEDFS_VOLUME_MAX:-100}
     environment:
       - WEED_S3_ENABLED=true
     volumes:
@@ -31,11 +31,22 @@ services:
     container_name: aquainsure-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     environment:
-      - MONGO_INITDB_DATABASE=aquainsure
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-AquaInsureRootSecret2026!}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-aquainsure}
+      - MONGO_APP_USERNAME=${MONGO_APP_USERNAME:-aquainsure_app}
+      - MONGO_APP_PASSWORD=${MONGO_APP_PASSWORD:-AquaInsureAppSecret2026!}
     volumes:
       - mongodb_data:/data/db
+      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - aqua-network
 
@@ -47,22 +58,24 @@ services:
     container_name: aquainsure-backend
     restart: unless-stopped
     ports:
-      - "5001:5001"
+      - "${BACKEND_PORT:-5001}:5001"
     depends_on:
-      - mongodb
-      - seaweedfs
+      mongodb:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_started
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - PORT=5001
-      - MONGODB_URI=mongodb://mongodb:27017/aquainsure
-      - JWT_SECRET=aquainsure-super-secret-jwt-key-2024
-      - JWT_EXPIRES_IN=30d
+      - MONGODB_URI=mongodb://${MONGO_APP_USERNAME:-aquainsure_app}:${MONGO_APP_PASSWORD:-AquaInsureAppSecret2026!}@mongodb:27017/${MONGO_DATABASE:-aquainsure}?authSource=${MONGO_DATABASE:-aquainsure}
+      - JWT_SECRET=${JWT_SECRET:-aquainsure-super-secret-jwt-key-2024}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-30d}
       - SEAWEEDFS_MASTER_ENDPOINT=http://seaweedfs:9333
       - SEAWEEDFS_FILER_ENDPOINT=http://seaweedfs:8888
       - SEAWEEDFS_S3_ENDPOINT=http://seaweedfs:8333
-      - SEAWEEDFS_BUCKET=aquainsure
-      - CORS_ALLOWED_ORIGINS=*
-      - BACKEND_PUBLIC_URL=http://localhost:5001
+      - SEAWEEDFS_BUCKET=${SEAWEEDFS_BUCKET:-aquainsure}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      - BACKEND_PUBLIC_URL=${BACKEND_PUBLIC_URL:-http://localhost:5001}
     networks:
       - aqua-network
 
@@ -74,12 +87,12 @@ services:
     container_name: aquainsure-farmer-app
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${FARMER_PORT:-8080}:8080"
     depends_on:
       - backend
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:5001
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5001}
     networks:
       - aqua-network
 
@@ -91,29 +104,48 @@ services:
     container_name: aquainsure-dashboard-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${DASHBOARD_PORT:-3000}:3000"
     depends_on:
       - backend
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:5001
-      - NEXT_PUBLIC_BASE_PATH=/dashboard
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5001}
+      - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-/dashboard}
     networks:
       - aqua-network
 
-  # ─── 6. UNIFIED INGRESS REVERSE PROXY (PORT 80) ──────────────────────────────
+  # ─── 6. UNIFIED INGRESS REVERSE PROXY ────────────────────────────────────────
   proxy:
     image: nginx:alpine
     container_name: aquainsure-proxy
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${PROXY_PORT:-80}:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - farmer-app
       - dashboard-app
       - backend
+    networks:
+      - aqua-network
+
+  # ─── 7. MONGO EXPRESS (Web-based Database GUI) ──────────────────────────────
+  mongo-express:
+    image: mongo-express:latest
+    container_name: aquainsure-mongo-express
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MONGO_EXPRESS_PORT:-8081}:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_ROOT_PASSWORD:-AquaInsureRootSecret2026!}
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_BASICAUTH_USERNAME=${MONGO_EXPRESS_USER:-admin}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD:-aquainsure}
+    depends_on:
+      mongodb:
+        condition: service_healthy
     networks:
       - aqua-network
 

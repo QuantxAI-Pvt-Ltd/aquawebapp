@@ -1,0 +1,180 @@
+================================================================================
+AQUAINSURE PORT CONFIGURATION & CUSTOMIZATION GUIDE
+================================================================================
+
+This guide explains how to check for port conflicts on your Ubuntu/Linux server
+and exactly which files to edit if the default ports are already occupied by other
+services (e.g., existing Apache/Nginx web servers, databases, or Node.js apps).
+
+--------------------------------------------------------------------------------
+1. DEFAULT PORTS USED BY AQUAINSURE
+--------------------------------------------------------------------------------
+
+Service                  Default Port   Description
+--------------------------------------------------------------------------------
+Apache / Public Ingress  80 / 443       Main entrypoint (handled by aqua.conf)
+Farmer PWA (Next.js)     8080           Farmer web application (/aquainsure)
+Admin Dashboard          3000           Insurer / Admin panel (/dashboard)
+Backend API              5001           Express REST API (/api)
+SeaweedFS Master         9333           Storage Cluster Master & Health UI
+SeaweedFS Filer          8888           File Manager UI & upload endpoint
+SeaweedFS S3             8333           S3 Gateway
+SeaweedFS Volume Server  8085           Raw chunk volume storage
+MongoDB Database         27017          Database server
+
+--------------------------------------------------------------------------------
+2. HOW TO CHECK IF PORTS ARE OCCUPIED ON UBUNTU
+--------------------------------------------------------------------------------
+
+Run this command in your Ubuntu terminal:
+
+  sudo ss -tulpn | grep -E ':(80|443|3000|5001|8080|8085|8333|8888|9333|27017)'
+
+Or check a specific port (example: port 8080):
+
+  sudo lsof -i :8080
+
+If a process name appears (e.g., node, nginx, mongod), that port is already taken.
+Follow the instructions below to remap it.
+
+--------------------------------------------------------------------------------
+3. HOW DOCKER PORT MAPPING WORKS: "HOST_PORT:CONTAINER_PORT"
+--------------------------------------------------------------------------------
+
+In `docker-compose.yml`, port mappings use the format:
+  "<HOST_PORT>:<CONTAINER_PORT>"
+
+  - <CONTAINER_PORT> is internal to Docker (do NOT change this).
+  - <HOST_PORT> is what the host machine (and Apache/aqua.conf) talks to.
+
+To resolve a conflict, you ONLY change the left-hand number (<HOST_PORT>).
+
+--------------------------------------------------------------------------------
+4. STEP-BY-STEP: MODIFYING PORTS
+--------------------------------------------------------------------------------
+
+--- SCENARIO A: Port 8080 (Farmer App) is occupied ---
+Goal: Change host port from 8080 to 8082
+
+1. Open `docker-compose.yml`:
+   Find:
+       ports:
+         - "8080:8080"
+   Change to:
+       ports:
+         - "8082:8080"
+   (Or bind to localhost only: "127.0.0.1:8082:8080")
+
+2. Open `aqua.conf` (or /etc/apache2/sites-available/aqua.conf):
+   Find:
+       RewriteRule ^/aquainsure/_next/(.*) ws://localhost:8080/aquainsure/_next/$1 [P,L,QSA]
+       ProxyPass /aquainsure http://localhost:8080/aquainsure
+       ProxyPassReverse /aquainsure http://localhost:8080/aquainsure
+   Change to:
+       RewriteRule ^/aquainsure/_next/(.*) ws://localhost:8082/aquainsure/_next/$1 [P,L,QSA]
+       ProxyPass /aquainsure http://localhost:8082/aquainsure
+       ProxyPassReverse /aquainsure http://localhost:8082/aquainsure
+
+
+--- SCENARIO B: Port 3000 (Dashboard App) is occupied ---
+Goal: Change host port from 3000 to 3005
+
+1. Open `docker-compose.yml`:
+   Find:
+       ports:
+         - "3000:3000"
+   Change to:
+       ports:
+         - "3005:3000"
+   (Or bind to localhost only: "127.0.0.1:3005:3000")
+
+2. Open `aqua.conf`:
+   Find:
+       RewriteRule ^/dashboard/_next/(.*) ws://localhost:3000/dashboard/_next/$1 [P,L,QSA]
+       ProxyPass /dashboard http://localhost:3000/dashboard
+       ProxyPassReverse /dashboard http://localhost:3000/dashboard
+   Change to:
+       RewriteRule ^/dashboard/_next/(.*) ws://localhost:3005/dashboard/_next/$1 [P,L,QSA]
+       ProxyPass /dashboard http://localhost:3005/dashboard
+       ProxyPassReverse /dashboard http://localhost:3005/dashboard
+
+
+--- SCENARIO C: Port 5001 (Backend API) is occupied ---
+Goal: Change host port from 5001 to 5050
+
+1. Open `docker-compose.yml`:
+   Find:
+       ports:
+         - "5001:5001"
+   Change to:
+       ports:
+         - "5050:5001"
+   (Or bind to localhost only: "127.0.0.1:5050:5001")
+
+2. Open `aqua.conf`:
+   Find:
+       ProxyPass /api http://localhost:5001/api
+       ProxyPassReverse /api http://localhost:5001/api
+   Change to:
+       ProxyPass /api http://localhost:5050/api
+       ProxyPassReverse /api http://localhost:5050/api
+
+
+--- SCENARIO D: Port 8888 (SeaweedFS Filer) or 9333 (Master) is occupied ---
+Goal: Change Filer to 8890, Master to 9335
+
+1. Open `docker-compose.yml`:
+   Under `seaweedfs.ports`:
+   Change:
+     - "8888:8888"   -->  - "8890:8888"
+     - "9333:9333"   -->  - "9335:9333"
+   Note: SeaweedFS internal container ports and the backend's internal network
+   references (`http://seaweedfs:8888`) DO NOT change because they communicate
+   over the private Docker bridge network (`aqua-network`).
+
+
+--- SCENARIO E: Port 27017 (MongoDB) is occupied by an existing local Mongo ---
+Goal: Change host MongoDB port to 27018
+
+1. Open `docker-compose.yml`:
+   Under `mongodb.ports`:
+   Change:
+     - "27017:27017"  -->  - "27018:27017"
+   Note: Backend connects via `mongodb://mongodb:27017/aquainsure` on the Docker
+   network, so only the host-accessible mapping changes. Existing databases on
+   your server on 27017 will not conflict.
+
+
+--- SCENARIO F: Port 80 (Apache Ingress) is occupied by another Web Server ---
+If your Ubuntu server already runs an Apache or Nginx site on Port 80:
+
+1. You do NOT need to change ports if you want AquaInsure to share Port 80.
+   Simply include the ProxyPass rules from `aqua.conf` inside your existing
+   virtual host file (/etc/apache2/sites-available/<your-site>.conf) under
+   the desired domain name (`ServerName yourdomain.com`).
+
+2. If you want AquaInsure on an alternate port (e.g., port 8088):
+   In `/etc/apache2/ports.conf`, add:
+       Listen 8088
+   In `aqua.conf`, change:
+       <VirtualHost *:80>  -->  <VirtualHost *:8088>
+
+--------------------------------------------------------------------------------
+5. APPLYING AND VERIFYING CHANGES
+--------------------------------------------------------------------------------
+
+After updating `docker-compose.yml` and `aqua.conf`:
+
+1. Recreate containers with new port bindings:
+   docker compose up -d
+
+2. Test Apache configuration for syntax errors:
+   sudo apache2ctl configtest
+
+3. Reload Apache:
+   sudo systemctl reload apache2
+
+4. Verify new active ports:
+   docker compose ps
+   sudo ss -tulpn | grep -E ':(80|443|3000|5001|8080|8082|3005|5050)'
+================================================================================
