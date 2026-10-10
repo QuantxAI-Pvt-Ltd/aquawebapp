@@ -1,27 +1,38 @@
+# ─── Stage 1: Build Static PWA Bundle ───────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy monorepo configuration and packages
+# Copy monorepo workspace files
 COPY package.json package-lock.json turbo.json ./
 COPY packages/ ./packages/
 COPY apps/AquaInsure/ ./apps/AquaInsure/
 
-# Install dependencies and build static output
-RUN npm install
+# Install dependencies with retry resilience and build static output
+RUN npm install --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 ENV NODE_ENV=production
 RUN npm --prefix apps/AquaInsure run build
 
-# Production runner stage
-FROM node:20-alpine AS runner
+# ─── Stage 2: Minimal Express Production Dependencies ───────────────────────
+FROM node:20-alpine AS deps
+
 WORKDIR /app
+RUN npm init -y && \
+    npm install --omit=dev --no-audit --no-fund --fetch-retries=5 express@4 && \
+    npm cache clean --force
 
-RUN npm install express@4
+# ─── Stage 3: Ultra-lean Runtime Image ──────────────────────────────────────
+FROM node:20-alpine AS runner
 
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Copy isolated runtime dependencies and built static distribution
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/apps/AquaInsure/dist ./dist
 COPY --from=builder /app/apps/AquaInsure/server.cjs ./server.cjs
 
 EXPOSE 8080
-ENV PORT=8080
 
 CMD ["node", "server.cjs"]

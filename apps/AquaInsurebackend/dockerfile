@@ -1,31 +1,62 @@
-FROM node:20-bookworm-slim
+# ─── Stage 1: Build Python Virtual Environment with PaddleOCR ───────────────
+FROM node:20-bookworm-slim AS py-builder
 
-WORKDIR /app
-
-# Install Python, pip, and system dependencies for OpenCV/PaddleOCR
+# Install minimal tools needed to build Python wheels
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv libgl1 libglib2.0-0 && \
-    apt-get clean && \
+    apt-get install -y --no-install-recommends \
+      python3 \
+      python3-pip \
+      python3-venv \
+      gcc && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a virtual environment and install PaddleOCR and PaddlePaddle
-# Using a venv avoids the EXTERNALLY-MANAGED error on Bookworm
+# Create isolated venv and install PaddleOCR + dependencies with extended network timeouts
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install paddlepaddle and paddleocr
-RUN pip install --no-cache-dir paddlepaddle paddleocr
+RUN pip install --no-cache-dir --default-timeout=120 --retries 5 paddlepaddle paddleocr && \
+    find /opt/venv -type d -name "__pycache__" -prune -exec rm -rf {} + && \
+    find /opt/venv -name "*.pyc" -delete && \
+    find /opt/venv -type d -name "tests" -prune -exec rm -rf {} +
 
-# Copy package files and install Node dependencies
+# ─── Stage 2: Install Node.js Production Dependencies ───────────────────────
+FROM node:20-bookworm-slim AS node-builder
+
+WORKDIR /app
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && \
+    npm cache clean --force
 
-# Copy remaining source code
+# ─── Stage 3: Ultra-lean Runtime Image ──────────────────────────────────────
+FROM node:20-bookworm-slim AS runner
+
+WORKDIR /app
+
+# Only install runtime shared libraries needed for OpenCV & OpenMP (no gcc, no pip, no build tools)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3 \
+      libgl1 \
+      libglib2.0-0 \
+      libgomp1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy pre-built Python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+COPY --from=py-builder /opt/venv /opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Copy pre-installed Node.js dependencies
+COPY --from=node-builder /app/node_modules ./node_modules
+COPY package*.json ./
+
+# Copy backend application source
 COPY . .
 
-# Expose backend port
 EXPOSE 5001
+ENV NODE_ENV=production
+ENV PORT=5001
 
-# Start the server
 CMD ["npm", "start"]
