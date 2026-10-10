@@ -47,10 +47,37 @@ const OneTimeEntry = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasPonds, setHasPonds] = useState(false);
-  const [firstPondId, setFirstPondId] = useState<string | null>(null);
+  const [ponds, setPonds] = useState<any[]>([]);
+  const [selectedPondIndex, setSelectedPondIndex] = useState(0);
   const [viewerModal, setViewerModal] = useState<{ title: string; url: string } | null>(null);
 
   const [data, setData] = useState<Record<string, any>>({});
+
+  const loadPondEntry = async (pId: string) => {
+    try {
+      const entryRes = await axios.get(`/api/entries/one-time?pondId=${pId}`);
+      if (entryRes.data?.success && entryRes.data?.data) {
+        const e = entryRes.data.data;
+        setData({
+          followedPractices: e.pondPreparation?.followedPractices ? 'yes' : 'no',
+          pondPrepBills: e.pondPreparation?.pondPrepBills || null,
+          pcrTesting: e.seedSelection?.pcrTesting ? 'yes' : 'no',
+          pcrCertificate: e.seedSelection?.pcrCertificate || null,
+          seedBills: e.seedSelection?.seedBills || null,
+          regCertificate: e.registrationCertificate || null,
+        });
+        return;
+      }
+    } catch {}
+    setData({
+      followedPractices: 'no',
+      pondPrepBills: null,
+      pcrTesting: 'no',
+      pcrCertificate: null,
+      seedBills: null,
+      regCertificate: null,
+    });
+  };
 
   useEffect(() => {
     const regComplete = localStorage.getItem('aqua-reg-complete');
@@ -93,48 +120,46 @@ const OneTimeEntry = () => {
     if (session.farmerId) {
       axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`)
         .then(async res => {
-          const ponds = res.data?.data || [];
-          setHasPonds(ponds.length > 0);
-          if (ponds.length > 0) {
-            const pId = ponds[0]._id || ponds[0].pondId;
-            setFirstPondId(pId);
-            try {
-              const entryRes = await axios.get(`/api/entries/one-time?pondId=${pId}`);
-              if (entryRes.data?.success && entryRes.data?.data) {
-                const e = entryRes.data.data;
-                setData({
-                  followedPractices: e.pondPreparation?.followedPractices ? 'yes' : 'no',
-                  pondPrepBills: e.pondPreparation?.pondPrepBills || null,
-                  pcrTesting: e.seedSelection?.pcrTesting ? 'yes' : 'no',
-                  pcrCertificate: e.seedSelection?.pcrCertificate || null,
-                  seedBills: e.seedSelection?.seedBills || null,
-                  regCertificate: e.registrationCertificate || null,
-                });
-              }
-            } catch (err) {
-              // Ignore initial load error if no entry exists
-            }
+          const loadedPonds = res.data?.data || [];
+          setHasPonds(loadedPonds.length > 0);
+          setPonds(loadedPonds);
+          if (loadedPonds.length > 0) {
+            const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
+            await loadPondEntry(pId);
           }
         })
         .catch(() => {
           const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
-          const hasP = Boolean(farmData.ponds?.length);
-          setHasPonds(hasP);
-          if (hasP) {
-            setFirstPondId(farmData.ponds[0]._id || farmData.ponds[0].pondId);
+          const loadedPonds = farmData.ponds || [];
+          setHasPonds(loadedPonds.length > 0);
+          setPonds(loadedPonds);
+          if (loadedPonds.length > 0) {
+            const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
+            loadPondEntry(pId);
           }
         })
         .finally(() => setLoading(false));
     } else {
       const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
-      const hasP = Boolean(farmData.ponds?.length);
-      setHasPonds(hasP);
-      if (hasP) {
-        setFirstPondId(farmData.ponds[0]._id || farmData.ponds[0].pondId);
+      const loadedPonds = farmData.ponds || [];
+      setHasPonds(loadedPonds.length > 0);
+      setPonds(loadedPonds);
+      if (loadedPonds.length > 0) {
+        const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
+        loadPondEntry(pId);
       }
       setLoading(false);
     }
   }, [navigate]);
+
+  const handlePondSelect = (idx: number) => {
+    setSelectedPondIndex(idx);
+    const p = ponds[idx];
+    const pId = p?._id || p?.pondId;
+    if (pId) {
+      loadPondEntry(pId);
+    }
+  };
 
   const updateField = (key: string, value: any) => {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -212,7 +237,9 @@ const OneTimeEntry = () => {
   };
 
   const save = async () => {
-    if (!firstPondId || String(firstPondId).length < 24) {
+    const activePond = ponds[selectedPondIndex];
+    const targetPondId = activePond?._id || activePond?.pondId;
+    if (!targetPondId || String(targetPondId).length < 24) {
       toast.error("Invalid Pond ID. Please complete Farm Registration first.");
       return;
     }
@@ -222,7 +249,7 @@ const OneTimeEntry = () => {
       const uploadField = async (val: any) => {
         if (!val) return null;
         if (val instanceof File) {
-          return await uploadToSeaweedFS(val, `ponds/${firstPondId}/onetime`);
+          return await uploadToSeaweedFS(val, `ponds/${targetPondId}/onetime`);
         }
         return val;
       };
@@ -235,7 +262,7 @@ const OneTimeEntry = () => {
       ]);
 
       const payload = {
-        pondId: firstPondId,
+        pondId: targetPondId,
         pondPreparation: {
           followedPractices: data.followedPractices === "yes",
           pondPrepBills: pondPrepBillsMedia
@@ -323,6 +350,32 @@ const OneTimeEntry = () => {
           </div>
         ) : (
           <>
+            {/* Pond Switcher */}
+            {ponds.length > 1 && (
+              <div className="bg-white rounded-2xl p-3 border border-stone-100 shadow-sm">
+                <p className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mb-2">Select Pond</p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {ponds.map((p, idx) => {
+                    const isSelected = selectedPondIndex === idx;
+                    return (
+                      <button
+                        key={p._id || idx}
+                        type="button"
+                        onClick={() => handlePondSelect(idx)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                          isSelected
+                            ? 'bg-teal-700 text-white shadow-xs'
+                            : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {p.name || `Pond ${p.pondNumber || idx + 1}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Farm Registration */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">

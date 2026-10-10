@@ -92,16 +92,25 @@ const DailyEntry = () => {
       setInsurances(insData);
 
       // Derive insured pond IDs from insurance records (works after logout/re-login)
-      const insuredIds = new Set<string>(
-        insData.flatMap((ins: any) =>
-          ins.insuredPondIds?.length
-            ? ins.insuredPondIds
-            : ins.pondId ? [ins.pondId] : []
-        )
-      );
+      const insuredIds = new Set<string>();
+      insData.forEach((ins: any) => {
+        if (Array.isArray(ins.insuredPondIds) && ins.insuredPondIds.length > 0) {
+          ins.insuredPondIds.forEach((pId: any) => {
+            const strId = typeof pId === 'object' && pId !== null ? String(pId._id || pId.id || '') : String(pId || '');
+            if (strId) insuredIds.add(strId);
+          });
+        }
+        if (ins.pondId) {
+          const strId = typeof ins.pondId === 'object' && ins.pondId !== null ? String(ins.pondId._id || ins.pondId.id || '') : String(ins.pondId || '');
+          if (strId) insuredIds.add(strId);
+        }
+      });
 
       const filtered = insuredIds.size > 0
-        ? allPonds.filter((p: any) => insuredIds.has(p._id || p.pondId))
+        ? allPonds.filter((p: any) => {
+            const pId = String(p._id || p.pondId || '');
+            return insuredIds.has(pId);
+          })
         : allPonds; // fallback: show all if no insurance exists yet
 
       setPonds(filtered);

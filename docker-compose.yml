@@ -1,22 +1,130 @@
-# SeaweedFS is managed via a local installation on the host machine (running on port 9333).
-# If Dockerized SeaweedFS is needed for another environment, uncomment below:
-#
-# services:
-#   seaweedfs:
-#     image: chrislusf/seaweedfs:latest
-#     container_name: aquainsure-seaweedfs
-#     restart: unless-stopped
-#     ports:
-#       - "8333:8333"   # S3 Gateway
-#       - "8888:8888"   # Filer HTTP API
-#       - "9333:9333"   # SeaweedFS Master
-#       - "8085:8085"   # Volume Server (remapped from 8080)
-#     command: "server -dir=/data -s3 -filer -ip=localhost -volume.port=8085 -s3.port=8333"
-#     environment:
-#       - WEED_S3_ENABLED=true
-#     volumes:
-#       - seaweedfs_data:/data
-# 
-# volumes:
-#   seaweedfs_data:
-#     driver: local
+services:
+  # ─── 1. SEAWEEDFS (Storage Master, Filer, Volume & S3 Gateway) ───────────────
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: aquainsure-seaweedfs
+    restart: unless-stopped
+    ports:
+      - "8333:8333"   # S3 Gateway
+      - "8888:8888"   # Filer HTTP API & Visual File Manager Web UI
+      - "9333:9333"   # Master Web Dashboard & Cluster Health
+      - "8085:8085"   # Volume Server (remapped from default 8080)
+    command: >
+      server
+      -dir=/data
+      -s3
+      -filer
+      -ip=seaweedfs
+      -volume.port=8085
+      -s3.port=8333
+      -volume.max=100
+    environment:
+      - WEED_S3_ENABLED=true
+    volumes:
+      - seaweedfs_data:/data
+    networks:
+      - aqua-network
+
+  # ─── 2. MONGODB DATABASE ─────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: aquainsure-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=aquainsure
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - aqua-network
+
+  # ─── 3. BACKEND API SERVICE ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./apps/AquaInsurebackend
+      dockerfile: dockerfile
+    container_name: aquainsure-backend
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongodb
+      - seaweedfs
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGODB_URI=mongodb://mongodb:27017/aquainsure
+      - JWT_SECRET=aquainsure-super-secret-jwt-key-2024
+      - JWT_EXPIRES_IN=30d
+      - SEAWEEDFS_MASTER_ENDPOINT=http://seaweedfs:9333
+      - SEAWEEDFS_FILER_ENDPOINT=http://seaweedfs:8888
+      - SEAWEEDFS_S3_ENDPOINT=http://seaweedfs:8333
+      - SEAWEEDFS_BUCKET=aquainsure
+      - CORS_ALLOWED_ORIGINS=*
+      - BACKEND_PUBLIC_URL=http://localhost:5001
+    networks:
+      - aqua-network
+
+  # ─── 4. FARMER PWA APP ───────────────────────────────────────────────────────
+  farmer-app:
+    build:
+      context: .
+      dockerfile: apps/AquaInsure/dockerfile
+    container_name: aquainsure-farmer-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:5001
+    networks:
+      - aqua-network
+
+  # ─── 5. ADMIN & INSURER DASHBOARD ────────────────────────────────────────────
+  dashboard-app:
+    build:
+      context: .
+      dockerfile: apps/Aquainsuredashboard/Dockerfile
+    container_name: aquainsure-dashboard-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:5001
+      - NEXT_PUBLIC_BASE_PATH=/dashboard
+    networks:
+      - aqua-network
+
+  # ─── 6. UNIFIED INGRESS REVERSE PROXY (PORT 80) ──────────────────────────────
+  proxy:
+    image: nginx:alpine
+    container_name: aquainsure-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - farmer-app
+      - dashboard-app
+      - backend
+    networks:
+      - aqua-network
+
+# ─── PERSISTENT VOLUMES ────────────────────────────────────────────────────────
+volumes:
+  seaweedfs_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+# ─── INTERNAL NETWORK ──────────────────────────────────────────────────────────
+networks:
+  aqua-network:
+    driver: bridge

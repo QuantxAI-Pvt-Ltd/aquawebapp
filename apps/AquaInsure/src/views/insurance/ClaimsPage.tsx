@@ -101,7 +101,7 @@ export default function ClaimsPage() {
       }
       if (policiesRes.data.success) {
         const active = (policiesRes.data.data || []).filter(
-          (p: ClaimPolicy) => p.status === 'active' && !p.claim
+          (p: ClaimPolicy) => p.status === 'active' && (!p.claim || !p.claim.claimedAt)
         );
         setActivePolicies(active);
         if (active.length > 0 && !selectedPolicyId) {
@@ -117,14 +117,27 @@ export default function ClaimsPage() {
   };
 
   useEffect(() => {
-    const fId = localStorage.getItem('farmerId');
+    let fId = '';
+    try {
+      const sessStr = localStorage.getItem('aqua-session');
+      const sess = sessStr ? JSON.parse(sessStr) : null;
+      if (sess?.farmerId) {
+        fId = sess.farmerId;
+      }
+    } catch {}
+
+    if (!fId) {
+      fId = localStorage.getItem('farmerId') || '';
+    }
+
     if (fId) {
       setFarmerId(fId);
       loadData(fId);
     } else {
       setLoading(false);
+      navigate('/login', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

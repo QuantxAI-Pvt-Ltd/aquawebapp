@@ -77,43 +77,81 @@ router.get('/excel', async (req, res) => {
             const waterCost = parseFloat(entry.financials?.waterCost) || 0;
             const otherExpenses = parseFloat(entry.financials?.otherExpenses) || 0;
 
-            // OCR Extraction for uploaded bills (these are binary Buffers)
+            // OCR Extraction for uploaded bills (supports MediaObject, Base64, and binary Buffers)
             let extractedFeed = 0;
             let extractedMisc = 0;
             let extractedElec = 0;
 
-            // Simple content-type guessing: if it starts with %PDF it's application/pdf
+            const streamToBuffer = async (stream) => {
+                return new Promise((resolve, reject) => {
+                    const chunks = [];
+                    stream.on('data', chunk => chunks.push(chunk));
+                    stream.on('end', () => resolve(Buffer.concat(chunks)));
+                    stream.on('error', reject);
+                });
+            };
+
             const getMimeType = (fileBuf) => {
                 if (!fileBuf) return null;
                 try {
                     const header = fileBuf.toString('utf8', 0, 4);
                     if (header === '%PDF') return 'application/pdf';
                 } catch (e) { }
-
-                // Very basic fallback to image type
                 return 'image/jpeg';
             };
 
-            const safeBuffer = (val) => {
+            const resolveBillBufferAndMime = async (val) => {
                 if (!val) return null;
-                // Sometimes mongoose BinData comes as an object wrapped in val.buffer
-                if (val.buffer) {
-                    return Buffer.isBuffer(val.buffer) ? val.buffer : Buffer.from(val.buffer);
+                try {
+                    if (Buffer.isBuffer(val)) {
+                        return { buffer: val, mimeType: getMimeType(val) };
+                    }
+                    if (val.buffer && (Buffer.isBuffer(val.buffer) || typeof val.buffer === 'object')) {
+                        const buf = Buffer.isBuffer(val.buffer) ? val.buffer : Buffer.from(val.buffer);
+                        return { buffer: buf, mimeType: getMimeType(buf) };
+                    }
+                    if (typeof val === 'string' && val.startsWith('data:')) {
+                        const match = val.match(/^data:([^;]+);base64,(.+)$/);
+                        if (match) {
+                            return { buffer: Buffer.from(match[2], 'base64'), mimeType: match[1] };
+                        }
+                    }
+                    const key = val.key || (typeof val === 'string' && val.includes('key=') ? decodeURIComponent(val.split('key=')[1].split('&')[0]) : null);
+                    if (key) {
+                        const { getObjectStream } = require('../utils/seaweedfs');
+                        const streamRes = await getObjectStream(key, val.bucket || 'aquainsure');
+                        if (streamRes && streamRes.stream) {
+                            const buf = await streamToBuffer(streamRes.stream);
+                            return { buffer: buf, mimeType: streamRes.contentType || val.mimeType || getMimeType(buf) };
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[Export] Bill OCR buffer resolution warning:', err.message);
                 }
-                return Buffer.isBuffer(val) ? val : Buffer.from(val);
-            }
+                return null;
+            };
+
+            const extractBillAmount = async (val) => {
+                if (!val) return 0;
+                try {
+                    const resolved = await resolveBillBufferAndMime(val);
+                    if (resolved && resolved.buffer && resolved.buffer.length > 0) {
+                        return await processBillBuffer(resolved.buffer, resolved.mimeType);
+                    }
+                } catch (err) {
+                    console.warn('[Export] OCR extraction failed for bill, defaulting to 0:', err.message);
+                }
+                return 0;
+            };
 
             if (entry.feedManagement?.feedBills) {
-                const buf = safeBuffer(entry.feedManagement.feedBills);
-                extractedFeed = await processBillBuffer(buf, getMimeType(buf));
+                extractedFeed = await extractBillAmount(entry.feedManagement.feedBills);
             }
             if (entry.financials?.miscBills) {
-                const buf = safeBuffer(entry.financials.miscBills);
-                extractedMisc = await processBillBuffer(buf, getMimeType(buf));
+                extractedMisc = await extractBillAmount(entry.financials.miscBills);
             }
             if (entry.financials?.electricityBills) {
-                const buf = safeBuffer(entry.financials.electricityBills);
-                extractedElec = await processBillBuffer(buf, getMimeType(buf));
+                extractedElec = await extractBillAmount(entry.financials.electricityBills);
             }
 
             // Calculate Grand Total (combining manual inputs + extracted OCR values)

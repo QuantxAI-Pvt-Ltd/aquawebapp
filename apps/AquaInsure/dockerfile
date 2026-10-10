@@ -1,22 +1,27 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files and install all dependencies
-COPY package*.json ./
+# Copy monorepo configuration and packages
+COPY package.json package-lock.json turbo.json ./
+COPY packages/ ./packages/
+COPY apps/AquaInsure/ ./apps/AquaInsure/
+
+# Install dependencies and build static output
 RUN npm install
+ENV NODE_ENV=production
+RUN npm --prefix apps/AquaInsure run build
 
-# Copy source code
-COPY . .
+# Production runner stage
+FROM node:20-alpine AS runner
+WORKDIR /app
 
-# Build the production bundle
-RUN npm run build
-
-# Install express v4 for serving static files
 RUN npm install express@4
 
-# Expose port 8080
-EXPOSE 8080
+COPY --from=builder /app/apps/AquaInsure/dist ./dist
+COPY --from=builder /app/apps/AquaInsure/server.cjs ./server.cjs
 
-# Serve using our custom Express server
+EXPOSE 8080
+ENV PORT=8080
+
 CMD ["node", "server.cjs"]
