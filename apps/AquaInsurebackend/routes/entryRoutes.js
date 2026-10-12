@@ -13,6 +13,7 @@ const base64ToBuffer = (base64Str) => {
 const EXCLUDE_BUFFERS = '-sampling.samplingVideo -feedManagement.feedBills -financials.miscBills -financials.electricityBills -waterQuality.waterReport -shrimpHealth.shrimpPhoto -shrimpHealth.labReport';
 
 const Pond = require('../models/Pond');
+const Insurance = require('../models/Insurance');
 
 // @route   GET /api/entries/daily
 // @desc    Fetch daily entries with optional pondId + date range + farmerId filters
@@ -115,10 +116,44 @@ router.get('/one-time', async (req, res) => {
 });
 
 // @route   POST /api/entries/one-time
-// @desc    Save one-time pond setup entry
+// @desc    Save one-time pond setup entry (restricted to insured ponds, locked once submitted)
 router.post('/one-time', requireAuth, async (req, res) => {
     try {
         const data = req.body;
+
+        if (!data.pondId) {
+            return res.status(400).json({ success: false, error: 'pondId is required' });
+        }
+
+        // 1. Enforce that One-Time Entry is ONLY allowed for insured ponds
+        const activeInsurance = await Insurance.findOne({
+            $or: [
+                { pondId: data.pondId },
+                { insuredPondIds: data.pondId }
+            ],
+            status: { $ne: 'expired' }
+        }).lean();
+
+        if (!activeInsurance) {
+            return res.status(400).json({
+                success: false,
+                error: 'One-Time Entry is strictly restricted to insured ponds. No active insurance policy found for this pond.'
+            });
+        }
+
+        // 2. Enforce that One-Time Entry is NOT editable once uploaded/submitted
+        const existingEntry = await OneTimeEntry.findOne({ pondId: data.pondId }).lean();
+        if (existingEntry && (
+            existingEntry.registrationCertificate ||
+            existingEntry.pondPreparation?.pondPrepBills ||
+            existingEntry.seedSelection?.seedBills ||
+            existingEntry.seedSelection?.pcrCertificate
+        )) {
+            return res.status(403).json({
+                success: false,
+                error: 'One-Time Entry for this pond has already been submitted and cannot be modified. It is locked in view-only mode.'
+            });
+        }
 
         const pond = await Pond.findById(data.pondId).select('farmId farmerId').lean();
         const farmerId = pond?.farmerId?.toString() || 'unknown';

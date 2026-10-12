@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft, Upload, Waves, Eye, CheckCircle2, 
-  ExternalLink, FileText, X, Trash2 
+  ExternalLink, FileText, X, Trash2, Lock, ShieldCheck 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,7 +12,19 @@ import BottomNav from "@/components/BottomNav";
 import { uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
 import axios from "@/lib/api";
 
-const YesNo = ({ label, field, value, onChange }: { label: string; field: string; value: any; onChange: (key: string, v: any) => void }) => {
+const YesNo = ({ 
+  label, 
+  field, 
+  value, 
+  onChange,
+  disabled = false 
+}: { 
+  label: string; 
+  field: string; 
+  value: any; 
+  onChange: (key: string, v: any) => void;
+  disabled?: boolean;
+}) => {
   const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between py-2.5">
@@ -22,8 +34,11 @@ const YesNo = ({ label, field, value, onChange }: { label: string; field: string
           <button
             key={v}
             type="button"
-            onClick={() => onChange(field, v)}
-            className={`w-14 py-2 rounded-lg text-xs font-bold transition-all ${value === v
+            disabled={disabled}
+            onClick={() => !disabled && onChange(field, v)}
+            className={`w-14 py-2 rounded-lg text-xs font-bold transition-all ${
+              disabled ? "cursor-not-allowed opacity-80" : ""
+            } ${value === v
               ? "text-white shadow-sm"
               : "bg-stone-100 text-stone-400 hover:bg-stone-200"
               }`}
@@ -49,6 +64,7 @@ const OneTimeEntry = () => {
   const [hasPonds, setHasPonds] = useState(false);
   const [ponds, setPonds] = useState<any[]>([]);
   const [selectedPondIndex, setSelectedPondIndex] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
   const [viewerModal, setViewerModal] = useState<{ title: string; url: string } | null>(null);
 
   const [data, setData] = useState<Record<string, any>>({});
@@ -58,6 +74,14 @@ const OneTimeEntry = () => {
       const entryRes = await axios.get(`/api/entries/one-time?pondId=${pId}`);
       if (entryRes.data?.success && entryRes.data?.data) {
         const e = entryRes.data.data;
+        // Check if any one-time documents have been uploaded / saved
+        const hasSavedDocs = Boolean(
+          e.registrationCertificate ||
+          e.pondPreparation?.pondPrepBills ||
+          e.seedSelection?.seedBills ||
+          e.seedSelection?.pcrCertificate
+        );
+        setIsLocked(hasSavedDocs);
         setData({
           followedPractices: e.pondPreparation?.followedPractices ? 'yes' : 'no',
           pondPrepBills: e.pondPreparation?.pondPrepBills || null,
@@ -68,7 +92,10 @@ const OneTimeEntry = () => {
         });
         return;
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to load existing one-time entry:", err);
+    }
+    setIsLocked(false);
     setData({
       followedPractices: 'no',
       pondPrepBills: null,
@@ -118,35 +145,74 @@ const OneTimeEntry = () => {
 
     const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
     if (session.farmerId) {
-      axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`)
-        .then(async res => {
-          const loadedPonds = res.data?.data || [];
-          setHasPonds(loadedPonds.length > 0);
-          setPonds(loadedPonds);
-          if (loadedPonds.length > 0) {
-            const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
-            await loadPondEntry(pId);
+      // Concurrently fetch all ponds and insurances for this farmer to filter down to ONLY INSURED ponds
+      Promise.all([
+        axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`).catch(() => ({ data: { success: false, data: [] } })),
+        axios.get(`/api/insurances?farmerId=${session.farmerId}`).catch(() => ({ data: { success: false, data: [] } }))
+      ]).then(async ([pondsRes, insRes]) => {
+        const rawPonds = pondsRes.data?.data || [];
+        const insurances = insRes.data?.data || [];
+
+        // Build set of all active insured pond IDs
+        const insuredPondIds = new Set<string>();
+        insurances.forEach((ins: any) => {
+          if (ins.status && ins.status === 'expired') return;
+          const pId = ins.pondId?._id || ins.pondId;
+          if (pId) insuredPondIds.add(String(pId));
+          if (Array.isArray(ins.insuredPondIds)) {
+            ins.insuredPondIds.forEach((pid: any) => {
+              const id = pid?._id || pid;
+              if (id) insuredPondIds.add(String(id));
+            });
           }
-        })
-        .catch(() => {
-          const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
-          const loadedPonds = farmData.ponds || [];
-          setHasPonds(loadedPonds.length > 0);
-          setPonds(loadedPonds);
-          if (loadedPonds.length > 0) {
-            const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
-            loadPondEntry(pId);
-          }
-        })
-        .finally(() => setLoading(false));
+        });
+
+        // Filter ponds so ONLY insured ponds are accessible
+        const insuredPonds = rawPonds.filter((p: any) => {
+          const pid = String(p._id || p.pondId || '');
+          return insuredPondIds.has(pid);
+        });
+
+        if (insuredPonds.length > 0) {
+          setHasPonds(true);
+          setPonds(insuredPonds);
+          const firstPondId = insuredPonds[0]._id || insuredPonds[0].pondId;
+          await loadPondEntry(firstPondId);
+        } else {
+          setHasPonds(false);
+          setPonds([]);
+        }
+      }).catch((err) => {
+        console.error("Error fetching ponds or insurances:", err);
+        setHasPonds(false);
+        setPonds([]);
+      }).finally(() => {
+        setLoading(false);
+      });
     } else {
+      // Local storage fallback
       const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
-      const loadedPonds = farmData.ponds || [];
-      setHasPonds(loadedPonds.length > 0);
-      setPonds(loadedPonds);
-      if (loadedPonds.length > 0) {
-        const pId = loadedPonds[0]._id || loadedPonds[0].pondId;
-        loadPondEntry(pId);
+      const insData = JSON.parse(localStorage.getItem('aqua-insurance') || '{}');
+      const rawPonds = farmData.ponds || [];
+      const insuredIds = new Set<string>();
+      if (insData.pondId) insuredIds.add(String(insData.pondId));
+      if (Array.isArray(insData.insuredPondIds)) {
+        insData.insuredPondIds.forEach((id: any) => insuredIds.add(String(id)));
+      }
+
+      const insuredPonds = rawPonds.filter((p: any) => {
+        const pid = String(p._id || p.pondId || '');
+        return insuredIds.has(pid);
+      });
+
+      if (insuredPonds.length > 0) {
+        setHasPonds(true);
+        setPonds(insuredPonds);
+        const firstPId = insuredPonds[0]._id || insuredPonds[0].pondId;
+        loadPondEntry(firstPId);
+      } else {
+        setHasPonds(false);
+        setPonds([]);
       }
       setLoading(false);
     }
@@ -162,6 +228,7 @@ const OneTimeEntry = () => {
   };
 
   const updateField = (key: string, value: any) => {
+    if (isLocked) return;
     setData((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -194,15 +261,22 @@ const OneTimeEntry = () => {
         <div className="w-full rounded-2xl border border-teal-200 bg-teal-50/70 p-3 flex flex-col gap-2.5 transition-all shadow-xs mt-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <CheckCircle2 size={16} />
+              <div className={`w-8 h-8 rounded-xl ${isLocked ? 'bg-amber-600' : 'bg-teal-600'} text-white flex items-center justify-center shrink-0 shadow-sm`}>
+                {isLocked ? <Lock size={15} /> : <CheckCircle2 size={16} />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-teal-700 font-bold uppercase tracking-wider truncate">{label}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] text-teal-700 font-bold uppercase tracking-wider truncate">{label}</p>
+                  {isLocked && (
+                    <span className="text-[9px] bg-amber-200/80 text-amber-800 font-bold px-1.5 py-0.2 rounded">
+                      Locked
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-stone-700 font-medium truncate">{fileName || 'Uploaded File'}</p>
               </div>
             </div>
-            {onRemove && (
+            {!isLocked && onRemove && (
               <button
                 type="button"
                 onClick={onRemove}
@@ -225,32 +299,45 @@ const OneTimeEntry = () => {
               <span>Show Document</span>
             </button>
 
-            <label className="h-9 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0">
-              <Upload size={13} className="text-stone-500" />
-              <span>Change</span>
-              <input
-                type="file"
-                accept={accept}
-                className="hidden"
-                onChange={(e) => {
-                  onChange(e.target.files?.[0]);
-                  e.target.value = '';
-                }}
-              />
-            </label>
+            {!isLocked && (
+              <>
+                <label className="h-9 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0">
+                  <Upload size={13} className="text-stone-500" />
+                  <span>Change</span>
+                  <input
+                    type="file"
+                    accept={accept}
+                    className="hidden"
+                    onChange={(e) => {
+                      onChange(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
 
-            {onRemove && (
-              <button
-                type="button"
-                onClick={onRemove}
-                className="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
-                title="Remove document"
-              >
-                <Trash2 size={13} className="text-red-500" />
-                <span>Remove</span>
-              </button>
+                {onRemove && (
+                  <button
+                    type="button"
+                    onClick={onRemove}
+                    className="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
+                    title="Remove document"
+                  >
+                    <Trash2 size={13} className="text-red-500" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
+        </div>
+      );
+    }
+
+    if (isLocked) {
+      return (
+        <div className="w-full h-11 rounded-xl border border-dashed border-stone-200 bg-stone-50/70 flex items-center justify-center gap-2 text-xs text-stone-400 font-medium mt-2">
+          <Lock size={13} className="text-stone-400" />
+          <span>Not uploaded (Locked)</span>
         </div>
       );
     }
@@ -273,10 +360,15 @@ const OneTimeEntry = () => {
   };
 
   const save = async () => {
+    if (isLocked) {
+      toast.info("This entry is submitted and locked in view-only mode.");
+      return;
+    }
+
     const activePond = ponds[selectedPondIndex];
     const targetPondId = activePond?._id || activePond?.pondId;
     if (!targetPondId || String(targetPondId).length < 24) {
-      toast.error("Invalid Pond ID. Please complete Farm Registration first.");
+      toast.error("Invalid Pond ID. Please ensure pond is properly registered.");
       return;
     }
 
@@ -315,7 +407,8 @@ const OneTimeEntry = () => {
 
       if (res.data.success) {
         toast.success(t("entries.saved"));
-        setTimeout(() => navigate("/entries/daily"), 1000);
+        setIsLocked(true);
+        setTimeout(() => navigate("/entries/daily"), 1200);
       }
     } catch (error: any) {
       console.error('OneTimeEntry submission error:', error);
@@ -362,7 +455,7 @@ const OneTimeEntry = () => {
         {loading ? (
           <div className="bg-white rounded-3xl p-8 border border-stone-100 shadow-sm flex flex-col items-center justify-center gap-3 mt-2">
             <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin" />
-            <p className="text-xs text-stone-400 font-medium">Loading pond data...</p>
+            <p className="text-xs text-stone-400 font-medium">Checking insured ponds...</p>
           </div>
         ) : !hasPonds ? (
           <div className="text-center py-10 flex flex-col items-center">
@@ -374,14 +467,14 @@ const OneTimeEntry = () => {
                 No Insured Ponds Found
               </h3>
               <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
-                You must register your farm and insure your ponds before logging one-time documentation.
+                One-Time Entry is strictly restricted to ponds with active insurance. Please insure your ponds before uploading setup records.
               </p>
             </div>
             <Button
-              onClick={() => navigate('/farm-registration')}
+              onClick={() => navigate('/insurance-registration')}
               className="w-full max-w-xs h-11 rounded-xl bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-800 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-700/20"
             >
-              Complete Farm Registration →
+              Insure Your Ponds →
             </Button>
           </div>
         ) : (
@@ -389,7 +482,13 @@ const OneTimeEntry = () => {
             {/* Pond Switcher */}
             {ponds.length > 1 && (
               <div className="bg-white rounded-2xl p-3 border border-stone-100 shadow-sm">
-                <p className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mb-2">Select Pond</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Select Insured Pond</p>
+                  <span className="text-[10px] text-teal-600 font-bold flex items-center gap-1">
+                    <ShieldCheck size={12} />
+                    {ponds.length} Insured
+                  </span>
+                </div>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {ponds.map((p, idx) => {
                     const isSelected = selectedPondIndex === idx;
@@ -398,16 +497,37 @@ const OneTimeEntry = () => {
                         key={p._id || idx}
                         type="button"
                         onClick={() => handlePondSelect(idx)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
                           isSelected
                             ? 'bg-teal-700 text-white shadow-xs'
                             : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
                         }`}
                       >
-                        {p.name || `Pond ${p.pondNumber || idx + 1}`}
+                        <ShieldCheck size={12} className={isSelected ? 'text-teal-200' : 'text-stone-400'} />
+                        <span>{p.name || `Pond ${p.pondNumber || idx + 1}`}</span>
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Read-Only Lock Banner when already submitted */}
+            {isLocked && (
+              <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <Lock size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-amber-900">Entry Locked (View Only)</span>
+                    <span className="text-[10px] font-bold bg-amber-200/80 text-amber-800 px-2 py-0.5 rounded-full">
+                      Submitted
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                    One-time setup documentation has been submitted and verified for this pond. Documents can be viewed but cannot be modified.
+                  </p>
                 </div>
               </div>
             )}
@@ -431,7 +551,13 @@ const OneTimeEntry = () => {
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
                 {t("entries.pondPrep")}
               </h3>
-              <YesNo label={t("entries.followedPractices")} field="followedPractices" value={data.followedPractices} onChange={updateField} />
+              <YesNo 
+                label={t("entries.followedPractices")} 
+                field="followedPractices" 
+                value={data.followedPractices} 
+                onChange={updateField}
+                disabled={isLocked}
+              />
               <MediaField
                 label={t("entries.uploadBills") + " (Pond Prep Bills)"}
                 value={data.pondPrepBills}
@@ -446,7 +572,13 @@ const OneTimeEntry = () => {
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
                 {t("entries.seedSelection")}
               </h3>
-              <YesNo label={t("entries.pcrTesting")} field="pcrTesting" value={data.pcrTesting} onChange={updateField} />
+              <YesNo 
+                label={t("entries.pcrTesting")} 
+                field="pcrTesting" 
+                value={data.pcrTesting} 
+                onChange={updateField}
+                disabled={isLocked}
+              />
               <div className="space-y-2">
                 <MediaField
                   label={t("entries.uploadPCR")}
@@ -465,17 +597,30 @@ const OneTimeEntry = () => {
               </div>
             </div>
 
-            <Button
-              onClick={save}
-              disabled={saving}
-              className="w-full h-12 rounded-xl text-white font-bold disabled:opacity-50"
-              style={{
-                background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
-                boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
-              }}
-            >
-              {saving ? 'Saving...' : t("common.save")}
-            </Button>
+            {isLocked ? (
+              <Button
+                onClick={() => navigate('/entries/daily')}
+                className="w-full h-12 rounded-xl text-white font-bold"
+                style={{
+                  background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
+                  boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
+                }}
+              >
+                Proceed to Daily Entries →
+              </Button>
+            ) : (
+              <Button
+                onClick={save}
+                disabled={saving}
+                className="w-full h-12 rounded-xl text-white font-bold disabled:opacity-50"
+                style={{
+                  background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
+                  boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
+                }}
+              >
+                {saving ? 'Saving...' : t("common.save")}
+              </Button>
+            )}
           </>
         )}
       </div>
