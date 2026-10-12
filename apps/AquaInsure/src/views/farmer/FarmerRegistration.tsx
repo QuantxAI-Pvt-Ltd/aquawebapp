@@ -229,6 +229,10 @@ export default function FarmerRegistration() {
 
   const handleAadhaarUpload = async (file: File | undefined) => {
     if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("File exceeds 15MB limit. Please select a smaller document or photo.");
+      return;
+    }
     setValue("aadharFile", file, { shouldDirty: true });
     setAadharOcrLoading(true);
     setAadharOcrDone(false);

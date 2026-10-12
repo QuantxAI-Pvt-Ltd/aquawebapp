@@ -36,6 +36,7 @@ const IMAGE_SOURCES = [
   { value: 'farm-photo', label: 'Farm Photos' },
   { value: 'pond-photo', label: 'Pond Photos' },
   { value: 'shrimp-photo', label: 'Shrimp Health Photos' },
+  { value: 'claim-evidence', label: 'Claim Evidence Photos' },
 ];
 
 export default function ImagesPage() {

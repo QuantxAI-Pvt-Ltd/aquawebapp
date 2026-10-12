@@ -287,21 +287,40 @@ router.get('/images/list', async (req, res) => {
                 total = await DailyEntry.countDocuments({ 'shrimpHealth.shrimpPhoto': { $exists: true, $ne: null } });
                 const entries = await DailyEntry.find({ 'shrimpHealth.shrimpPhoto': { $exists: true, $ne: null } })
                     .select('shrimpHealth.shrimpPhoto shrimpHealth.status pondId dayNumber date createdAt')
-                    .populate('pondId', 'name farmerId')
+                    .populate({
+                        path: 'pondId',
+                        select: 'name farmerId',
+                        populate: { path: 'farmerId', select: 'name' }
+                    })
                     .sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean();
-                for (const e of entries) {
-                    let farmerName = 'Unknown';
-                    if (e.pondId?.farmerId && mongoose.Types.ObjectId.isValid(e.pondId.farmerId)) {
-                        const farmer = await Farmer.findById(e.pondId.farmerId).select('name').lean();
-                        if (farmer) farmerName = farmer.name;
-                    }
-                    items.push({
-                        _id: e._id, label: `Day ${e.dayNumber} — ${e.pondId?.name || ''}`, sublabel: farmerName,
-                        image: bufferToDataUrl(e.shrimpHealth?.shrimpPhoto),
-                        timestamp: e.date || e.createdAt, source: 'shrimp-photo',
-                        meta: { status: e.shrimpHealth?.status }
-                    });
-                }
+                items = entries.map(e => ({
+                    _id: e._id,
+                    label: `Day ${e.dayNumber} — ${e.pondId?.name || ''}`,
+                    sublabel: e.pondId?.farmerId?.name || 'Unknown Farmer',
+                    image: bufferToDataUrl(e.shrimpHealth?.shrimpPhoto),
+                    timestamp: e.date || e.createdAt,
+                    source: 'shrimp-photo',
+                    meta: { status: e.shrimpHealth?.status }
+                }));
+                break;
+            }
+            case 'claim-evidence': {
+                total = await Insurance.countDocuments({ 'claim.evidencePhoto': { $exists: true, $ne: null } });
+                const policies = await Insurance.find({ 'claim.evidencePhoto': { $exists: true, $ne: null } })
+                    .select('claim.evidencePhoto claim.reason claim.claimedAt farmerId pondId createdAt')
+                    .populate('farmerId', 'name phone')
+                    .populate('pondId', 'name')
+                    .sort({ 'claim.claimedAt': -1, createdAt: -1 })
+                    .skip(skip).limit(parseInt(limit)).lean();
+                items = policies.map(p => ({
+                    _id: p._id,
+                    label: `Claim — ${p.pondId?.name || 'Pond'}`,
+                    sublabel: p.farmerId?.name || 'Unknown Farmer',
+                    image: bufferToDataUrl(p.claim?.evidencePhoto),
+                    timestamp: p.claim?.claimedAt || p.createdAt,
+                    source: 'claim-evidence',
+                    meta: { Reason: p.claim?.reason || '—' }
+                }));
                 break;
             }
             case 'aadhar-card': {
@@ -417,7 +436,17 @@ router.get('/analytics/water-quality', async (req, res) => {
         since.setDate(since.getDate() - parseInt(days));
 
         const pipeline = [
-            { $match: { date: { $gte: since }, 'waterQuality.ph': { $exists: true } } },
+            {
+                $match: {
+                    date: { $gte: since },
+                    $or: [
+                        { 'waterQuality.ph': { $exists: true, $ne: null } },
+                        { 'waterQuality.do': { $exists: true, $ne: null } },
+                        { 'waterQuality.temperature': { $exists: true, $ne: null } },
+                        { 'waterQuality.ammonia': { $exists: true, $ne: null } }
+                    ]
+                }
+            },
             {
                 $group: {
                     _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
@@ -796,9 +825,9 @@ router.get('/insurances', async (req, res) => {
         const [total, insurances, pendingClaimsCount, approvedClaimsCount, activeCount] = await Promise.all([
             Insurance.countDocuments(query),
             Insurance.find(query)
-                .populate('farmerId', 'name phone aadharNumber address')
+                .populate('farmerId', 'name phone address identity')
                 .populate('pondId', 'name pondNumber dimensionAcres address photo')
-                .populate('farmId', 'name state district mandal village')
+                .populate('farmId', 'location ownership totalPonds')
                 .sort({ 'claim.claimedAt': -1, createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit))
@@ -873,9 +902,9 @@ router.patch('/insurances/:id/claim', async (req, res) => {
         await policy.save();
 
         const updated = await Insurance.findById(id)
-            .populate('farmerId', 'name phone aadharNumber address')
+            .populate('farmerId', 'name phone address identity')
             .populate('pondId', 'name pondNumber dimensionAcres address photo')
-            .populate('farmId', 'name state district mandal village')
+            .populate('farmId', 'location ownership totalPonds')
             .lean();
 
         res.json({

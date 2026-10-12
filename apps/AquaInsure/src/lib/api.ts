@@ -48,7 +48,8 @@ axios.interceptors.response.use(
         localStorage.removeItem('shrimpguard-farmer');
         localStorage.removeItem('aqua-farm');
         localStorage.removeItem('aqua-reg-complete');
-        window.location.href = '/aquainsure/login/';
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/aquainsure';
+        window.location.href = `${basePath.replace(/\/+$/, '')}/login/`;
       }
     }
     return Promise.reject(error);

@@ -171,8 +171,8 @@ router.get('/claims', async (req, res) => {
 
         const claims = await Insurance.find(query)
             .populate('pondId', 'name pondNumber dimensionAcres address')
-            .populate('farmId', 'name state district mandal village')
-            .populate('farmerId', 'name phone aadharNumber')
+            .populate('farmId', 'location ownership totalPonds')
+            .populate('farmerId', 'name phone identity address')
             .sort({ 'claim.claimedAt': -1, updatedAt: -1 })
             .lean();
 
@@ -192,9 +192,12 @@ router.get('/', async (req, res) => {
         if (!farmerId) {
             return res.status(400).json({ success: false, error: 'farmerId query param required' });
         }
+        if (!mongoose.Types.ObjectId.isValid(farmerId)) {
+            return res.status(400).json({ success: false, error: 'Invalid farmerId format' });
+        }
 
         // Get all ponds belonging to this farmer so we can match on pondId too
-        const farmerPonds = await Pond.find({ farmerId }).select('_id').lean();
+        const farmerPonds = await Pond.find({ farmerId: new mongoose.Types.ObjectId(farmerId) }).select('_id').lean();
         const pondIds = farmerPonds.map(p => p._id);
 
         const query = {
@@ -206,7 +209,8 @@ router.get('/', async (req, res) => {
 
         const insurances = await Insurance.find(query)
             .populate('pondId', 'name pondNumber dimensionAcres')
-            .populate('farmId', 'name location')
+            .populate('farmId', 'location ownership totalPonds')
+            .populate('farmerId', 'name phone identity address')
             .sort({ createdAt: -1 })
             .lean();
 

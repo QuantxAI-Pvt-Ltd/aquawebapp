@@ -55,7 +55,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }
 
   // Render the public page (e.g., /login) without sidebar chrome
-  if (!isAuthenticated || PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+  if (!isAuthenticated || isPublicPage) {
     return <>{children}</>;
   }
 

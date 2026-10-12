@@ -118,10 +118,14 @@ const Reports = () => {
       const params = new URLSearchParams({ farmerId: session.farmerId });
       if (selectedPond !== 'all') params.append('pondId', selectedPond);
       if (from) params.append('from', from);
-      if (to) params.append('to', to);
+      const headers: Record<string, string> = {};
+      if (session?.token) {
+        headers['Authorization'] = `Bearer ${session.token}`;
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/export/excel?${params.toString()}`, {
         method: 'GET',
+        headers,
       });
 
       if (!response.ok) {
