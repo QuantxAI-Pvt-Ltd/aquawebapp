@@ -8,6 +8,11 @@ const oneTimeEntrySchema = new mongoose.Schema({
         required: true
     },
 
+    registrationCertificate: {
+        type: mediaObjectSchema,
+        default: null
+    },
+
     pondPreparation: {
         followedPractices: { type: Boolean, default: false },
         pondPrepBills: { type: mediaObjectSchema, default: null }

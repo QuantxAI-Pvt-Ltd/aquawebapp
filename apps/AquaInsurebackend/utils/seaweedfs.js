@@ -514,6 +514,8 @@ const StorageHierarchy = {
     `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/photo_${Date.now()}.${ext}`,
 
   // OneTimeEntry
+  oneTimeRegCert: (farmerId, farmId, pondId, ext = 'pdf') =>
+    `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/onetime/regCert_${Date.now()}.${ext}`,
   oneTimePondPrepBills: (farmerId, farmId, pondId, ext = 'pdf') =>
     `farmers/${farmerId}/farms/${farmId}/ponds/${pondId}/onetime/pondPrepBills_${Date.now()}.${ext}`,
   oneTimePcrCert: (farmerId, farmId, pondId, ext = 'pdf') =>

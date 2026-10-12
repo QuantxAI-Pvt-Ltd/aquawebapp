@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft, Upload, Waves, Eye, CheckCircle2, 
-  ExternalLink, FileText, X 
+  ExternalLink, FileText, X, Trash2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -178,11 +178,13 @@ const OneTimeEntry = () => {
     value,
     accept = "image/*,.pdf",
     onChange,
+    onRemove,
   }: {
     label: string;
     value: any;
     accept?: string;
     onChange: (file: File | undefined) => void;
+    onRemove?: () => void;
   }) => {
     const activeUrl = getMediaUrl(value);
     const fileName = value instanceof File ? value.name : (activeUrl ? 'Attached Document' : null);
@@ -200,6 +202,17 @@ const OneTimeEntry = () => {
                 <p className="text-xs text-stone-700 font-medium truncate">{fileName || 'Uploaded File'}</p>
               </div>
             </div>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={onRemove}
+                className="w-7 h-7 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                title="Remove document"
+                aria-label="Remove document"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 pt-1 border-t border-teal-100">
@@ -219,9 +232,24 @@ const OneTimeEntry = () => {
                 type="file"
                 accept={accept}
                 className="hidden"
-                onChange={(e) => onChange(e.target.files?.[0])}
+                onChange={(e) => {
+                  onChange(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
               />
             </label>
+
+            {onRemove && (
+              <button
+                type="button"
+                onClick={onRemove}
+                className="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
+                title="Remove document"
+              >
+                <Trash2 size={13} className="text-red-500" />
+                <span>Remove</span>
+              </button>
+            )}
           </div>
         </div>
       );
@@ -231,7 +259,15 @@ const OneTimeEntry = () => {
       <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
         <Upload size={16} className="text-teal-600" />
         <span className="truncate text-stone-500 font-medium">{label}</span>
-        <input type="file" accept={accept} className="hidden" onChange={(e) => onChange(e.target.files?.[0])} />
+        <input 
+          type="file" 
+          accept={accept} 
+          className="hidden" 
+          onChange={(e) => {
+            onChange(e.target.files?.[0]);
+            e.target.value = '';
+          }} 
+        />
       </label>
     );
   };
@@ -386,6 +422,7 @@ const OneTimeEntry = () => {
                 value={data.regCertificate}
                 accept="image/*,.pdf"
                 onChange={(file) => updateField("regCertificate", file)}
+                onRemove={() => updateField("regCertificate", null)}
               />
             </div>
 
@@ -400,6 +437,7 @@ const OneTimeEntry = () => {
                 value={data.pondPrepBills}
                 accept="image/*,.pdf"
                 onChange={(file) => updateField("pondPrepBills", file)}
+                onRemove={() => updateField("pondPrepBills", null)}
               />
             </div>
 
@@ -415,12 +453,14 @@ const OneTimeEntry = () => {
                   value={data.pcrCertificate}
                   accept="image/*,.pdf"
                   onChange={(file) => updateField("pcrCertificate", file)}
+                  onRemove={() => updateField("pcrCertificate", null)}
                 />
                 <MediaField
                   label={t("entries.uploadBills") + " (Seed Bills)"}
                   value={data.seedBills}
                   accept="image/*,.pdf"
                   onChange={(file) => updateField("seedBills", file)}
+                  onRemove={() => updateField("seedBills", null)}
                 />
               </div>
             </div>

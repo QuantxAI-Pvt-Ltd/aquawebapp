@@ -125,7 +125,7 @@ router.post('/one-time', requireAuth, async (req, res) => {
         const farmId = pond?.farmId?.toString() || 'unknown';
         const pondIdStr = data.pondId?.toString();
 
-        const [pondPrepBillsObj, pcrCertObj, seedBillsObj] = await Promise.all([
+        const [pondPrepBillsObj, pcrCertObj, seedBillsObj, regCertObj] = await Promise.all([
             data.pondPreparation?.pondPrepBills
                 ? safeUploadBase64(data.pondPreparation.pondPrepBills, (ext) => StorageHierarchy.oneTimePondPrepBills(farmerId, farmId, pondIdStr, ext))
                 : null,
@@ -135,10 +135,14 @@ router.post('/one-time', requireAuth, async (req, res) => {
             data.seedSelection?.seedBills
                 ? safeUploadBase64(data.seedSelection.seedBills, (ext) => StorageHierarchy.oneTimeSeedBills(farmerId, farmId, pondIdStr, ext))
                 : null,
+            data.registrationCertificate
+                ? safeUploadBase64(data.registrationCertificate, (ext) => StorageHierarchy.oneTimeRegCert(farmerId, farmId, pondIdStr, ext))
+                : null,
         ]);
 
         const entryData = {
             ...data,
+            registrationCertificate: regCertObj,
             pondPreparation: {
                 ...data.pondPreparation,
                 pondPrepBills: pondPrepBillsObj
