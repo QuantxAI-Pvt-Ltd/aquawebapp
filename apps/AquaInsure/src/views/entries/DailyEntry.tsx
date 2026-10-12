@@ -143,7 +143,7 @@ const DailyEntry = () => {
     if (lastHydratedKeyRef.current === key) return;
     lastHydratedKeyRef.current = key;
 
-    const existing = dbEntries.find((e: any) => e.dayNumber === selectedDay && e.pondId === pid);
+    const existing = dbEntries.find((e: any) => e.dayNumber === selectedDay && (String(typeof e.pondId === 'object' && e.pondId !== null ? (e.pondId._id || e.pondId.id) : e.pondId) === String(pid)));
     if (existing) {
       // flatten nested structure back to flat form state
       setData({
@@ -262,7 +262,7 @@ const DailyEntry = () => {
     // Synchronize the local dbEntries
     if (res.data?.success && res.data?.data) {
       setDbEntries(prev => {
-        const idx = prev.findIndex(e => e.dayNumber === selectedDay && e.pondId === pondId);
+        const idx = prev.findIndex(e => e.dayNumber === selectedDay && (String(typeof e.pondId === 'object' && e.pondId !== null ? (e.pondId._id || e.pondId.id) : e.pondId) === String(pondId)));
         if (idx !== -1) {
           const newEntries = [...prev];
           newEntries[idx] = res.data.data;
@@ -493,7 +493,7 @@ const DailyEntry = () => {
         
         if (res.data.data) {
           setDbEntries(prev => {
-            const idx = prev.findIndex(e => e.dayNumber === selectedDay && e.pondId === pondId);
+            const idx = prev.findIndex(e => e.dayNumber === selectedDay && (String(typeof e.pondId === 'object' && e.pondId !== null ? (e.pondId._id || e.pondId.id) : e.pondId) === String(pondId)));
             if (idx !== -1) {
               const newEntries = [...prev];
               newEntries[idx] = res.data.data;

@@ -35,7 +35,7 @@ router.get('/excel', async (req, res) => {
         // Fetch entries WITH buffers to process OCR
         // (feedBills, miscBills, electricityBills)
         const entries = await DailyEntry.find(query)
-            .populate('pondId', 'name pondIdentifier')
+            .populate('pondId', 'name pondNumber')
             .sort({ date: -1 })
             .lean();
 
@@ -69,7 +69,7 @@ router.get('/excel', async (req, res) => {
         // Process each entry
         for (const entry of entries) {
             const dateStr = entry.date ? new Date(entry.date).toLocaleDateString('en-GB') : '';
-            const pondName = entry.pondId?.name || entry.pondId?.pondIdentifier || entry.pondId || '';
+            const pondName = entry.pondId?.name || (entry.pondId?.pondNumber ? `Pond ${entry.pondId.pondNumber}` : 'Pond 1');
 
             // Default manual costs
             const feedCost = parseFloat(entry.feedManagement?.feedCost) || 0;

@@ -45,6 +45,7 @@ router.get('/daily', async (req, res) => {
         }
 
         const entries = await DailyEntry.find(query)
+            .populate('pondId', 'name pondNumber')
             .sort({ dayNumber: 1, date: -1 })
             .lean();
 
@@ -301,7 +302,7 @@ router.post('/daily', requireAuth, async (req, res) => {
             { pondId: data.pondId, dayNumber },
             entryData,
             { new: true, upsert: true, runValidators: true }
-        );
+        ).populate('pondId', 'name pondNumber');
 
         // Return lean copy
         const lean = entry.toObject();

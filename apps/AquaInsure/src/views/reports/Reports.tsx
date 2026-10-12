@@ -57,16 +57,47 @@ const Reports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [ponds, setPonds] = useState<any[]>([]);
+  const [ponds, setPonds] = useState<any[]>(() => {
+    try {
+      const farmData = JSON.parse(localStorage.getItem('aqua-farm') || '{}');
+      return farmData.ponds || [];
+    } catch {
+      return [];
+    }
+  });
 
   const session = JSON.parse(localStorage.getItem('aqua-session') || '{}');
 
   useEffect(() => {
     if (!session.farmerId) { navigate('/login', { replace: true }); return; }
     axios.get(`/api/farms/ponds?farmerId=${session.farmerId}`)
-      .then(r => setPonds(r.data.data || []))
+      .then(r => {
+        if (r.data?.data && r.data.data.length > 0) {
+          setPonds(r.data.data);
+        }
+      })
       .catch(() => { });
   }, []);
+
+  const getPondDisplayName = useCallback((pondVal: any) => {
+    if (!pondVal) return 'Pond 1';
+    if (typeof pondVal === 'object' && pondVal.name) return pondVal.name;
+    if (typeof pondVal === 'object' && pondVal.pondNumber) return `Pond ${pondVal.pondNumber}`;
+
+    const idStr = String(typeof pondVal === 'object' ? (pondVal._id || pondVal.pondId || '') : pondVal);
+    const match = ponds.find((p: any) => String(p._id || p.pondId || '') === idStr);
+    if (match) return match.name || `Pond ${match.pondNumber || 1}`;
+
+    const idx = ponds.findIndex((p: any) => String(p._id || p.pondId || '') === idStr);
+    if (idx !== -1) return `Pond ${idx + 1}`;
+
+    // If it's a 24-character hex ObjectId or long hash, don't expose the raw hash
+    if (/^[0-9a-fA-F]{24}$/.test(idStr) || idStr.length >= 20) {
+      return 'Pond 1';
+    }
+
+    return `Pond ${idStr}`;
+  }, [ponds]);
 
   const fetchEntries = useCallback(async () => {
     if (viewMode === 'custom' && (!startDate || !endDate)) return;
@@ -105,7 +136,7 @@ const Reports = () => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     const dateStr = e.date ? new Date(e.date).toLocaleDateString() : '';
-    const pondStr = (e.pondId || '').toString().toLowerCase();
+    const pondStr = getPondDisplayName(e.pondId).toLowerCase();
     const dayStr = `day ${e.dayNumber}`;
     return dateStr.toLowerCase().includes(q) || pondStr.includes(q) || dayStr.includes(q);
   });
@@ -254,9 +285,9 @@ const Reports = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('reports.allPonds')}</SelectItem>
-              {ponds.map((p: any) => (
-                <SelectItem key={p._id || p.pondId} value={p._id || p.pondId}>
-                  {p.name || `Pond ${p.pondNumber || p.pondId}`}
+              {ponds.map((p: any, idx: number) => (
+                <SelectItem key={p._id || p.pondId || idx} value={p._id || p.pondId}>
+                  {p.name || `Pond ${p.pondNumber || idx + 1}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -332,7 +363,7 @@ const Reports = () => {
           <h1 className="text-2xl font-black" style={{ color: '#0f766e' }}>Aqua AInsure Report</h1>
           <div className="mt-1 text-sm flex justify-between" style={{ color: '#64748b' }}>
             <span>Generated: {new Date().toLocaleDateString()}</span>
-            <span>Filter: {selectedPond === 'all' ? 'All Ponds' : `Pond ${selectedPond}`}</span>
+            <span>Filter: {selectedPond === 'all' ? 'All Ponds' : getPondDisplayName(selectedPond)}</span>
           </div>
         </div>
 
@@ -395,7 +426,7 @@ const Reports = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                             style={{ background: 'rgba(20,184,166,0.12)', color: '#0d9488', border: '1px solid rgba(20,184,166,0.22)' }}>
-                            🐠 {record.pondId?.name || `Pond ${record.pondId}`}
+                            🐠 {getPondDisplayName(record.pondId)}
                           </span>
                           <span className="text-[10px] font-medium flex items-center gap-1" style={{ color: '#94a3b8' }}>
                             <Clock size={10} />{record.date ? new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
