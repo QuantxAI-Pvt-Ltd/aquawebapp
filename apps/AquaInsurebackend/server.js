@@ -94,6 +94,8 @@ const entryRoutes = require('./routes/entryRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const { requireAdminAuth } = require('./middleware/adminAuth');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -102,8 +104,9 @@ app.use('/api/farms', farmRoutes);
 app.use('/api/insurances', insuranceRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/export', exportRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/dashboard', requireAdminAuth, dashboardRoutes); // Protected: admin token required
 app.use('/api/media', mediaRoutes);
+app.use('/api/admin', adminAuthRoutes); // Admin auth (login/logout — public)
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -1,9 +1,11 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from './ThemeToggle';
+import { LogOut } from 'lucide-react';
 
 const pageTitles: Record<string, { title: string; description: string }> = {
   '/': { title: 'Overview', description: 'Key metrics and activity at a glance' },
@@ -15,6 +17,22 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 
 export default function Topbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [adminUsername, setAdminUsername] = useState('Admin');
+
+  useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('admin-session') || '{}');
+      if (session?.username) setAdminUsername(session.username);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin-session');
+    router.replace('/login');
+  };
 
   let page = pageTitles[pathname];
   if (!page) {
@@ -55,14 +73,25 @@ export default function Topbar() {
         {/* User Badge */}
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-xs font-bold text-white shadow-xs">
-            A
+            {adminUsername.charAt(0).toUpperCase()}
           </div>
           <div className="hidden lg:flex flex-col text-left">
-            <span className="text-xs font-semibold text-foreground leading-none">Admin</span>
+            <span className="text-xs font-semibold text-foreground leading-none capitalize">{adminUsername}</span>
             <span className="text-[10px] text-muted-foreground leading-none mt-0.5">Underwriting</span>
           </div>
         </div>
+
+        {/* Logout Button */}
+        <button
+          id="admin-logout-btn"
+          onClick={handleLogout}
+          title="Logout"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     </header>
   );
 }
+
