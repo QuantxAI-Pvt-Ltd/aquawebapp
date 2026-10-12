@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const OneTimeEntry = require('../models/OneTimeEntry');
 const DailyEntry = require('../models/DailyEntry');
 
@@ -124,6 +125,9 @@ router.post('/one-time', requireAuth, async (req, res) => {
 
         if (!data.pondId) {
             return res.status(400).json({ success: false, error: 'pondId is required' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(data.pondId)) {
+            return res.status(400).json({ success: false, error: 'Invalid pondId format' });
         }
 
         // 1. Enforce that One-Time Entry is ONLY allowed for insured ponds
