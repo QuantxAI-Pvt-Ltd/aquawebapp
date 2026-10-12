@@ -67,7 +67,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=5001
-      - MONGODB_URI=${MONGODB_URI:-mongodb://aquainsure_app:AquaInsureAppSecret2026!@mongodb:27017/aquainsure?authSource=aquainsure}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/aquainsure}
       - JWT_SECRET=${JWT_SECRET:-aquainsure-super-secret-jwt-key-2024}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-30d}
       - SEAWEEDFS_MASTER_ENDPOINT=http://seaweedfs:9333
@@ -108,6 +108,9 @@ services:
     build:
       context: .
       dockerfile: apps/Aquainsuredashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-/dashboard}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5001}
     container_name: aquainsure-dashboard-app
     restart: unless-stopped
     ports:

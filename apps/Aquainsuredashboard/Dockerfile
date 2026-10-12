@@ -12,6 +12,13 @@ COPY apps/Aquainsuredashboard/ ./apps/Aquainsuredashboard/
 RUN npm install --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Inlined at build-time by Next.js compiler for standalone output
+ARG NEXT_PUBLIC_BASE_PATH=/dashboard
+ARG NEXT_PUBLIC_API_URL=http://localhost:5001
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm --prefix apps/Aquainsuredashboard run build
 
 # ─── Stage 2: Ultra-lean Standalone Runtime ─────────────────────────────────
@@ -22,9 +29,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-# Only copy standalone server output, public assets, and static files
+# Copy standalone server output, public assets, and static files
 COPY --from=builder /app/apps/Aquainsuredashboard/.next/standalone ./
 COPY --from=builder /app/apps/Aquainsuredashboard/.next/static ./apps/Aquainsuredashboard/.next/static
+COPY --from=builder /app/apps/Aquainsuredashboard/.next/static ./.next/static
 COPY --from=builder /app/apps/Aquainsuredashboard/public ./apps/Aquainsuredashboard/public
 
 EXPOSE 3000
