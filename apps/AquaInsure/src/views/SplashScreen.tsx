@@ -61,31 +61,7 @@ const SplashScreen = () => {
           localStorage.setItem('aqua-reg-complete', isProfileComplete ? '1' : '0');
 
           if (!isProfileComplete) {
-            switch (onboardingStep) {
-              case 'farmer_registration':
-                navigate('/farmer-registration', { replace: true });
-                break;
-              case 'farmer_address':
-                navigate('/farmer-address', { replace: true });
-                break;
-              case 'farmer_kyc':
-                navigate('/farmer-kyc', { replace: true });
-                break;
-              case 'farm_registration':
-                navigate('/farm-registration', { replace: true });
-                break;
-              case 'farm_setup':
-                navigate('/farm-setup', { replace: true });
-                break;
-              case 'insured_ponds':
-                navigate('/insured-ponds', { replace: true });
-                break;
-              case 'insurance_registration':
-                navigate('/insurance-registration', { replace: true });
-                break;
-              default:
-                navigate('/farmer-registration', { replace: true });
-            }
+            navigate('/login', { replace: true });
           } else {
             navigate('/dashboard', { replace: true });
           }

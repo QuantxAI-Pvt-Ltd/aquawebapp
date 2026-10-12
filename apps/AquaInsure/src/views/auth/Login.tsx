@@ -30,6 +30,10 @@ const Login = () => {
           const isComplete = localStorage.getItem('aqua-reg-complete') === '1';
           if (isComplete) {
             navigate('/dashboard', { replace: true });
+          } else {
+            // Incomplete session on login screen — purge so farmer can cleanly log in
+            localStorage.removeItem('aqua-session');
+            localStorage.removeItem('aqua-farm');
           }
         }
       } catch {

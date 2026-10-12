@@ -343,6 +343,26 @@ export default function FarmerRegistration() {
     );
   };
 
+  const handleBack = () => {
+    if (isEditMode) {
+      navigate("/settings");
+      return;
+    }
+    // Cleanly cancel registration, clear incomplete session and draft state
+    try {
+      localStorage.removeItem("aqua-session");
+      localStorage.removeItem("shrimpguard-farmer");
+      localStorage.removeItem("aqua-farm");
+      localStorage.removeItem("aqua-reg-complete");
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith("draft_")) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch {}
+    window.location.href = "/aquainsure/login/";
+  };
+
   return (
     <div
       className="h-full flex flex-col overflow-hidden bg-stone-50 relative text-stone-800 font-sans"
@@ -367,7 +387,7 @@ export default function FarmerRegistration() {
           title={isEditMode ? "Edit Profile" : "Personal Details"}
           isEditMode={isEditMode}
           syncStatus={syncStatus}
-          onBack={isEditMode ? () => navigate("/settings") : () => navigate("/login")}
+          onBack={handleBack}
         />
 
         <div className="px-4 mt-5 relative z-10">

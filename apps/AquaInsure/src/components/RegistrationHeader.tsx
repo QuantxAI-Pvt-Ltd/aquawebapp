@@ -52,12 +52,23 @@ export default function RegistrationHeader({
       return;
     }
     if (currentStep === 0) {
-      navigate("/login");
-    } else {
-      const prev = REGISTRATION_STEPS[currentStep - 1];
-      if (prev) navigate(prev.route);
-      else navigate(-1);
+      try {
+        localStorage.removeItem("aqua-session");
+        localStorage.removeItem("shrimpguard-farmer");
+        localStorage.removeItem("aqua-farm");
+        localStorage.removeItem("aqua-reg-complete");
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith("draft_")) {
+            localStorage.removeItem(k);
+          }
+        });
+      } catch {}
+      window.location.href = "/aquainsure/login/";
+      return;
     }
+    const prev = REGISTRATION_STEPS[currentStep - 1];
+    if (prev) navigate(prev.route);
+    else navigate(-1);
   };
 
   const handleStepClick = (targetStep: number) => {
