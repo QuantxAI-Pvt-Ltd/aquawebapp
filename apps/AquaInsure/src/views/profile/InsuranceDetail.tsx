@@ -17,6 +17,13 @@ import { toast } from "sonner";
 import axios from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
 import { fileToBase64, uploadToSeaweedFS, resolveMediaUrl } from "@/lib/fileUtils";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -428,17 +435,31 @@ export default function InsuranceDetail() {
                                     <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
                                         Primary Cause of Loss
                                     </label>
-                                    <select
+                                    <Select
                                         value={reason}
-                                        onChange={(e) => setReason(e.target.value)}
-                                        className="w-full text-base sm:text-xs font-medium bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                                        onValueChange={(val) => setReason(val)}
                                     >
-                                        <option value="mass_mortality">Sudden Mass Mortality</option>
-                                        <option value="disease_outbreak">Disease Outbreak (WSSV / EHP / EMS)</option>
-                                        <option value="water_toxicity">Water Quality Crash / Toxic Spike</option>
-                                        <option value="flooding_calamity">Flooding / Heavy Storm Influx</option>
-                                        <option value="other">Other Accidental Loss</option>
-                                    </select>
+                                        <SelectTrigger className="w-full h-12 text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl px-3.5 focus:ring-2 focus:ring-teal-600 focus:border-teal-600 shadow-xs">
+                                            <SelectValue placeholder="Select Cause of Loss" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[200] max-h-60 bg-white border border-stone-200 rounded-xl shadow-2xl">
+                                            <SelectItem value="mass_mortality" className="text-sm font-medium py-2.5 cursor-pointer">
+                                                Sudden Mass Mortality
+                                            </SelectItem>
+                                            <SelectItem value="disease_outbreak" className="text-sm font-medium py-2.5 cursor-pointer">
+                                                Disease Outbreak (WSSV / EHP / EMS)
+                                            </SelectItem>
+                                            <SelectItem value="water_toxicity" className="text-sm font-medium py-2.5 cursor-pointer">
+                                                Water Quality Crash / Toxic Spike
+                                            </SelectItem>
+                                            <SelectItem value="flooding_calamity" className="text-sm font-medium py-2.5 cursor-pointer">
+                                                Flooding / Heavy Storm Influx
+                                            </SelectItem>
+                                            <SelectItem value="other" className="text-sm font-medium py-2.5 cursor-pointer">
+                                                Other Accidental Loss
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div>

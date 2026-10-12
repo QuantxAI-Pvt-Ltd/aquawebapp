@@ -22,6 +22,13 @@ import { toast } from 'sonner';
 import axios from '@/lib/api';
 import BottomNav from '@/components/BottomNav';
 import { uploadToSeaweedFS, resolveMediaUrl } from '@/lib/fileUtils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -530,17 +537,21 @@ export default function ClaimsPage() {
                     <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
                       Select Insured Pond
                     </label>
-                    <select
+                    <Select
                       value={selectedPolicyId}
-                      onChange={(e) => setSelectedPolicyId(e.target.value)}
-                      className="w-full text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      onValueChange={(val) => setSelectedPolicyId(val)}
                     >
-                      {activePolicies.map((p) => (
-                        <option key={p._id} value={p._id}>
-                          {p.pondId?.name || `Pond #${p.pondId?.pondNumber || '?'}`} — {p.species} ({p.farmId?.name || 'Farm'})
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full h-12 text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl px-3.5 focus:ring-2 focus:ring-teal-600 focus:border-teal-600 shadow-xs">
+                        <SelectValue placeholder="Select Insured Pond" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[200] max-h-60 bg-white border border-stone-200 rounded-xl shadow-2xl">
+                        {activePolicies.map((p) => (
+                          <SelectItem key={p._id} value={p._id} className="text-sm font-medium py-2.5 cursor-pointer">
+                            {p.pondId?.name || `Pond #${p.pondId?.pondNumber || '?'}`} — {p.species} ({p.farmId?.name || 'Farm'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Incident Reason */}
@@ -548,17 +559,21 @@ export default function ClaimsPage() {
                     <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider block mb-1.5">
                       Incident / Peril Type
                     </label>
-                    <select
+                    <Select
                       value={claimReason}
-                      onChange={(e) => setClaimReason(e.target.value)}
-                      className="w-full text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-teal-600"
+                      onValueChange={(val) => setClaimReason(val)}
                     >
-                      {Object.entries(REASON_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full h-12 text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-xl px-3.5 focus:ring-2 focus:ring-teal-600 focus:border-teal-600 shadow-xs">
+                        <SelectValue placeholder="Select Incident Type" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[200] max-h-60 bg-white border border-stone-200 rounded-xl shadow-2xl">
+                        {Object.entries(REASON_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key} className="text-sm font-medium py-2.5 cursor-pointer">
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Estimated Loss */}
