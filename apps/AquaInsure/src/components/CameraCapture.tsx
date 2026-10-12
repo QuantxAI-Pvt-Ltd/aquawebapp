@@ -21,6 +21,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const streamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
@@ -28,18 +29,31 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
   const [currentFacingMode, setCurrentFacingMode] = useState<'user' | 'environment'>(facingMode);
 
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, [currentFacingMode]);
+  const stopCamera = () => {
+    // 1. Stop all tracks from the streamRef
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    // 2. Stop any tracks attached to the video element directly
+    if (videoRef.current && videoRef.current.srcObject) {
+      const srcStream = videoRef.current.srcObject as MediaStream;
+      srcStream.getTracks().forEach(track => {
+        track.stop();
+      });
+      videoRef.current.srcObject = null;
+    }
+    setStream(null);
+  };
 
   const startCamera = async () => {
     try {
       setError(null);
       setIsPermissionDenied(false);
-      if (stream) {
-        stopCamera();
-      }
+      stopCamera();
+
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: currentFacingMode,
@@ -48,6 +62,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         },
         audio: false
       });
+      streamRef.current = newStream;
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
@@ -65,11 +80,16 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     }
   };
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
+  useEffect(() => {
+    startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, [currentFacingMode]);
+
+  const handleClose = () => {
+    stopCamera();
+    onClose();
   };
 
   const takePhoto = () => {
@@ -104,6 +124,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
           const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
           setCapturedFile(file);
         });
+
+      // Turn off hardware camera while previewing image to save battery
+      stopCamera();
     }
   };
 
@@ -118,6 +141,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   };
 
   const confirmPhoto = () => {
+    stopCamera();
     if (capturedFile) {
       onCapture(capturedFile);
       onClose();
@@ -134,6 +158,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   };
 
   const switchCamera = () => {
+    stopCamera();
     setCurrentFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
@@ -155,7 +180,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
           <h3 className="font-semibold text-base tracking-wide text-white">{title}</h3>
         </div>
         <button 
-          onClick={onClose} 
+          onClick={handleClose} 
           className="p-2 -mr-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors touch-manipulation"
           aria-label="Close"
         >
