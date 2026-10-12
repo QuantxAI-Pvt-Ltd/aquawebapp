@@ -367,6 +367,7 @@ export default function FarmerRegistration() {
           title={isEditMode ? "Edit Profile" : "Personal Details"}
           isEditMode={isEditMode}
           syncStatus={syncStatus}
+          onBack={isEditMode ? () => navigate("/settings") : () => navigate("/login")}
         />
 
         <div className="px-4 mt-5 relative z-10">

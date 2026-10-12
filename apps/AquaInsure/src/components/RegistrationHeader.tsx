@@ -52,7 +52,7 @@ export default function RegistrationHeader({
       return;
     }
     if (currentStep === 0) {
-      navigate("/dashboard");
+      navigate("/login");
     } else {
       const prev = REGISTRATION_STEPS[currentStep - 1];
       if (prev) navigate(prev.route);
