@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft, Upload, Waves, Eye, CheckCircle2, 
-  ExternalLink, FileText, X, Trash2, Lock, ShieldCheck 
+  ExternalLink, FileText, X, Trash2, ShieldCheck 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ const YesNo = ({
             disabled={disabled}
             onClick={() => !disabled && onChange(field, v)}
             className={`w-14 py-2 rounded-lg text-xs font-bold transition-all ${
-              disabled ? "cursor-not-allowed opacity-80" : ""
+              disabled ? "pointer-events-none cursor-default" : ""
             } ${value === v
               ? "text-white shadow-sm"
               : "bg-stone-100 text-stone-400 hover:bg-stone-200"
@@ -256,27 +256,55 @@ const OneTimeEntry = () => {
     const activeUrl = getMediaUrl(value);
     const fileName = value instanceof File ? value.name : (activeUrl ? 'Attached Document' : null);
 
+    // If locked (already submitted), render a subtle, compact row with a small "Show" button on the side
+    if (isLocked) {
+      if (activeUrl) {
+        return (
+          <div className="w-full rounded-xl border border-stone-200/70 bg-white/80 p-2.5 flex items-center justify-between gap-3 shadow-xs mt-1.5">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+                <FileText size={14} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-stone-500 font-medium truncate">{label}</p>
+                <p className="text-xs text-stone-800 font-medium truncate">{fileName || 'Attached Document'}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setViewerModal({ title: label, url: activeUrl })}
+              className="h-7 px-2.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/60 text-xs font-semibold flex items-center gap-1 shrink-0 transition-colors shadow-2xs"
+            >
+              <Eye size={12} />
+              <span>Show</span>
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div className="py-1 px-1 text-[11px] text-stone-400 italic">
+          No document attached
+        </div>
+      );
+    }
+
+    // Editable mode: Active file uploaded
     if (activeUrl) {
       return (
         <div className="w-full rounded-2xl border border-teal-200 bg-teal-50/70 p-3 flex flex-col gap-2.5 transition-all shadow-xs mt-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className={`w-8 h-8 rounded-xl ${isLocked ? 'bg-amber-600' : 'bg-teal-600'} text-white flex items-center justify-center shrink-0 shadow-sm`}>
-                {isLocked ? <Lock size={15} /> : <CheckCircle2 size={16} />}
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <CheckCircle2 size={16} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-[10px] text-teal-700 font-bold uppercase tracking-wider truncate">{label}</p>
-                  {isLocked && (
-                    <span className="text-[9px] bg-amber-200/80 text-amber-800 font-bold px-1.5 py-0.2 rounded">
-                      Locked
-                    </span>
-                  )}
-                </div>
+                <p className="text-[10px] text-teal-700 font-bold uppercase tracking-wider truncate">{label}</p>
                 <p className="text-xs text-stone-700 font-medium truncate">{fileName || 'Uploaded File'}</p>
               </div>
             </div>
-            {!isLocked && onRemove && (
+            {onRemove && (
               <button
                 type="button"
                 onClick={onRemove}
@@ -293,55 +321,43 @@ const OneTimeEntry = () => {
             <button
               type="button"
               onClick={() => setViewerModal({ title: label, url: activeUrl })}
-              className="flex-1 h-9 rounded-xl bg-teal-700 hover:bg-teal-800 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+              className="flex-1 h-8 rounded-xl bg-teal-700 hover:bg-teal-800 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
             >
-              <Eye size={14} />
+              <Eye size={13} />
               <span>Show Document</span>
             </button>
 
-            {!isLocked && (
-              <>
-                <label className="h-9 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0">
-                  <Upload size={13} className="text-stone-500" />
-                  <span>Change</span>
-                  <input
-                    type="file"
-                    accept={accept}
-                    className="hidden"
-                    onChange={(e) => {
-                      onChange(e.target.files?.[0]);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
+            <label className="h-8 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0">
+              <Upload size={13} className="text-stone-500" />
+              <span>Change</span>
+              <input
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={(e) => {
+                  onChange(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+            </label>
 
-                {onRemove && (
-                  <button
-                    type="button"
-                    onClick={onRemove}
-                    className="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
-                    title="Remove document"
-                  >
-                    <Trash2 size={13} className="text-red-500" />
-                    <span>Remove</span>
-                  </button>
-                )}
-              </>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={onRemove}
+                className="h-8 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 active:scale-[0.98] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
+                title="Remove document"
+              >
+                <Trash2 size={13} className="text-red-500" />
+                <span>Remove</span>
+              </button>
             )}
           </div>
         </div>
       );
     }
 
-    if (isLocked) {
-      return (
-        <div className="w-full h-11 rounded-xl border border-dashed border-stone-200 bg-stone-50/70 flex items-center justify-center gap-2 text-xs text-stone-400 font-medium mt-2">
-          <Lock size={13} className="text-stone-400" />
-          <span>Not uploaded (Locked)</span>
-        </div>
-      );
-    }
-
+    // Editable mode: No file uploaded yet
     return (
       <label className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center gap-2 text-sm cursor-pointer hover:bg-stone-100 transition-colors mt-2">
         <Upload size={16} className="text-teal-600" />
@@ -512,26 +528,6 @@ const OneTimeEntry = () => {
               </div>
             )}
 
-            {/* Read-Only Lock Banner when already submitted */}
-            {isLocked && (
-              <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs">
-                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                  <Lock size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-900">Entry Locked (View Only)</span>
-                    <span className="text-[10px] font-bold bg-amber-200/80 text-amber-800 px-2 py-0.5 rounded-full">
-                      Submitted
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
-                    One-time setup documentation has been submitted and verified for this pond. Documents can be viewed but cannot be modified.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Farm Registration */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
@@ -600,7 +596,7 @@ const OneTimeEntry = () => {
             {isLocked ? (
               <Button
                 onClick={() => navigate('/entries/daily')}
-                className="w-full h-12 rounded-xl text-white font-bold"
+                className="w-full h-12 rounded-xl text-white font-bold mt-2"
                 style={{
                   background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
                   boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
@@ -612,7 +608,7 @@ const OneTimeEntry = () => {
               <Button
                 onClick={save}
                 disabled={saving}
-                className="w-full h-12 rounded-xl text-white font-bold disabled:opacity-50"
+                className="w-full h-12 rounded-xl text-white font-bold disabled:opacity-50 mt-2"
                 style={{
                   background: 'linear-gradient(110deg, #1c6b5a 20%, #2d9b7f 55%, #1c6b5a 80%)',
                   boxShadow: '0 6px 24px -4px rgba(28,107,90,0.28)',
