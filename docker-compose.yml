@@ -67,7 +67,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=5001
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/aquainsure}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://aquainsure_app:AquaInsureAppSecret2026!@mongodb:27017/aquainsure?authSource=aquainsure}
       - JWT_SECRET=${JWT_SECRET:-aquainsure-super-secret-jwt-key-2024}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-30d}
       - SEAWEEDFS_MASTER_ENDPOINT=http://seaweedfs:9333
