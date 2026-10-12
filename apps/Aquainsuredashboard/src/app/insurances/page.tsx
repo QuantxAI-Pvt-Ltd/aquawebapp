@@ -22,6 +22,13 @@ import {
   Calendar,
   Layers,
   Sparkles,
+  Receipt,
+  FileSpreadsheet,
+  ScanText,
+  Calculator,
+  Coins,
+  TrendingUp,
+  ReceiptText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,13 +50,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatDate } from '@/lib/formatters';
 import { api } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/fileUtils';
-import type { Insurance, Farmer, Pond, Farm, DailyEntry } from '@/types';
+import { MediaViewerDialog, type MediaViewerTarget } from '@/components/ui/media-viewer-dialog';
+import type { Insurance, Farmer, Pond, Farm, DailyEntry, ClaimFinancialAudit, BillAuditItem } from '@/types';
 
 const REASON_LABELS: Record<string, string> = {
   disease_outbreak: 'Disease Outbreak (WSSV/EHP/EMS)',
@@ -81,6 +89,12 @@ export default function InsurancesPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [pondEntries, setPondEntries] = useState<{ dailyEntries: DailyEntry[] } | null>(null);
   const [loadingPondEntries, setLoadingPondEntries] = useState(false);
+
+  // Financial Ledger & OCR Audit state
+  const [financialAudit, setFinancialAudit] = useState<ClaimFinancialAudit | null>(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [activeMedia, setActiveMedia] = useState<MediaViewerTarget | null>(null);
+  const [auditSubTab, setAuditSubTab] = useState<'matrix' | 'bills' | 'ledger'>('matrix');
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -130,11 +144,12 @@ export default function InsurancesPage() {
     };
   }, [statusFilter, debouncedSearch, refreshKey]);
 
-  // When opening full screen assessment, load pond recent entries for water quality context
+  // When opening full screen assessment, load pond logs and comprehensive OCR financial audit
   const handleOpenAssessment = async (policy: Insurance) => {
     setSelectedPolicy(policy);
     setSettlementAmount(policy.claim?.settlementAmount || 0);
     setReviewerNotes(policy.claim?.reviewerNotes || '');
+    setAuditSubTab('matrix');
     setModalOpen(true);
 
     const pId = typeof policy.pondId === 'object' ? policy.pondId?._id : policy.pondId;
@@ -151,6 +166,50 @@ export default function InsurancesPage() {
         setLoadingPondEntries(false);
       }
     }
+
+    // Load full Financial Ledger and OCR Audit for Seed & Daily costs
+    setLoadingAudit(true);
+    setFinancialAudit(null);
+    try {
+      const auditRes = await api.get<{ success: boolean; data: ClaimFinancialAudit }>(
+        `/api/dashboard/insurances/${policy._id}/claim-financial-audit`
+      );
+      if (auditRes.success) {
+        setFinancialAudit(auditRes.data);
+      }
+    } catch (err) {
+      console.warn('Could not load claim financial audit:', err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const openBillViewer = (bill: BillAuditItem) => {
+    const resolvedUrl = resolveMediaUrl(bill.media);
+    if (!resolvedUrl) return;
+    setActiveMedia({
+      title: bill.title,
+      url: resolvedUrl,
+      type: 'auto',
+      category:
+        bill.type === 'seed'
+          ? 'Seed Purchase Invoice'
+          : bill.type === 'feed'
+          ? 'Feed Purchase Bill'
+          : bill.type === 'electricity'
+          ? 'Electricity Utility Bill'
+          : bill.type === 'pond_prep'
+          ? 'Pond Preparation Bill'
+          : 'Farm Expense Invoice',
+      dayNumber: bill.dayNumber || undefined,
+      ocrDetails: {
+        extractedAmount: bill.extractedAmount,
+        rawText: bill.rawText,
+        matchedSnippet: bill.matchedSnippet,
+        method: bill.method,
+        status: bill.status,
+      },
+    });
   };
 
   const handleReviewClaim = async (action: 'approve' | 'reject') => {
@@ -766,116 +825,500 @@ export default function InsurancesPage() {
                     }
 
                     return (
-                      <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
-                        <CardHeader className="pb-3 border-b border-border">
-                          <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-                            <DollarSign size={16} className="text-primary" />
-                            Loss Valuation & Payout Determination Matrix
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            Calculated benchmark assistance based on registered acreage, stocking density, and validated mortality.
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-5 space-y-5">
-                          {/* Settlement Payout Entry */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
-                              Authorized Government Settlement Payout (₹)
-                            </label>
-                            <div className="relative">
-                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-muted-foreground">₹</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                step={1000}
-                                placeholder="Enter verified payout amount (e.g. 250000)"
-                                value={settlementAmount || ''}
-                                onChange={(e) => setSettlementAmount(Number(e.target.value))}
-                                className="pl-8 text-base font-bold bg-background border-border rounded-xl h-11"
-                                disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
-                              />
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              Direct Benefit Transfer (DBT) will disburse this amount to the farmer&apos;s verified bank account.
-                            </p>
+                      <div className="space-y-6">
+                        {/* ── Executive Financial & OCR Audit Ledger ── */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                              <Calculator size={14} className="text-primary" />
+                              Farmer Incurred Input Investment Audit (OCR Verified)
+                            </h4>
+                            {loadingAudit && (
+                              <span className="text-[11px] text-muted-foreground animate-pulse flex items-center gap-1">
+                                <ScanText size={12} className="animate-spin text-primary" /> Analyzing uploaded bills...
+                              </span>
+                            )}
                           </div>
 
-                          {/* Reviewer Technical Notes */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
-                              Underwriter Assessment & Field Justification
-                            </label>
-                            <Textarea
-                              rows={4}
-                              placeholder="Document observations from site inspections, water parameters, biometric sampling, and biosecurity audits..."
-                              value={reviewerNotes}
-                              onChange={(e) => setReviewerNotes(e.target.value)}
-                              className="w-full text-xs bg-background border border-border rounded-xl p-3 focus-visible:ring-1 focus-visible:ring-primary leading-relaxed"
-                              disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
-                            />
-                          </div>
+                          {/* 3 Key Financial Cards */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* 1. Seed Cost (One-Time Setup) */}
+                            <div className="p-4 rounded-2xl bg-secondary/30 border border-border relative overflow-hidden flex flex-col justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                                    <Receipt size={12} className="text-primary" /> Seed Purchase Cost
+                                  </span>
+                                  {financialAudit?.seedBill?.status === 'verified' && (
+                                    <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 px-1.5 py-0 font-bold">
+                                      OCR Verified
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xl font-black text-foreground">
+                                  ₹{Number(financialAudit?.summary?.totalSeedCost || 0).toLocaleString('en-IN')}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  One-Time Entry post-larvae seed purchase investment.
+                                </p>
+                              </div>
 
-                          {/* Status Summary & Execution Buttons */}
-                          {selectedPolicy.claim?.status === 'approved' ? (
-                            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-xs space-y-2">
-                              <div className="flex items-center justify-between font-bold text-primary">
-                                <span className="flex items-center gap-1.5 text-sm">
-                                  <CheckCircle2 size={18} /> Claim Officially Authorized & Settled
+                              {financialAudit?.seedBill ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[10px] font-semibold gap-1.5 mt-3 border-primary/30 text-primary hover:bg-primary/10 rounded-xl cursor-pointer w-full"
+                                  onClick={() => openBillViewer(financialAudit.seedBill!)}
+                                >
+                                  <ScanText size={12} /> Inspect Seed Bill & OCR
+                                </Button>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/60 italic block mt-3">
+                                  No seed bill uploaded
                                 </span>
-                                <span className="text-base font-black">
-                                  ₹{Number(selectedPolicy.claim.settlementAmount || 0).toLocaleString('en-IN')}
-                                </span>
+                              )}
+                            </div>
+
+                            {/* 2. Cumulative Daily Entry Costs */}
+                            <div className="p-4 rounded-2xl bg-secondary/30 border border-border relative overflow-hidden flex flex-col justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                                    <TrendingUp size={12} className="text-primary" /> Daily Operational Costs
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted-foreground">
+                                    {financialAudit?.dailyLedger?.length || 0} Days Logged
+                                  </span>
+                                </div>
+                                <div className="text-xl font-black text-foreground">
+                                  ₹{Number(financialAudit?.summary?.totalDailyOperationalCost || 0).toLocaleString('en-IN')}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Feed, electricity, labour, and miscellaneous expenses.
+                                </p>
                               </div>
-                              {selectedPolicy.claim.reviewedAt && (
-                                <p className="text-[11px] text-muted-foreground">
-                                  Approved on {formatDate(selectedPolicy.claim.reviewedAt)}
-                                </p>
-                              )}
-                              {selectedPolicy.claim.reviewerNotes && (
-                                <p className="text-foreground pt-2 border-t border-primary/20">
-                                  <strong>Inspector Notes: </strong>{selectedPolicy.claim.reviewerNotes}
-                                </p>
-                              )}
-                            </div>
-                          ) : selectedPolicy.claim?.status === 'rejected' ? (
-                            <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
-                              <div className="font-bold text-destructive flex items-center gap-1.5 text-sm">
-                                <XCircle size={18} /> Claim Rejected
+
+                              <div className="grid grid-cols-2 gap-1.5 pt-2 text-[10px] font-mono">
+                                <div className="text-muted-foreground">
+                                  Feed: <strong className="text-foreground">₹{Number(financialAudit?.summary?.totalFeedCost || 0).toLocaleString('en-IN')}</strong>
+                                </div>
+                                <div className="text-muted-foreground">
+                                  Power: <strong className="text-foreground">₹{Number(financialAudit?.summary?.totalElectricityCost || 0).toLocaleString('en-IN')}</strong>
+                                </div>
+                                <div className="text-muted-foreground">
+                                  Labour: <strong className="text-foreground">₹{Number(financialAudit?.summary?.totalLabourCost || 0).toLocaleString('en-IN')}</strong>
+                                </div>
+                                <div className="text-muted-foreground">
+                                  Misc: <strong className="text-foreground">₹{Number(financialAudit?.summary?.totalMiscCost || 0).toLocaleString('en-IN')}</strong>
+                                </div>
                               </div>
-                              {selectedPolicy.claim.reviewedAt && (
-                                <p className="text-[11px] text-muted-foreground">
-                                  Rejected on {formatDate(selectedPolicy.claim.reviewedAt)}
-                                </p>
-                              )}
-                              {selectedPolicy.claim.reviewerNotes && (
-                                <p className="text-foreground pt-2 border-t border-destructive/20">
-                                  <strong>Rejection Justification: </strong>{selectedPolicy.claim.reviewerNotes}
-                                </p>
-                              )}
                             </div>
-                          ) : (
-                            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                              <Button
-                                onClick={() => handleReviewClaim('approve')}
-                                disabled={actionLoading}
-                                className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
-                              >
-                                <CheckCircle2 size={16} />
-                                <span>Authorize Verified Settlement Payout</span>
-                              </Button>
-                              <Button
-                                onClick={() => handleReviewClaim('reject')}
-                                disabled={actionLoading}
-                                variant="destructive"
-                                className="flex-1 font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
-                              >
-                                <XCircle size={16} />
-                                <span>Reject Claim</span>
-                              </Button>
+
+                            {/* 3. Grand Total Farmer Incurred Investment */}
+                            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/25 relative overflow-hidden flex flex-col justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-primary tracking-wider flex items-center gap-1">
+                                    <Coins size={12} /> Total Incurred Investment
+                                  </span>
+                                  <Badge className="text-[9px] bg-primary text-white px-1.5 py-0 font-bold">
+                                    Full Culture Cycle
+                                  </Badge>
+                                </div>
+                                <div className="text-xl font-black text-primary">
+                                  ₹{Number(financialAudit?.summary?.grandTotalInputCost || 0).toLocaleString('en-IN')}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Seed Cost + Pond Prep + Cumulative Daily Expenses.
+                                </p>
+                              </div>
+
+                              {/* Payout Recommendation Helper */}
+                              {financialAudit?.summary?.recommendedPayout ? (
+                                <div className="mt-2 pt-2 border-t border-primary/20 space-y-1">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-muted-foreground">
+                                      Calculated {selectedPolicy.claim?.estimatedLossPercent || 0}% Loss:
+                                    </span>
+                                    <span className="font-bold text-foreground">
+                                      ₹{Number(financialAudit.summary.recommendedPayout).toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                  {selectedPolicy.claim?.status !== 'approved' && selectedPolicy.claim?.status !== 'rejected' && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-6 text-[10px] font-bold bg-primary hover:bg-primary/90 text-white rounded-lg w-full gap-1 mt-1 cursor-pointer"
+                                      onClick={() => {
+                                        setSettlementAmount(financialAudit.summary.recommendedPayout);
+                                        toast.success(`Populated benchmark payout of ₹${Number(financialAudit.summary.recommendedPayout).toLocaleString('en-IN')}`);
+                                      }}
+                                    >
+                                      <Sparkles size={11} /> Auto-Fill Recommended Payout
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                          </div>
+                        </div>
+
+                        {/* ── Sub-Tabs: Determination Matrix | Bills Gallery | Daily Ledger ── */}
+                        <Tabs value={auditSubTab} onValueChange={(v) => setAuditSubTab(v as 'matrix' | 'bills' | 'ledger')} className="w-full">
+                          <TabsList className="grid grid-cols-3 bg-secondary/30 p-1 rounded-xl border border-border h-10">
+                            <TabsTrigger value="matrix" className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-xs">
+                              Settlement Determination
+                            </TabsTrigger>
+                            <TabsTrigger value="bills" className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-xs">
+                              Verified Bills Gallery ({financialAudit?.allBills?.length || 0})
+                            </TabsTrigger>
+                            <TabsTrigger value="ledger" className="text-xs font-semibold rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-xs">
+                              Daily Cost Ledger ({financialAudit?.dailyLedger?.length || 0} Days)
+                            </TabsTrigger>
+                          </TabsList>
+
+                          {/* ── TAB 1: Settlement Determination Matrix ── */}
+                          <TabsContent value="matrix" className="mt-4">
+                            <Card className="border-border bg-secondary/15 rounded-2xl shadow-xs">
+                              <CardHeader className="pb-3 border-b border-border">
+                                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                                  <DollarSign size={16} className="text-primary" />
+                                  Loss Valuation & Official Settlement Payout
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                  Benchmark assistance calculated from validated mortality against verified seed and operational costs.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="p-5 space-y-5">
+                                {/* Settlement Payout Entry */}
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                                    Authorized Government Settlement Payout (₹)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-muted-foreground">₹</span>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={1000}
+                                      placeholder="Enter verified payout amount (e.g. 250000)"
+                                      value={settlementAmount || ''}
+                                      onChange={(e) => setSettlementAmount(Number(e.target.value))}
+                                      className="pl-8 text-base font-bold bg-background border-border rounded-xl h-11"
+                                      disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Direct Benefit Transfer (DBT) will disburse this amount to the farmer&apos;s verified bank account.
+                                  </p>
+                                </div>
+
+                                {/* Reviewer Technical Notes */}
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                                    Underwriter Assessment & Field Justification
+                                  </label>
+                                  <Textarea
+                                    rows={4}
+                                    placeholder="Document observations from site inspections, water parameters, biometric sampling, and biosecurity audits..."
+                                    value={reviewerNotes}
+                                    onChange={(e) => setReviewerNotes(e.target.value)}
+                                    className="w-full text-xs bg-background border border-border rounded-xl p-3 focus-visible:ring-1 focus-visible:ring-primary leading-relaxed"
+                                    disabled={selectedPolicy.claim?.status === 'approved' || selectedPolicy.claim?.status === 'rejected'}
+                                  />
+                                </div>
+
+                                {/* Status Summary & Execution Buttons */}
+                                {selectedPolicy.claim?.status === 'approved' ? (
+                                  <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-xs space-y-2">
+                                    <div className="flex items-center justify-between font-bold text-primary">
+                                      <span className="flex items-center gap-1.5 text-sm">
+                                        <CheckCircle2 size={18} /> Claim Officially Authorized & Settled
+                                      </span>
+                                      <span className="text-base font-black">
+                                        ₹{Number(selectedPolicy.claim.settlementAmount || 0).toLocaleString('en-IN')}
+                                      </span>
+                                    </div>
+                                    {selectedPolicy.claim.reviewedAt && (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Approved on {formatDate(selectedPolicy.claim.reviewedAt)}
+                                      </p>
+                                    )}
+                                    {selectedPolicy.claim.reviewerNotes && (
+                                      <p className="text-foreground pt-2 border-t border-primary/20">
+                                        <strong>Inspector Notes: </strong>{selectedPolicy.claim.reviewerNotes}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : selectedPolicy.claim?.status === 'rejected' ? (
+                                  <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
+                                    <div className="font-bold text-destructive flex items-center gap-1.5 text-sm">
+                                      <XCircle size={18} /> Claim Rejected
+                                    </div>
+                                    {selectedPolicy.claim.reviewedAt && (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Rejected on {formatDate(selectedPolicy.claim.reviewedAt)}
+                                      </p>
+                                    )}
+                                    {selectedPolicy.claim.reviewerNotes && (
+                                      <p className="text-foreground pt-2 border-t border-destructive/20">
+                                        <strong>Rejection Justification: </strong>{selectedPolicy.claim.reviewerNotes}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                                    <Button
+                                      onClick={() => handleReviewClaim('approve')}
+                                      disabled={actionLoading}
+                                      className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                                    >
+                                      <CheckCircle2 size={16} />
+                                      <span>Authorize Verified Settlement Payout</span>
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleReviewClaim('reject')}
+                                      disabled={actionLoading}
+                                      variant="destructive"
+                                      className="flex-1 font-bold text-xs h-11 rounded-xl shadow-sm gap-2 cursor-pointer"
+                                    >
+                                      <XCircle size={16} />
+                                      <span>Reject Claim</span>
+                                    </Button>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+
+                          {/* ── TAB 2: Verified Bills Gallery & OCR Inspection ── */}
+                          <TabsContent value="bills" className="mt-4">
+                            <Card className="border-border bg-card rounded-2xl shadow-xs">
+                              <CardHeader className="pb-3 border-b border-border bg-secondary/20">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                      <ScanText size={14} className="text-primary" /> Verified Farm Invoices & OCR Intelligence
+                                    </CardTitle>
+                                    <CardDescription className="text-xs mt-0.5">
+                                      Review every uploaded document, OCR recognized total amount, and text extraction.
+                                    </CardDescription>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    {financialAudit?.allBills?.length || 0} Bills Logged
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-4">
+                                {loadingAudit ? (
+                                  <div className="space-y-3">
+                                    <Skeleton className="h-20 w-full rounded-xl" />
+                                    <Skeleton className="h-20 w-full rounded-xl" />
+                                  </div>
+                                ) : !financialAudit?.allBills || financialAudit.allBills.length === 0 ? (
+                                  <div className="text-center py-10 space-y-2">
+                                    <Receipt size={32} className="text-muted-foreground/40 mx-auto" />
+                                    <p className="text-xs text-muted-foreground font-medium">
+                                      No uploaded invoices found for this culture cycle.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {financialAudit.allBills.map((bill) => (
+                                      <div
+                                        key={bill.id}
+                                        className="p-3.5 rounded-2xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-colors flex flex-col justify-between space-y-3"
+                                      >
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <Badge
+                                              variant="outline"
+                                              className={`text-[10px] font-bold uppercase ${
+                                                bill.type === 'seed'
+                                                  ? 'border-primary/50 text-primary bg-primary/10'
+                                                  : bill.type === 'feed'
+                                                  ? 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                                                  : bill.type === 'electricity'
+                                                  ? 'border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                                                  : 'border-border text-foreground bg-secondary'
+                                              }`}
+                                            >
+                                              {bill.type === 'seed' ? 'Seed Purchase' : bill.type === 'feed' ? 'Feed Invoice' : bill.type === 'electricity' ? 'Electricity Utility' : 'Farm Expense'}
+                                            </Badge>
+                                            <span className="text-[11px] font-mono text-muted-foreground">
+                                              {bill.dayNumber ? `Day ${bill.dayNumber}` : 'One-Time Setup'}
+                                            </span>
+                                          </div>
+
+                                          <div>
+                                            <h5 className="text-xs font-bold text-foreground line-clamp-1">
+                                              {bill.title}
+                                            </h5>
+                                            {bill.date && (
+                                              <p className="text-[10px] text-muted-foreground font-mono">
+                                                Logged: {formatDate(bill.date)}
+                                              </p>
+                                            )}
+                                          </div>
+
+                                          {/* OCR Extracted Figure Box */}
+                                          <div className="p-2.5 rounded-xl bg-background border border-border flex items-center justify-between">
+                                            <div>
+                                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">
+                                                OCR Total
+                                              </span>
+                                              <span className="text-base font-extrabold text-primary">
+                                                ₹{Number(bill.extractedAmount || 0).toLocaleString('en-IN')}
+                                              </span>
+                                            </div>
+                                            <Badge
+                                              className={`text-[9px] font-bold px-2 py-0.5 border ${
+                                                bill.status === 'verified'
+                                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                              }`}
+                                            >
+                                              {bill.status === 'verified' ? 'Verified' : 'Text Detected'}
+                                            </Badge>
+                                          </div>
+
+                                          {bill.matchedSnippet && (
+                                            <p className="text-[10px] text-muted-foreground font-mono truncate" title={bill.matchedSnippet}>
+                                              Rule: {bill.matchedSnippet}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 text-xs font-semibold gap-1.5 border-border hover:bg-secondary text-foreground rounded-xl w-full cursor-pointer"
+                                          onClick={() => openBillViewer(bill)}
+                                        >
+                                          <Eye size={13} className="text-primary" /> Inspect Bill & OCR Text
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
+
+                          {/* ── TAB 3: Chronological Daily Cost Ledger ── */}
+                          <TabsContent value="ledger" className="mt-4">
+                            <Card className="border-border bg-card rounded-2xl shadow-xs overflow-hidden">
+                              <CardHeader className="pb-3 border-b border-border bg-secondary/20">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                      <FileSpreadsheet size={14} className="text-primary" /> Daily Culture Operational Ledger
+                                    </CardTitle>
+                                    <CardDescription className="text-xs mt-0.5">
+                                      Chronological log of feeding, electricity, labour, and associated bills.
+                                    </CardDescription>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    Total: ₹{Number(financialAudit?.summary?.totalDailyOperationalCost || 0).toLocaleString('en-IN')}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <div className="overflow-x-auto max-h-96">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="border-border bg-secondary/10">
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Day</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Date</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Feed (₹)</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Power (₹)</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Labour (₹)</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Misc (₹)</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground">Day Subtotal</TableHead>
+                                      <TableHead className="text-[10px] uppercase font-bold text-muted-foreground text-right">Bills</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {!financialAudit?.dailyLedger || financialAudit.dailyLedger.length === 0 ? (
+                                      <TableRow>
+                                        <TableCell colSpan={8} className="h-24 text-center text-xs text-muted-foreground">
+                                          No daily financial entries logged.
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : (
+                                      financialAudit.dailyLedger.map((row) => (
+                                        <TableRow key={row.entryId} className="border-border text-xs hover:bg-secondary/20">
+                                          <TableCell className="font-bold text-primary font-mono">
+                                            Day {row.dayNumber}
+                                          </TableCell>
+                                          <TableCell className="text-muted-foreground font-mono text-[11px]">
+                                            {formatDate(row.date)}
+                                          </TableCell>
+                                          <TableCell className="font-mono">
+                                            ₹{row.effectiveFeedCost.toLocaleString('en-IN')}
+                                          </TableCell>
+                                          <TableCell className="font-mono">
+                                            ₹{row.electricityCost.toLocaleString('en-IN')}
+                                          </TableCell>
+                                          <TableCell className="font-mono">
+                                            ₹{row.labourCost.toLocaleString('en-IN')}
+                                          </TableCell>
+                                          <TableCell className="font-mono">
+                                            ₹{row.effectiveMiscCost.toLocaleString('en-IN')}
+                                          </TableCell>
+                                          <TableCell className="font-mono font-bold text-foreground">
+                                            ₹{row.daySubtotal.toLocaleString('en-IN')}
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              {row.feedBill && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 text-[10px] px-1.5 text-primary hover:bg-primary/10 rounded cursor-pointer"
+                                                  onClick={() => openBillViewer(row.feedBill!)}
+                                                  title="View Feed Bill"
+                                                >
+                                                  Feed Bill
+                                                </Button>
+                                              )}
+                                              {row.electricityBill && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 text-[10px] px-1.5 text-amber-500 hover:bg-amber-500/10 rounded cursor-pointer"
+                                                  onClick={() => openBillViewer(row.electricityBill!)}
+                                                  title="View Electricity Bill"
+                                                >
+                                                  Power Bill
+                                                </Button>
+                                              )}
+                                              {row.miscBill && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 text-[10px] px-1.5 text-foreground hover:bg-secondary rounded cursor-pointer"
+                                                  onClick={() => openBillViewer(row.miscBill!)}
+                                                  title="View Misc Bill"
+                                                >
+                                                  Misc Bill
+                                                </Button>
+                                              )}
+                                              {!row.feedBill && !row.electricityBill && !row.miscBill && (
+                                                <span className="text-[10px] text-muted-foreground/50">—</span>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </Card>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
                     );
                   })()}
                 </div>
@@ -896,6 +1339,12 @@ export default function InsurancesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Global Unified Media & OCR Lightbox */}
+      <MediaViewerDialog
+        media={activeMedia}
+        onClose={() => setActiveMedia(null)}
+      />
     </div>
   );
 }

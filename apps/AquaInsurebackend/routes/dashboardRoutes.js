@@ -889,4 +889,256 @@ router.patch('/insurances/:id/claim', async (req, res) => {
     }
 });
 
+// GET /api/dashboard/insurances/:id/claim-financial-audit — Seed cost, cumulative daily cost, and OCR bill dossier
+router.get('/insurances/:id/claim-financial-audit', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const policy = await Insurance.findById(id)
+            .populate('farmerId', 'name phone aadharNumber address')
+            .populate('pondId', 'name pondNumber dimensionAcres')
+            .lean();
+
+        if (!policy) {
+            return res.status(404).json({ success: false, error: 'Policy not found' });
+        }
+
+        const pondId = policy.pondId?._id || policy.pondId;
+
+        // Fetch one-time entry and daily entries up to the claim date
+        const [oneTimeEntry, dailyEntries] = await Promise.all([
+            OneTimeEntry.findOne({ pondId }).lean(),
+            DailyEntry.find({ pondId }).sort({ dayNumber: 1 }).lean()
+        ]);
+
+        const { processBillBufferDetailed } = require('../utils/ocrUtils');
+        const { getObjectStream } = require('../utils/seaweedfs');
+
+        const streamToBuffer = async (stream) => {
+            return new Promise((resolve, reject) => {
+                const chunks = [];
+                stream.on('data', chunk => chunks.push(chunk));
+                stream.on('end', () => resolve(Buffer.concat(chunks)));
+                stream.on('error', reject);
+            });
+        };
+
+        const getMimeType = (fileBuf) => {
+            if (!fileBuf) return 'image/jpeg';
+            try {
+                const header = fileBuf.toString('utf8', 0, 4);
+                if (header === '%PDF') return 'application/pdf';
+            } catch (e) {}
+            return 'image/jpeg';
+        };
+
+        const resolveBillBufferAndMime = async (val) => {
+            if (!val) return null;
+            try {
+                if (Buffer.isBuffer(val)) {
+                    return { buffer: val, mimeType: getMimeType(val) };
+                }
+                if (val.buffer && (Buffer.isBuffer(val.buffer) || typeof val.buffer === 'object')) {
+                    const buf = Buffer.isBuffer(val.buffer) ? val.buffer : Buffer.from(val.buffer);
+                    return { buffer: buf, mimeType: getMimeType(buf) };
+                }
+                if (typeof val === 'string' && val.startsWith('data:')) {
+                    const match = val.match(/^data:([^;]+);base64,(.+)$/);
+                    if (match) {
+                        return { buffer: Buffer.from(match[2], 'base64'), mimeType: match[1] };
+                    }
+                }
+                const key = val.key || (typeof val === 'string' && val.includes('key=') ? decodeURIComponent(val.split('key=')[1].split('&')[0]) : null);
+                if (key) {
+                    const streamRes = await getObjectStream(key, val.bucket || 'aquainsure');
+                    if (streamRes && streamRes.stream) {
+                        const buf = await streamToBuffer(streamRes.stream);
+                        return { buffer: buf, mimeType: streamRes.contentType || val.mimeType || getMimeType(buf) };
+                    }
+                }
+            } catch (err) {
+                console.warn('[Financial Audit] OCR buffer resolution warning:', err.message);
+            }
+            return null;
+        };
+
+        const processBillWithOCR = async (mediaVal, billType, title, meta = {}) => {
+            if (!mediaVal) return null;
+            let ocrResult = { amount: 0, rawText: '', matchedSnippet: '', method: 'NONE' };
+            try {
+                const resolved = await resolveBillBufferAndMime(mediaVal);
+                if (resolved && resolved.buffer && resolved.buffer.length > 0) {
+                    ocrResult = await processBillBufferDetailed(resolved.buffer, resolved.mimeType);
+                }
+            } catch (ocrErr) {
+                console.warn(`[Financial Audit] OCR failed for ${title}:`, ocrErr.message);
+            }
+
+            return {
+                id: `${billType}_${meta.dayNumber ?? 'setup'}_${meta.index ?? 0}`,
+                type: billType, // 'seed' | 'pond_prep' | 'feed' | 'electricity' | 'misc'
+                title,
+                dayNumber: meta.dayNumber ?? null,
+                date: meta.date ?? null,
+                media: mediaVal,
+                extractedAmount: ocrResult.amount || 0,
+                rawText: ocrResult.rawText || '',
+                matchedSnippet: ocrResult.matchedSnippet || '',
+                method: ocrResult.method || 'NONE',
+                status: (ocrResult.amount > 0) ? 'verified' : (ocrResult.rawText ? 'text_detected' : 'unprocessed')
+            };
+        };
+
+        // 1. Process One-Time Entry Seed & Prep Bills
+        const allBills = [];
+        let seedBillItem = null;
+        let prepBillItem = null;
+
+        if (oneTimeEntry?.seedSelection?.seedBills) {
+            seedBillItem = await processBillWithOCR(
+                oneTimeEntry.seedSelection.seedBills,
+                'seed',
+                'One-Time Seed Purchase Invoice',
+                { index: 1 }
+            );
+            if (seedBillItem) allBills.push(seedBillItem);
+        }
+
+        if (oneTimeEntry?.pondPreparation?.pondPrepBills) {
+            prepBillItem = await processBillWithOCR(
+                oneTimeEntry.pondPreparation.pondPrepBills,
+                'pond_prep',
+                'Pond Preparation Expenditure Bill',
+                { index: 2 }
+            );
+            if (prepBillItem) allBills.push(prepBillItem);
+        }
+
+        const totalSeedCost = seedBillItem?.extractedAmount || 0;
+        const totalPondPrepCost = prepBillItem?.extractedAmount || 0;
+
+        // 2. Process Daily Entries up to claim filing date
+        const dailyLedger = [];
+        let totalFeedCost = 0;
+        let totalElectricityCost = 0;
+        let totalLabourCost = 0;
+        let totalWaterCost = 0;
+        let totalMiscCost = 0;
+
+        if (Array.isArray(dailyEntries)) {
+            for (let i = 0; i < dailyEntries.length; i++) {
+                const entry = dailyEntries[i];
+                const dayNumber = entry.dayNumber ?? (i + 1);
+                const date = entry.date;
+
+                const manualFeed = parseFloat(entry.feedManagement?.feedCost) || 0;
+                const labourCost = parseFloat(entry.financials?.labourCost) || 0;
+                const waterCost = parseFloat(entry.financials?.waterCost) || 0;
+                const otherExpenses = parseFloat(entry.financials?.otherExpenses) || 0;
+
+                let feedBillItem = null;
+                let electricityBillItem = null;
+                let miscBillItem = null;
+
+                if (entry.feedManagement?.feedBills) {
+                    feedBillItem = await processBillWithOCR(
+                        entry.feedManagement.feedBills,
+                        'feed',
+                        `Day ${dayNumber} Feed Purchase Invoice`,
+                        { dayNumber, date, index: i }
+                    );
+                    if (feedBillItem) allBills.push(feedBillItem);
+                }
+
+                if (entry.financials?.electricityBills) {
+                    electricityBillItem = await processBillWithOCR(
+                        entry.financials.electricityBills,
+                        'electricity',
+                        `Day ${dayNumber} Electricity Utility Bill`,
+                        { dayNumber, date, index: i }
+                    );
+                    if (electricityBillItem) allBills.push(electricityBillItem);
+                }
+
+                if (entry.financials?.miscBills) {
+                    miscBillItem = await processBillWithOCR(
+                        entry.financials.miscBills,
+                        'misc',
+                        `Day ${dayNumber} Miscellaneous Farm Bill`,
+                        { dayNumber, date, index: i }
+                    );
+                    if (miscBillItem) allBills.push(miscBillItem);
+                }
+
+                // If OCR extracted amount is positive, prioritize OCR over manual to avoid double counting, else manual
+                const effectiveFeed = feedBillItem?.extractedAmount > 0 ? feedBillItem.extractedAmount : manualFeed;
+                const effectiveElec = electricityBillItem?.extractedAmount || 0;
+                const effectiveMisc = miscBillItem?.extractedAmount > 0 ? miscBillItem.extractedAmount : otherExpenses;
+
+                totalFeedCost += effectiveFeed;
+                totalElectricityCost += effectiveElec;
+                totalLabourCost += labourCost;
+                totalWaterCost += waterCost;
+                totalMiscCost += effectiveMisc;
+
+                const daySubtotal = effectiveFeed + effectiveElec + labourCost + waterCost + effectiveMisc;
+
+                dailyLedger.push({
+                    entryId: entry._id,
+                    dayNumber,
+                    date,
+                    manualFeedCost: manualFeed,
+                    effectiveFeedCost: effectiveFeed,
+                    labourCost,
+                    waterCost,
+                    otherExpenses,
+                    effectiveMiscCost: effectiveMisc,
+                    electricityCost: effectiveElec,
+                    daySubtotal,
+                    feedBill: feedBillItem,
+                    electricityBill: electricityBillItem,
+                    miscBill: miscBillItem
+                });
+            }
+        }
+
+        const totalDailyOperationalCost = totalFeedCost + totalElectricityCost + totalLabourCost + totalWaterCost + totalMiscCost;
+        const grandTotalInputCost = totalSeedCost + totalPondPrepCost + totalDailyOperationalCost;
+
+        const reportedLossPct = Number(policy.claim?.estimatedLossPercent) || 0;
+        const recommendedPayout = Math.round(grandTotalInputCost * (reportedLossPct / 100));
+
+        res.json({
+            success: true,
+            data: {
+                policyId: policy._id,
+                pond: policy.pondId,
+                farmer: policy.farmerId,
+                claim: policy.claim,
+                summary: {
+                    totalSeedCost,
+                    totalPondPrepCost,
+                    totalFeedCost,
+                    totalElectricityCost,
+                    totalLabourCost,
+                    totalWaterCost,
+                    totalMiscCost,
+                    totalDailyOperationalCost,
+                    grandTotalInputCost,
+                    reportedLossPercent: reportedLossPct,
+                    recommendedPayout,
+                    totalBillsCount: allBills.length,
+                    verifiedBillsCount: allBills.filter(b => b.status === 'verified').length
+                },
+                seedBill: seedBillItem,
+                prepBill: prepBillItem,
+                dailyLedger,
+                allBills
+            }
+        });
+    } catch (err) {
+        console.error('Error in GET /api/dashboard/insurances/:id/claim-financial-audit:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;

@@ -2,65 +2,85 @@ const path = require('path');
 const { spawn } = require('child_process');
 const pdf = require('pdf-parse');
 
-/**
- * Helper to extract total amount from text.
- * Looks for common patterns like "Total: 100", "Amount: $100.50", "₹ 500", etc.
- * Adjust regex as needed based on actual bill formats.
- */
-function extractTotalFromText(text) {
-    if (!text) return 0;
+const crypto = require('crypto');
 
-    // Uppercase for case-insensitive matching
+// In-memory cache for fast repeated OCR lookups (keyed by buffer MD5)
+const ocrMemoryCache = new Map();
+
+/**
+ * Helper to extract total amount with matched snippet and strategy details.
+ */
+function extractTotalWithDetails(text) {
+    if (!text) {
+        return { amount: 0, rawText: '', matchedSnippet: '', method: 'NONE' };
+    }
+
     const upperText = text.toUpperCase();
 
     // Pre-process: remove all lines that contain "HSN" — these carry HSN codes like 03062300/3062300
-    // which are not amounts and corrupt the extraction.
     const lines = upperText.split('\n');
     const cleanedLines = lines.filter(line => !/\bHSN\b/.test(line));
     const cleanedText = cleanedLines.join('\n');
 
-    // --- Strategy 1 (strongest): Direct "TOTAL RS" pattern anywhere in the text ---
-    // Matches patterns like: "Total Rs. 203,760" / "TOTAL RS 203760" / "Total Rs.203,760"
+    // --- Strategy 1: Direct "TOTAL RS" or "TOTAL ₹" pattern ---
     const totalRsMatch = cleanedText.match(/TOTAL\s+RS\.?\s*([\d,]+(?:\.\d{1,2})?)/);
     if (totalRsMatch) {
         const num = parseFloat(totalRsMatch[1].replace(/,/g, ''));
-        if (!isNaN(num) && num > 0) return num;
+        if (!isNaN(num) && num > 0) {
+            return {
+                amount: num,
+                rawText: text,
+                matchedSnippet: totalRsMatch[0],
+                method: 'TOTAL_RS'
+            };
+        }
     }
 
-    // Also try "₹" variant: "TOTAL ₹ 203,760"
     const totalRupeeMatch = cleanedText.match(/TOTAL\s*₹\s*([\d,]+(?:\.\d{1,2})?)/);
     if (totalRupeeMatch) {
         const num = parseFloat(totalRupeeMatch[1].replace(/,/g, ''));
-        if (!isNaN(num) && num > 0) return num;
+        if (!isNaN(num) && num > 0) {
+            return {
+                amount: num,
+                rawText: text,
+                matchedSnippet: totalRupeeMatch[0],
+                method: 'RUPEE_SYMBOL'
+            };
+        }
     }
 
-    // New General Total Match for Feed and Electricity Bills
     const generalTotalMatch = cleanedText.match(/(?:GRAND TOTAL|NET PAYABLE|AMOUNT PAYABLE|TOTAL AMOUNT|TOTAL VALUE|BILL AMOUNT)[^\d\n]*([\d,]+(?:\.\d{1,2})?)/);
     if (generalTotalMatch) {
         const num = parseFloat(generalTotalMatch[1].replace(/,/g, ''));
-        if (!isNaN(num) && num > 0) return num;
+        if (!isNaN(num) && num > 0) {
+            return {
+                amount: num,
+                rawText: text,
+                matchedSnippet: generalTotalMatch[0],
+                method: 'GENERAL_TOTAL'
+            };
+        }
     }
 
     // --- Strategy 2: Keyword lines — prefer numbers right after RS./₹ ---
     const keywordRegex = /\b(TOTAL|AMOUNT|SUM|PAID|DUE|NET|BALANCE|PAYABLE|VALUE|GRAND)\b/;
     let maxAmount = 0;
+    let matchedSnippet = '';
 
     for (let i = 0; i < cleanedLines.length; i++) {
         const line = cleanedLines[i];
         if (!keywordRegex.test(line)) continue;
 
-        // Prefer a number directly after RS. or ₹
         const currencyMatch = line.match(/(?:RS\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/);
         if (currencyMatch) {
             const num = parseFloat(currencyMatch[1].replace(/,/g, ''));
             if (!isNaN(num) && num > maxAmount) {
                 maxAmount = num;
+                matchedSnippet = currencyMatch[0];
                 continue;
             }
         }
 
-        // Fallback: largest number on this line (or next line)
-        // Fixed regex to correctly match comma-separated numbers like 1,23,456.78
         let matches = line.match(/\b\d+(?:,\d+)*(?:\.\d{1,2})?\b/g);
         if ((!matches || matches.length === 0) && i + 1 < cleanedLines.length) {
             matches = cleanedLines[i + 1].match(/\b\d+(?:,\d+)*(?:\.\d{1,2})?\b/g);
@@ -68,11 +88,21 @@ function extractTotalFromText(text) {
         if (matches) {
             for (const match of matches) {
                 const num = parseFloat(match.replace(/,/g, ''));
-                if (!isNaN(num) && num > maxAmount) maxAmount = num;
+                if (!isNaN(num) && num > maxAmount) {
+                    maxAmount = num;
+                    matchedSnippet = `${line.trim().slice(0, 50)} -> ${match}`;
+                }
             }
         }
     }
-    if (maxAmount > 0) return maxAmount;
+    if (maxAmount > 0) {
+        return {
+            amount: maxAmount,
+            rawText: text,
+            matchedSnippet: matchedSnippet || `Keyword Line Match: ₹${maxAmount}`,
+            method: 'KEYWORD_LINE'
+        };
+    }
 
     // --- Strategy 3: Fallback — largest currency-looking number in cleaned text ---
     const allNumbers = cleanedText.match(/\b\d+(?:,\d+)*(?:\.\d{1,2})?\b/g);
@@ -80,11 +110,26 @@ function extractTotalFromText(text) {
         for (const match of allNumbers) {
             if (match.length === 4 && (match.startsWith('202') || match.startsWith('19'))) continue;
             const num = parseFloat(match.replace(/,/g, ''));
-            if (!isNaN(num) && num > maxAmount && num < 10000000) maxAmount = num;
+            if (!isNaN(num) && num > maxAmount && num < 10000000) {
+                maxAmount = num;
+                matchedSnippet = `Fallback match: ${match}`;
+            }
         }
     }
 
-    return maxAmount;
+    return {
+        amount: maxAmount,
+        rawText: text,
+        matchedSnippet: matchedSnippet || (maxAmount > 0 ? `Detected ₹${maxAmount}` : 'No monetary amount detected'),
+        method: maxAmount > 0 ? 'LARGEST_NUMBER_FALLBACK' : 'NONE'
+    };
+}
+
+/**
+ * Backwards compatible helper to extract total amount from text.
+ */
+function extractTotalFromText(text) {
+    return extractTotalWithDetails(text).amount;
 }
 
 /**
@@ -122,46 +167,58 @@ function runPaddleOCR(imageBuffer) {
 }
 
 /**
- * Extracts text and total amount from a binary buffer (PDF or Image).
+ * Extracts detailed text, matched total, and metadata from a binary buffer (PDF or Image).
+ * Cached in memory via MD5 hash to prevent redundant OCR work.
+ */
+async function processBillBufferDetailed(buffer, mimeType) {
+    if (!buffer || buffer.length === 0) {
+        return { amount: 0, rawText: '', matchedSnippet: '', method: 'NONE' };
+    }
+
+    const hash = crypto.createHash('md5').update(buffer).digest('hex');
+    if (ocrMemoryCache.has(hash)) {
+        return ocrMemoryCache.get(hash);
+    }
+
+    let text = '';
+    try {
+        if (mimeType === 'application/pdf') {
+            let pdfBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+            const data = await pdf(pdfBuffer);
+            text = data.text || '';
+
+            if (text.trim().length < 15) {
+                console.log('[OCR] PDF contains minimal text (possibly scanned without OCR layers).');
+            }
+        } else if (mimeType && mimeType.startsWith('image/')) {
+            let imageBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+            try {
+                text = await runPaddleOCR(imageBuffer);
+            } catch (err) {
+                console.error('[OCR] PaddleOCR image processing warning:', err.message);
+            }
+        } else {
+            console.log('[OCR] Skipping unrecognized buffer type:', mimeType);
+        }
+
+        const result = extractTotalWithDetails(text);
+        ocrMemoryCache.set(hash, result);
+        return result;
+    } catch (err) {
+        console.error('[OCR] Processing error:', err.message);
+        return { amount: 0, rawText: '', matchedSnippet: `OCR Error: ${err.message}`, method: 'ERROR' };
+    }
+}
+
+/**
+ * Extracts total amount from a binary buffer (PDF or Image).
  * @param {Buffer} buffer - The file buffer
  * @param {string} mimeType - The file's mime type (e.g., 'application/pdf', 'image/jpeg')
  * @returns {Promise<number>} - The extracted total amount
  */
 async function processBillBuffer(buffer, mimeType) {
-    if (!buffer) return 0;
-
-    let text = '';
-    try {
-        if (mimeType === 'application/pdf') {
-            // Use pdf-parse for text-based PDFs (fast, no Python needed)
-            let pdfBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-            const data = await pdf(pdfBuffer);
-            text = data.text;
-
-            if (text.trim().length < 20) {
-                console.log('PDF seems to be scanned (no embedded text). Returning 0.');
-                return 0;
-            }
-        } else if (mimeType && mimeType.startsWith('image/')) {
-            // Use PaddleOCR for images
-            let imageBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-            try {
-                text = await runPaddleOCR(imageBuffer);
-                console.log('PaddleOCR extracted text length:', text.length);
-            } catch (err) {
-                console.error('PaddleOCR processing failed for image:', err.message);
-                return 0;
-            }
-        } else {
-            console.log('Skipping unrecognized buffer type:', mimeType);
-            return 0;
-        }
-
-        return extractTotalFromText(text);
-    } catch (err) {
-        console.error('OCR Extraction error:', err.message);
-        return 0; // Return 0 on failure so export doesn't break
-    }
+    const res = await processBillBufferDetailed(buffer, mimeType);
+    return res.amount;
 }
 
 /**
@@ -249,7 +306,9 @@ function extractAadhaarDetailsFromText(text) {
 
 module.exports = {
     processBillBuffer,
+    processBillBufferDetailed,
     extractTotalFromText,
+    extractTotalWithDetails,
     isAadhaarDocument,
     extractAadhaarDetailsFromText
 };

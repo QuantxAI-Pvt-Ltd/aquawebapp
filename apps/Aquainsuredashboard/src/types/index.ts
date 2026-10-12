@@ -246,3 +246,62 @@ export interface ApiResponse<T> {
   pagination?: Pagination;
   error?: string;
 }
+
+export interface BillAuditItem {
+  id: string;
+  type: 'seed' | 'pond_prep' | 'feed' | 'electricity' | 'misc';
+  title: string;
+  dayNumber?: number | null;
+  date?: string | null;
+  media: MediaObject | string;
+  extractedAmount: number;
+  rawText: string;
+  matchedSnippet: string;
+  method: string;
+  status: 'verified' | 'text_detected' | 'unprocessed';
+}
+
+export interface DailyLedgerItem {
+  entryId: string;
+  dayNumber: number;
+  date: string;
+  manualFeedCost: number;
+  effectiveFeedCost: number;
+  labourCost: number;
+  waterCost: number;
+  otherExpenses: number;
+  effectiveMiscCost: number;
+  electricityCost: number;
+  daySubtotal: number;
+  feedBill?: BillAuditItem | null;
+  electricityBill?: BillAuditItem | null;
+  miscBill?: BillAuditItem | null;
+}
+
+export interface ClaimFinancialAuditSummary {
+  totalSeedCost: number;
+  totalPondPrepCost: number;
+  totalFeedCost: number;
+  totalElectricityCost: number;
+  totalLabourCost: number;
+  totalWaterCost: number;
+  totalMiscCost: number;
+  totalDailyOperationalCost: number;
+  grandTotalInputCost: number;
+  reportedLossPercent: number;
+  recommendedPayout: number;
+  totalBillsCount: number;
+  verifiedBillsCount: number;
+}
+
+export interface ClaimFinancialAudit {
+  policyId: string;
+  pond: Pond;
+  farmer: Farmer;
+  claim?: InsuranceClaim;
+  summary: ClaimFinancialAuditSummary;
+  seedBill?: BillAuditItem | null;
+  prepBill?: BillAuditItem | null;
+  dailyLedger: DailyLedgerItem[];
+  allBills: BillAuditItem[];
+}

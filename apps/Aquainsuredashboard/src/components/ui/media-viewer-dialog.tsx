@@ -26,6 +26,7 @@ import {
   Info,
   Copy,
   Check,
+  ScanText,
 } from 'lucide-react';
 
 export interface MediaViewerTarget {
@@ -45,6 +46,13 @@ export interface MediaViewerTarget {
     survival?: number;
     biomass?: number;
     healthStatus?: string;
+  };
+  ocrDetails?: {
+    extractedAmount: number;
+    rawText?: string;
+    matchedSnippet?: string;
+    method?: string;
+    status?: string;
   };
 }
 
@@ -416,6 +424,63 @@ export function MediaViewerDialog({ media, onClose }: MediaViewerDialogProps) {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* OCR Intelligence Analysis if available */}
+              {media.ocrDetails && (
+                <div className="pt-2 border-t border-border space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <ScanText className="h-3.5 w-3.5 text-primary" />
+                      OCR Invoice Calculation
+                    </span>
+                    <Badge
+                      className={`text-[9px] font-bold px-2 py-0.5 border ${
+                        media.ocrDetails.extractedAmount > 0
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                      }`}
+                    >
+                      {media.ocrDetails.extractedAmount > 0 ? 'Verified Total' : 'Text Detected'}
+                    </Badge>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground block">
+                      Recognized Invoice Amount
+                    </span>
+                    <span className="text-xl font-black text-primary">
+                      ₹{Number(media.ocrDetails.extractedAmount || 0).toLocaleString('en-IN')}
+                    </span>
+                    {media.ocrDetails.matchedSnippet && (
+                      <span className="text-[11px] text-foreground font-mono block truncate" title={media.ocrDetails.matchedSnippet}>
+                        Pattern: {media.ocrDetails.matchedSnippet}
+                      </span>
+                    )}
+                  </div>
+
+                  {media.ocrDetails.rawText && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                          Extracted Bill Text
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(media.ocrDetails?.rawText || '');
+                          }}
+                          className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                        >
+                          <Copy className="h-3 w-3" /> Copy Text
+                        </button>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto p-2.5 rounded-xl bg-secondary/40 border border-border text-[11px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed select-all">
+                        {media.ocrDetails.rawText}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

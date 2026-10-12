@@ -38,21 +38,42 @@ def main():
 
     try:
         from paddleocr import PaddleOCR
-        # use_angle_cls=True handles rotated text; show_log=False keeps stderr clean
-        ocr = PaddleOCR(use_angle_cls=True, lang=args.lang, show_log=False)
-        result = ocr.ocr(tmp_path, cls=True)
+        import os
+        # Disable redundant network model source checks to speed up OCR
+        os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+        try:
+            ocr = PaddleOCR(use_angle_cls=True, lang=args.lang)
+        except TypeError:
+            try:
+                ocr = PaddleOCR(lang=args.lang)
+            except Exception:
+                ocr = PaddleOCR()
+        except Exception:
+            ocr = PaddleOCR(lang=args.lang)
 
-        # result is a list of pages; each page is a list of [bbox, (text, confidence)]
+        try:
+            result = ocr.predict(tmp_path)
+        except Exception:
+            result = ocr.ocr(tmp_path)
+
         if result:
             for page in result:
                 if not page:
                     continue
-                for line in page:
-                    if line and len(line) >= 2:
-                        text_info = line[1]
-                        if text_info and len(text_info) >= 1:
-                            text = text_info[0]
+                # PaddleOCR 3.x dict format
+                if isinstance(page, dict) and 'rec_texts' in page:
+                    for text in page.get('rec_texts', []):
+                        if text:
                             print(text)
+                # Legacy PaddleOCR 2.x list of lines
+                elif isinstance(page, list):
+                    for line in page:
+                        if isinstance(line, list) and len(line) >= 2:
+                            text_info = line[1]
+                            if isinstance(text_info, (list, tuple)) and len(text_info) >= 1:
+                                print(text_info[0])
+                            elif isinstance(text_info, str):
+                                print(text_info)
     except ImportError:
         sys.stderr.write('ERROR: paddleocr is not installed. Run: pip install paddleocr paddlepaddle\n')
         sys.exit(2)
