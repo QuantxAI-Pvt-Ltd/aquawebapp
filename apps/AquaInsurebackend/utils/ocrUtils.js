@@ -223,21 +223,29 @@ async function processBillBuffer(buffer, mimeType) {
 
 /**
  * Checks if OCR text looks like an Aadhaar card.
- * Looks for UIDAI keywords or standard Aadhaar phrases.
+ * Looks for UIDAI keywords, Aadhaar phrases, 12-digit patterns, or DOB/Gender combos.
  */
 function isAadhaarDocument(text) {
     if (!text) return false;
     const upper = text.toUpperCase();
-    const keywords = ['UIDAI', 'UNIQUE IDENTIFICATION', 'AADHAAR', 'AADHAR', 'GOVT. OF INDIA', 'GOVERNMENT OF INDIA'];
-    // Must have at least one keyword AND a 12-digit number pattern
+    const keywords = [
+        'UIDAI', 'UNIQUE IDENTIFICATION', 'AADHAAR', 'AADHAR', 'ADHAAR',
+        'GOVT. OF INDIA', 'GOVERNMENT OF INDIA', 'GOVERNMENTOF INDIA', 'GOVT OF INDIA',
+        'BHARAT SARKAR', 'ENROLMENT', 'ENROLLMENT', 'MERA AADHAAR', 'MERI PEHCHAN',
+        'AUTHORITY OF INDIA', 'HELP@UIDAI', 'WWW.UIDAI', 'VID :'
+    ];
     const hasKeyword = keywords.some(kw => upper.includes(kw));
-    const has12Digits = /\b\d{4}\s?\d{4}\s?\d{4}\b/.test(text);
-    return hasKeyword || has12Digits;
+    const has12Digits = /\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b/.test(text) || /\b\d{12}\b/.test(text);
+    const hasAadhaarPatt = /(?:X{4}|x{4}|\*{4}|•{4})[\s\-]+(?:X{4}|x{4}|\*{4}|•{4})[\s\-]+\d{4}/.test(text);
+    const hasDobAndGender = /(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|जन्म)/i.test(text) && /(?:Male|Female|पुरुष|महिला)/i.test(text);
+    const hasAadhaarNative = /आधार|भारत सरकार|विशिष्ट पहचान/.test(text);
+
+    return hasKeyword || has12Digits || hasAadhaarPatt || hasDobAndGender || hasAadhaarNative;
 }
 
 /**
  * Extracts structured details from Aadhaar card OCR text.
- * Returns: { aadhaarNumber, name, fatherName, dob, gender, pinCode }
+ * Returns: { aadhaarNumber, name, fatherName, dob, gender, address }
  */
 function extractAadhaarDetailsFromText(text) {
     if (!text) return null;
@@ -245,61 +253,181 @@ function extractAadhaarDetailsFromText(text) {
     const result = {};
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    // 1. AADHAAR NUMBER — XXXX XXXX XXXX or 12 contiguous digits
-    const aadhaarMatch = text.match(/\b(\d{4})\s(\d{4})\s(\d{4})\b/) ||
-                         text.match(/(?<!\d)(\d{4})\s?(\d{4})\s?(\d{4})(?!\d)/);
-    if (aadhaarMatch) {
-        result.aadhaarNumber = aadhaarMatch[0].replace(/\s/g, '');
+    // 1. AADHAAR NUMBER — 12 digits or masked
+    const m12 = text.match(/\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b/) ||
+                text.match(/\b\d{8}[\s\-]?\d{4}\b/) ||
+                text.match(/\b\d{12}\b/);
+    if (m12) {
+        result.aadhaarNumber = m12[0].replace(/[\s\-]/g, '');
+    } else {
+        const masked = text.match(/\b(?:X{4}|x{4}|\*{4}|•{4})[\s\-]+(?:X{4}|x{4}|\*{4}|•{4})[\s\-]+(\d{4})\b/);
+        if (masked) {
+            result.aadhaarNumber = 'XXXXXXXX' + masked[1];
+        }
     }
 
-    // NOTE: DOB is intentionally NOT extracted — user fills it manually.
-    // (Remove this block if auto-fill is desired in the future)
+    // 2. GENDER
+    if (/\bfemale\b|महिला|femal/i.test(text)) {
+        result.gender = 'female';
+    } else if (/\bmale\b|पुरुष/i.test(text)) {
+        result.gender = 'male';
+    } else if (/\btransgender\b|trans/i.test(text)) {
+        result.gender = 'other';
+    }
 
-    // 3. GENDER
-    if (/\bfemale\b/i.test(text)) result.gender = 'female';
-    else if (/\bmale\b/i.test(text)) result.gender = 'male';
+    // 3. DOB (Date of Birth) -> formatted as YYYY-MM-DD for HTML <input type="date">
+    let dobMatch = text.match(/(?:DOB|Date\s*of\s*Birth|जन्म\s*तिथि|जन्म\s*तारीख|D\.O\.B)[\s\:\/\.\-]*(\d{1,2})[\/\-\.\s](\d{1,2})[\/\-\.\s](\d{4})/i) ||
+                   text.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/);
+
+    if (dobMatch) {
+        let day = parseInt(dobMatch[1], 10);
+        let month = parseInt(dobMatch[2], 10);
+        const year = parseInt(dobMatch[3], 10);
+
+        if (year >= 1920 && year <= 2025) {
+            if (month > 12 && day <= 12) {
+                const tmp = day; day = month; month = tmp;
+            }
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                result.dob = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+        }
+    } else {
+        const yobMatch = text.match(/(?:Year\s*of\s*Birth|YOB|जन्म\s*वर्ष)[\s\:\/\.\-]*(\d{4})/i);
+        if (yobMatch) {
+            const yr = parseInt(yobMatch[1], 10);
+            if (yr >= 1920 && yr <= 2025) {
+                result.dob = `${yr}-01-01`;
+            }
+        }
+    }
 
     // 4. FATHER / GUARDIAN NAME
-    // Aadhaar prints: "S/O: Name", "D/O Name", "W/O Name", also "Son of", "Father:"
     const relationPatterns = [
-        /[Ss]\s*\/\s*[Oo]\s*[:\-]?\s*([A-Za-z][A-Za-z\s\.]{2,50})/,
-        /[Dd]\s*\/\s*[Oo]\s*[:\-]?\s*([A-Za-z][A-Za-z\s\.]{2,50})/,
-        /[Ww]\s*\/\s*[Oo]\s*[:\-]?\s*([A-Za-z][A-Za-z\s\.]{2,50})/,
-        /[Cc]\s*\/\s*[Oo]\s*[:\-]?\s*([A-Za-z][A-Za-z\s\.]{2,50})/,
-        /(?:Son|Daughter|Wife|Husband)\s+(?:of|:)\s*([A-Za-z][A-Za-z\s\.]{2,50})/i,
-        /Father['s]*\s*(?:Name)?\s*[:\-]\s*([A-Za-z][A-Za-z\s\.]{2,50})/i,
+        /\b(?:S\/O|D\/O|W\/O|C\/O|S\.O|D\.O|W\.O|C\.O|Son\s+of|Daughter\s+of|Wife\s+of|Care\s+of|Father(?:'s)?\s*Name|पिता)\b[\s\:\-\.]*([A-Za-z][A-Za-z \.\'\-]{2,35})/i,
     ];
     for (const pat of relationPatterns) {
         const m = text.match(pat);
         if (m) {
-            result.fatherName = m[1].trim().replace(/[\d,\.\s]+$/, '').trim();
+            let candidate = m[1].split(/[\n,;]/)[0].trim().replace(/[\d,\.\s]+$/, '').trim();
+            if (candidate && candidate.length >= 2 && !/address|village|house|near|road/i.test(candidate)) {
+                result.fatherName = candidate;
+                break;
+            }
+        }
+    }
+
+    // 5. NAME EXTRACTION
+    const nameExclude = /government|india|bharat|sarkar|authority|unique|identification|uidai|enrolment|enrollment|help@|www\.|aadhaar|aadhar|dob|date\s*of\s*birth|year\s*of\s*birth|yob|male|female|address|village|vill|dist|district|state|pincode|pin|taluk|mandal|post|house|flat|road|street|ward|near|\d{4}/i;
+
+    // Strategy A: Line directly before DOB
+    let dobLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (/(?:dob|date\s*of\s*birth|year\s*of\s*birth|yob|जन्म)/i.test(lines[i])) {
+            dobLineIdx = i;
+            break;
+        }
+    }
+    if (dobLineIdx > 0) {
+        for (let i = dobLineIdx - 1; i >= 0 && i >= dobLineIdx - 3; i--) {
+            const l = lines[i];
+            if (/^[A-Za-z][A-Za-z \.\'\-]{2,40}$/.test(l) && !nameExclude.test(l) && l.split(/\s+/).length <= 4) {
+                result.name = l.trim();
+                break;
+            }
+        }
+    }
+
+    // Strategy B: 'To <Name>' pattern on e-Aadhaar letters
+    if (!result.name) {
+        const toMatch = text.match(/(?:^|\n)To\s*\n\s*([A-Za-z][A-Za-z \.\'\-]{2,40})/i);
+        if (toMatch && !nameExclude.test(toMatch[1])) {
+            result.name = toMatch[1].trim();
+        }
+    }
+
+    // Strategy C: First clean alphabetic line after header
+    if (!result.name) {
+        let afterHeader = false;
+        for (const l of lines) {
+            if (/government.*india|bharat\s*sarkar|uidai|authority/i.test(l)) {
+                afterHeader = true;
+                continue;
+            }
+            if (afterHeader && /^[A-Za-z][A-Za-z \.\'\-]{2,40}$/.test(l) && !nameExclude.test(l) && l.split(/\s+/).length <= 4) {
+                result.name = l.trim();
+                break;
+            }
+        }
+    }
+
+    // Strategy D: Global line scan fallback
+    if (!result.name) {
+        for (const l of lines) {
+            if (/^[A-Za-z][A-Za-z \.\'\-]{2,40}$/.test(l) && !nameExclude.test(l) && l.split(/\s+/).length <= 4) {
+                result.name = l.trim();
+                break;
+            }
+        }
+    }
+
+    // 6. ADDRESS & PINCODE (if address info present on card)
+    const pinMatch = text.match(/\b([1-9][0-9]{5})\b/);
+    if (pinMatch) {
+        result.address = result.address || {};
+        result.address.pinCode = pinMatch[1];
+    }
+
+    // State detection
+    const STATES_LIST = [
+        'Andhra Pradesh', 'Telangana', 'Tamil Nadu', 'Karnataka', 'Kerala',
+        'Maharashtra', 'Gujarat', 'Odisha', 'West Bengal', 'Punjab',
+        'Haryana', 'Rajasthan', 'Uttar Pradesh', 'Madhya Pradesh', 'Bihar',
+        'Jharkhand', 'Chhattisgarh', 'Assam', 'Goa', 'Delhi'
+    ];
+    for (const st of STATES_LIST) {
+        if (new RegExp('\\b' + st + '\\b', 'i').test(text)) {
+            result.address = result.address || {};
+            result.address.state = st;
             break;
         }
     }
 
-    // 5. NAME — first clean alphabetic line after the Aadhaar header
-    const nameSkip = /uidai|unique|identification|authority|india|aadhaar|aadhar|enrolment|enrollment|dob|date of birth|year of birth|male|female|address|village|vill\.|dist\.|district|state|pin|taluk|post|house|flat|near|nagar|street|road|\d{4}/i;
-    const nameCandidates = [];
-    let headerPassed = false;
-
-    for (const line of lines) {
-        if (/government\s+of\s+india|aadhaar|aadhar/i.test(line)) { headerPassed = true; continue; }
-        if (!headerPassed) continue;
-        if (/^[A-Za-z][A-Za-z\s\.]{2,49}$/.test(line) && !nameSkip.test(line) && line.split(' ').length <= 5) {
-            nameCandidates.push(line);
+    // District detection (handles both "<Name> District" and "District: <Name>")
+    const distMatch1 = text.match(/\b([A-Za-z][A-Za-z\s]{2,25})\s+District\b/i);
+    const distMatch2 = text.match(/\b(?:District|Dist|D\.T)\b[\s\:\-\.]*([A-Za-z][A-Za-z\s]{2,25})/i);
+    const matchedDist = distMatch1 ? distMatch1[1] : (distMatch2 ? distMatch2[1] : null);
+    if (matchedDist) {
+        const cleaned = matchedDist.split(/[\n,;]/)[0].trim();
+        if (cleaned.length >= 3 && !/village|taluk|mandal|state|india/i.test(cleaned)) {
+            result.address = result.address || {};
+            result.address.district = cleaned;
         }
     }
-    // Fallback: scan all lines if header not found
-    if (nameCandidates.length === 0) {
-        for (const line of lines) {
-            if (/^[A-Za-z][A-Za-z\s\.]{2,49}$/.test(line) && !nameSkip.test(line) && line.split(' ').length <= 5) {
-                nameCandidates.push(line);
-            }
+
+    // Taluk / Mandal detection (handles both "<Name> Taluk/Mandal" and "Taluk: <Name>")
+    const talukMatch1 = text.match(/\b([A-Za-z][A-Za-z\s]{2,25})\s+(?:Taluk|Taluka|Mandal|Tehsil|Tahsil|Block)\b/i);
+    const talukMatch2 = text.match(/\b(?:Taluk|Taluka|Mandal|Tehsil|Tahsil|Block)\b[\s\:\-\.]*([A-Za-z][A-Za-z\s]{2,25})/i);
+    const matchedTaluk = talukMatch1 ? talukMatch1[1] : (talukMatch2 ? talukMatch2[1] : null);
+    if (matchedTaluk) {
+        const cleaned = matchedTaluk.split(/[\n,;]/)[0].trim();
+        if (cleaned.length >= 3 && !/district|village|state|india/i.test(cleaned)) {
+            result.address = result.address || {};
+            result.address.taluk = cleaned;
         }
     }
-    if (nameCandidates.length > 0) result.name = nameCandidates[0].trim();
 
-    // NOTE: Pincode is intentionally NOT extracted — user fills it manually.
+    // Village detection (handles both "<Name> Village" and "Village: <Name>")
+    const villMatch1 = text.match(/\b([A-Za-z][A-Za-z\s]{2,25})\s+Village\b/i);
+    const villMatch2 = text.match(/\b(?:Village|Vill)\b[\s\:\-\.]*([A-Za-z][A-Za-z\s]{2,25})/i);
+    const matchedVill = villMatch1 ? villMatch1[1] : (villMatch2 ? villMatch2[1] : null);
+    if (matchedVill) {
+        const cleaned = matchedVill.split(/[\n,;]/)[0].trim();
+        if (cleaned.length >= 3 && !/district|taluk|mandal|state|india/i.test(cleaned)) {
+            result.address = result.address || {};
+            result.address.village = cleaned;
+        }
+    }
 
     return result;
 }

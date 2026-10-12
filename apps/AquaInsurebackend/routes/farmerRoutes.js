@@ -54,8 +54,20 @@ router.post('/ocr/aadhaar', upload.single('aadhaar'), async (req, res) => {
         let text = '';
 
         if (mimetype === 'application/pdf') {
-            const data = await pdf(buffer);
-            text = data.text;
+            try {
+                const data = await pdf(buffer);
+                text = data.text || '';
+            } catch (err) {
+                console.warn('[Aadhaar] pdf-parse warning:', err.message);
+            }
+            // If PDF contains minimal text (e.g. scanned image PDF), run PaddleOCR
+            if (text.trim().length < 20) {
+                try {
+                    text = await runPaddleOCR(buffer);
+                } catch (err) {
+                    console.error('[Aadhaar] PaddleOCR for PDF failed:', err.message);
+                }
+            }
         } else {
             // image — use PaddleOCR
             try {
@@ -66,16 +78,17 @@ router.post('/ocr/aadhaar', upload.single('aadhaar'), async (req, res) => {
             }
         }
 
-        // Validate it's an Aadhaar card
-        if (!isAadhaarDocument(text)) {
+        const details = extractAadhaarDetailsFromText(text) || {};
+
+        // Validate it's an Aadhaar card or contains valid person credentials
+        const isValid = isAadhaarDocument(text) || details.aadhaarNumber || (details.name && (details.dob || details.gender));
+        if (!isValid) {
             return res.status(422).json({
                 success: false,
-                error: 'The uploaded document does not appear to be an Aadhaar card. Please upload a valid Aadhaar card.'
+                error: 'The uploaded document could not be verified as an Aadhaar card. Please upload a clear photo or PDF.'
             });
         }
 
-        const details = extractAadhaarDetailsFromText(text);
-        // Debug: log raw OCR text and extracted result
         console.log('\n===== AADHAAR OCR RAW TEXT =====\n', text, '\n================================');
         console.log('[Aadhaar] Extracted:', JSON.stringify(details));
         return res.status(200).json({ success: true, data: details });

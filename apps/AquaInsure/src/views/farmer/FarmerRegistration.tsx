@@ -239,19 +239,17 @@ export default function FarmerRegistration() {
     try {
       const formData = new FormData();
       formData.append("aadhaar", file);
-      const res = await fetch(`${API_BASE_URL}/api/farmers/ocr/aadhaar`, {
-        method: "POST",
-        body: formData,
+      const res = await axios.post("/api/farmers/ocr/aadhaar", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "OCR extraction failed");
+      if (!res.data?.success) {
+        throw new Error(res.data?.error || "OCR extraction failed");
       }
-      const d = json.data || {};
-      if (d.name) setValue("name", d.name, { shouldDirty: true });
-      if (d.gender) setValue("gender", d.gender, { shouldDirty: true });
-      if (d.dob) setValue("dob", d.dob, { shouldDirty: true });
-      if (d.fatherName) setValue("fatherName", d.fatherName, { shouldDirty: true });
+      const d = res.data.data || {};
+      if (d.name) setValue("name", d.name, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+      if (d.gender) setValue("gender", d.gender, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+      if (d.dob) setValue("dob", d.dob, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+      if (d.fatherName) setValue("fatherName", d.fatherName, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
 
       // Save extracted address to draft for Step 2
       if (d.address) {
@@ -271,7 +269,8 @@ export default function FarmerRegistration() {
       setAadharOcrDone(true);
       toast.success("Aadhaar details extracted & auto-filled!");
     } catch (err: any) {
-      toast.error("OCR scan could not read clearly. Please fill details manually.");
+      console.error("Aadhaar OCR upload error:", err);
+      toast.error(err.response?.data?.error || err.message || "OCR scan could not read clearly. Please fill details manually.");
     } finally {
       setAadharOcrLoading(false);
     }
