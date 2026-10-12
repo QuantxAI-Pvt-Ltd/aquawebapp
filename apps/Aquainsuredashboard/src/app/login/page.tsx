@@ -46,7 +46,13 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ username: username.trim(), password }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        setError(`Server returned an error (${res.status} ${res.statusText || ''}). Please verify the backend is running.`);
+        return;
+      }
 
       if (!res.ok || !data.success) {
         setError(data.error || 'Invalid credentials. Please try again.');

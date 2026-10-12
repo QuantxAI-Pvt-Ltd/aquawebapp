@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
+const backendInternalUrl =
+  process.env.BACKEND_INTERNAL_URL ||
+  (process.env.NODE_ENV === 'production' ? 'http://backend:5001' : 'http://localhost:5001');
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   ...(basePath ? { basePath } : {}),
@@ -31,13 +35,13 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5001/api/:path*',
+        destination: `${backendInternalUrl}/api/:path*`,
         basePath: false as const,
       },
       ...(basePath ? [
         {
           source: `${basePath}/api/:path*`,
-          destination: 'http://localhost:5001/api/:path*',
+          destination: `${backendInternalUrl}/api/:path*`,
           basePath: false as const,
         }
       ] : [])
