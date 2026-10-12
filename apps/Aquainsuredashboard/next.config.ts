@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
           permanent: false,
           basePath: false as const,
         },
+        {
+          source: '/login',
+          destination: `${basePath}/login`,
+          permanent: false,
+          basePath: false as const,
+        },
       ];
     }
     return [];

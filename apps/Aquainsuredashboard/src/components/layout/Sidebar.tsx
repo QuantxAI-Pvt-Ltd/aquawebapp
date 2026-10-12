@@ -40,7 +40,7 @@ export default function AppSidebar() {
       {/* Brand Header */}
       <SidebarHeader className="h-16 shrink-0 border-b border-border flex flex-row items-center px-4 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-white shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-900 text-white shadow-sm shadow-blue-500/20">
             <Waves className="h-5 w-5" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden truncate">

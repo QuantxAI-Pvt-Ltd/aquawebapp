@@ -270,7 +270,7 @@ export default function FarmerDetailPage({ params }: PageProps) {
 
       {/* ── Farmer Hero Card ───────────────────────────────────────────────── */}
       <Card className="overflow-hidden border-border bg-card shadow-xs rounded-2xl">
-        <div className="h-2 bg-gradient-to-r from-[#E23E57] via-[#88304E] to-[#311D3F]" />
+        <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900" />
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
@@ -300,7 +300,7 @@ export default function FarmerDetailPage({ params }: PageProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-2xl font-bold text-white shadow-md">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-900 text-2xl font-bold text-white shadow-md shadow-blue-500/20">
                     {farmer.name ? farmer.name.charAt(0).toUpperCase() : 'F'}
                   </div>
                 )}
@@ -481,9 +481,9 @@ export default function FarmerDetailPage({ params }: PageProps) {
                                       policy.status === 'active'
                                         ? 'bg-primary text-white'
                                         : policy.status === 'claim_pending'
-                                        ? 'bg-[#E23E57] text-white'
+                                        ? 'bg-amber-500 text-white'
                                         : policy.status === 'claim_approved' || policy.status === 'claimed'
-                                        ? 'bg-[#522546] text-white'
+                                        ? 'bg-emerald-600 text-white'
                                         : 'bg-muted text-foreground'
                                     }`}
                                   >

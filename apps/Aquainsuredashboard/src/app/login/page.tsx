@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Waves, Eye, EyeOff, ShieldCheck, Loader2 } from 'lucide-react';
-import { API_BASE } from '@/lib/api';
+import { Waves, Eye, EyeOff, ShieldCheck, Loader2, KeyRound } from 'lucide-react';
+import { API_BASE, BASE_PATH } from '@/lib/api';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,14 +19,14 @@ export default function AdminLoginPage() {
     try {
       const session = JSON.parse(localStorage.getItem('admin-session') || '{}');
       if (session?.token) {
-        router.replace('/');
+        window.location.href = `${BASE_PATH}/` || '/';
         return;
       }
     } catch {
       localStorage.removeItem('admin-session');
     }
     setCheckingSession(false);
-  }, [router]);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +39,8 @@ export default function AdminLoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
+      const endpoint = `${API_BASE}/api/admin/login`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),
@@ -57,9 +58,10 @@ export default function AdminLoginPage() {
         JSON.stringify({ token: data.token, username: data.username })
       );
 
-      router.replace('/');
-    } catch {
-      setError('Unable to reach the server. Please check your connection.');
+      // Force full reload into authenticated shell
+      window.location.href = `${BASE_PATH}/` || '/';
+    } catch (err: any) {
+      setError('Unable to reach backend API. Please verify the backend is running.');
     } finally {
       setLoading(false);
     }
@@ -79,18 +81,18 @@ export default function AdminLoginPage() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full blur-3xl opacity-20"
-        style={{ background: 'radial-gradient(circle, #E23E57 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, #2563EB 0%, transparent 70%)' }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full blur-3xl opacity-15"
-        style={{ background: 'radial-gradient(circle, #88304E 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, #1E40AF 0%, transparent 70%)' }}
       />
 
       <div className="relative z-10 w-full max-w-sm mx-4">
         {/* Logo & Branding */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-white shadow-lg shadow-[#E23E57]/25">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-900 text-white shadow-lg shadow-blue-500/25">
             <Waves className="h-7 w-7" />
           </div>
           <div className="text-center">
@@ -107,6 +109,20 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4" id="admin-login-form">
+            {/* Quick Demo Credentials Info */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-xs">
+              <div className="flex items-center gap-1.5 text-primary font-medium">
+                <KeyRound className="h-3.5 w-3.5 shrink-0" />
+                <span>Default: <strong className="font-mono">admin</strong> / <strong className="font-mono">admin123</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setUsername('admin'); setPassword('admin123'); setError(''); }}
+                className="text-[11px] font-bold text-primary hover:underline cursor-pointer ml-2"
+              >
+                Autofill
+              </button>
+            </div>
             {/* Username */}
             <div className="space-y-1.5">
               <label htmlFor="admin-username" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

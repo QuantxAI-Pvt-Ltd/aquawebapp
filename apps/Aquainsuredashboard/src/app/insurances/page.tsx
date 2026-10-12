@@ -216,8 +216,8 @@ export default function InsurancesPage() {
         </div>
 
         {counts.pending > 0 && (
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#E23E57]/10 border border-[#E23E57]/30 text-[#E23E57] text-xs font-semibold shadow-xs">
-            <AlertTriangle className="h-4 w-4 text-[#E23E57] animate-pulse" />
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold shadow-xs">
+            <AlertTriangle className="h-4 w-4 text-amber-500 animate-pulse" />
             <span>{counts.pending} Claim(s) Awaiting Assessment</span>
           </div>
         )}
@@ -231,7 +231,7 @@ export default function InsurancesPage() {
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">All Policies</p>
               <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.total}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
+            <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <ShieldCheck className="h-5 w-5" />
             </div>
           </CardContent>
@@ -243,19 +243,19 @@ export default function InsurancesPage() {
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Active Coverage</p>
               <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.active}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <Waves className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={`rounded-2xl shadow-xs transition ${counts.pending > 0 ? 'border-[#E23E57]/40 bg-[#E23E57]/5' : 'border-border bg-card'}`}>
+        <Card className={`rounded-2xl shadow-xs transition ${counts.pending > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border bg-card'}`}>
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Pending Claims</p>
-              <p className="text-xl md:text-2xl font-black text-[#E23E57] mt-0.5">{counts.pending}</p>
+              <p className="text-xl md:text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{counts.pending}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-[#E23E57]/10 border border-[#E23E57]/20 flex items-center justify-center text-[#E23E57]">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Clock className="h-5 w-5" />
             </div>
           </CardContent>
@@ -267,7 +267,7 @@ export default function InsurancesPage() {
               <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider">Settled Claims</p>
               <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{counts.approved}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-[#88304E]/10 border border-[#88304E]/20 flex items-center justify-center text-[#88304E] dark:text-[#E23E57]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardContent>
@@ -300,7 +300,7 @@ export default function InsurancesPage() {
                   >
                     <span>{tab.label}</span>
                     {tab.count !== undefined && tab.count > 0 && (
-                      <span className="px-1.5 py-0.2 bg-[#E23E57] text-white rounded-full text-[10px] font-bold">
+                      <span className="px-1.5 py-0.2 bg-primary text-primary-foreground rounded-full text-[10px] font-bold">
                         {tab.count}
                       </span>
                     )}
@@ -411,7 +411,7 @@ export default function InsurancesPage() {
                         ) : policy.status === 'expired' ? (
                           <Badge variant="secondary" className="font-medium">Expired</Badge>
                         ) : (
-                          <Badge className="bg-[#E23E57]/15 text-[#E23E57] border-[#E23E57]/30 capitalize">
+                          <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 capitalize">
                             {policy.status.replace('_', ' ')}
                           </Badge>
                         )}
@@ -426,7 +426,7 @@ export default function InsurancesPage() {
                                 ? 'text-primary'
                                 : isClaimRejected
                                 ? 'text-destructive'
-                                : 'text-[#E23E57] font-extrabold'
+                                : 'text-amber-600 dark:text-amber-400 font-extrabold'
                             }`}>
                               {isClaimApproved ? (
                                 <CheckCircle2 size={12} />
@@ -460,7 +460,7 @@ export default function InsurancesPage() {
                             <Button
                               size="sm"
                               onClick={() => handleOpenAssessment(policy)}
-                              className="bg-[#E23E57] hover:bg-[#E23E57]/90 text-white font-bold text-xs h-8 px-3 rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3 rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                             >
                               <ShieldAlert size={14} />
                               <span>Assess Claim</span>
@@ -506,7 +506,7 @@ export default function InsurancesPage() {
                             ? 'bg-primary'
                             : selectedPolicy.claim?.status === 'rejected'
                             ? 'bg-destructive'
-                            : 'bg-[#E23E57]'
+                            : 'bg-amber-500'
                         }`}>
                           {!modalHasClaim ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
                         </div>
@@ -525,7 +525,7 @@ export default function InsurancesPage() {
                                 ? 'bg-primary text-white'
                                 : selectedPolicy.claim?.status === 'rejected'
                                 ? 'bg-destructive text-white'
-                                : 'bg-[#E23E57] text-white'
+                                : 'bg-amber-500 text-white'
                             }`}>
                               {!modalHasClaim ? selectedPolicy.status : (selectedPolicy.claim?.status ? selectedPolicy.claim.status.replace('_', ' ') : selectedPolicy.status)}
                             </Badge>
@@ -601,7 +601,7 @@ export default function InsurancesPage() {
                       <CardHeader className="pb-3 border-b border-border bg-secondary/20">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                            <FileText size={14} className="text-[#E23E57]" /> Claim Incident Dossier
+                            <FileText size={14} className="text-primary" /> Claim Incident Dossier
                           </CardTitle>
                           <span className="text-xs text-muted-foreground font-mono">
                             Filed: {formatDate(selectedPolicy.claim.claimedAt)}
@@ -618,7 +618,7 @@ export default function InsurancesPage() {
                           </div>
                           <div>
                             <span className="text-[10px] uppercase font-bold text-muted-foreground block">Reported Mortality</span>
-                            <span className="font-extrabold text-[#E23E57] text-base">
+                            <span className="font-extrabold text-destructive text-base">
                               {selectedPolicy.claim.estimatedLossPercent || 0}% Crop Loss
                             </span>
                           </div>
@@ -698,7 +698,7 @@ export default function InsurancesPage() {
                             </div>
                             <div className="bg-secondary/30 p-2.5 rounded-xl border border-border text-center">
                               <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ammonia</span>
-                              <span className="font-bold text-[#E23E57] text-sm">
+                              <span className="font-bold text-destructive text-sm">
                                 {pondEntries.dailyEntries[0].waterQuality?.ammonia ? `${pondEntries.dailyEntries[0].waterQuality.ammonia} mg/L` : '—'}
                               </span>
                             </div>

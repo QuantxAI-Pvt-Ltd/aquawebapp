@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-screen bg-background text-foreground selection:bg-[#E23E57]/20 selection:text-[#88304E] dark:selection:text-[#E23E57]">
+      <body className="min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

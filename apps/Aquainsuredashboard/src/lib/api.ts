@@ -1,4 +1,16 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
+export const API_BASE = (() => {
+  if (typeof window !== 'undefined') {
+    // In client browser, use relative path so requests route through proxy/origin
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && !envUrl.includes('localhost:5001')) {
+      return envUrl;
+    }
+    return '';
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+})();
 
 function getAdminToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -26,7 +38,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   // Auto-logout on 401 (expired/invalid admin token)
   if (res.status === 401 && typeof window !== 'undefined') {
     localStorage.removeItem('admin-session');
-    window.location.href = '/login';
+    window.location.href = `${BASE_PATH}/login`;
     return Promise.reject(new Error('Admin session expired. Redirecting to login.'));
   }
 

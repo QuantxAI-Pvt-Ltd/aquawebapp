@@ -8,7 +8,7 @@ import Topbar from './Topbar';
 import { Loader2 } from 'lucide-react';
 
 /** Routes that are publicly accessible without admin authentication */
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/dashboard/login'];
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,9 +16,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  const isPublicPage = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.endsWith('/login') || pathname.startsWith(p + '/')
+  );
+
   useEffect(() => {
     // Allow public pages without auth check
-    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+    if (isPublicPage) {
       setIsAuthenticated(true);
       setAuthChecked(true);
       return;

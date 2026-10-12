@@ -36,18 +36,18 @@ type Period = '7' | '30' | '90' | '180';
 const entriesConfig = {
   count: {
     label: 'Entries Logged',
-    color: '#E23E57',
+    color: '#2563EB',
   },
 } satisfies ChartConfig;
 
 const waterQualityConfig = {
   ph: {
     label: 'pH Level',
-    color: '#E23E57',
+    color: '#0284C7',
   },
   dissolvedOxygen: {
     label: 'DO (mg/L)',
-    color: '#88304E',
+    color: '#0D9488',
   },
   temperature: {
     label: 'Temp (°C)',
@@ -55,25 +55,25 @@ const waterQualityConfig = {
   },
   ammonia: {
     label: 'Ammonia (ppm)',
-    color: '#522546',
+    color: '#6366F1',
   },
 } satisfies ChartConfig;
 
 const districtConfig = {
   count: {
     label: 'Farmers Registered',
-    color: '#88304E',
+    color: '#1E40AF',
   },
 } satisfies ChartConfig;
 
 const topFarmersConfig = {
   entryCount: {
     label: 'Daily Telemetry Entries',
-    color: '#E23E57',
+    color: '#2563EB',
   },
 } satisfies ChartConfig;
 
-const DONUT_PALETTE = ['#E23E57', '#88304E', '#522546', '#D97706', '#311D3F'];
+const DONUT_PALETTE = ['#2563EB', '#0D9488', '#6366F1', '#D97706', '#0F172A'];
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('30');
@@ -197,15 +197,15 @@ export default function AnalyticsPage() {
               <AreaChart data={formattedEntries} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="analyticsEntriesGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#E23E57" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#E23E57" stopOpacity={0.02} />
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.6} />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} className="text-[11px] font-mono fill-muted-foreground" />
                 <YAxis width={40} tickLine={false} axisLine={false} tickMargin={8} className="text-[11px] font-mono fill-muted-foreground" allowDecimals={false} />
-                <ChartTooltip cursor={{ stroke: '#E23E57', strokeWidth: 1, strokeDasharray: '2 2' }} content={<ChartTooltipContent indicator="line" />} />
-                <Area type="monotone" dataKey="count" stroke="#E23E57" strokeWidth={2.5} fillOpacity={1} fill="url(#analyticsEntriesGrad)" />
+                <ChartTooltip cursor={{ stroke: '#2563EB', strokeWidth: 1, strokeDasharray: '2 2' }} content={<ChartTooltipContent indicator="line" />} />
+                <Area type="monotone" dataKey="count" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#analyticsEntriesGrad)" />
               </AreaChart>
             </ChartContainer>
           ) : (
@@ -237,10 +237,10 @@ export default function AnalyticsPage() {
                   <YAxis width={40} tickLine={false} axisLine={false} tickMargin={8} className="text-[11px] font-mono fill-muted-foreground" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Line type="monotone" dataKey="ph" stroke="#E23E57" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="dissolvedOxygen" stroke="#88304E" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="ph" stroke="#0284C7" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="dissolvedOxygen" stroke="#0D9488" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="temperature" stroke="#D97706" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="ammonia" stroke="#522546" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="ammonia" stroke="#6366F1" strokeWidth={2} dot={false} />
                 </LineChart>
               </ChartContainer>
             ) : (
@@ -269,7 +269,7 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="district" tickLine={false} axisLine={false} tickMargin={8} className="text-[11px] font-mono fill-muted-foreground" />
                   <YAxis width={40} tickLine={false} axisLine={false} tickMargin={8} className="text-[11px] font-mono fill-muted-foreground" allowDecimals={false} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="#88304E" radius={[6, 6, 0, 0]} barSize={28} />
+                  <Bar dataKey="count" fill="#1E40AF" radius={[6, 6, 0, 0]} barSize={28} />
                 </BarChart>
               </ChartContainer>
             ) : (
@@ -301,7 +301,7 @@ export default function AnalyticsPage() {
                   <XAxis type="number" tickLine={false} axisLine={false} className="text-[11px] font-mono fill-muted-foreground" allowDecimals={false} />
                   <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} className="text-[12px] font-medium fill-foreground" />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="entryCount" fill="#E23E57" radius={[0, 6, 6, 0]} barSize={20} />
+                  <Bar dataKey="entryCount" fill="#2563EB" radius={[0, 6, 6, 0]} barSize={20} />
                 </BarChart>
               </ChartContainer>
             ) : (

@@ -72,7 +72,7 @@ export default function Topbar() {
 
         {/* User Badge */}
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-xs font-bold text-white shadow-xs">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-900 text-xs font-bold text-white shadow-xs shadow-blue-500/20">
             {adminUsername.charAt(0).toUpperCase()}
           </div>
           <div className="hidden lg:flex flex-col text-left">

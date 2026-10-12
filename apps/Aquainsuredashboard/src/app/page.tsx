@@ -71,18 +71,18 @@ function StatCard({ title, value, icon: Icon, loading, href }: StatCardProps) {
 const areaChartConfig = {
   count: {
     label: 'Daily Entries',
-    color: '#E23E57',
+    color: '#2563EB',
   },
 } satisfies ChartConfig;
 
 const barChartConfig = {
   entryCount: {
     label: 'Entries Logged',
-    color: '#88304E',
+    color: '#1E40AF',
   },
 } satisfies ChartConfig;
 
-const DONUT_PALETTE = ['#E23E57', '#88304E', '#522546', '#D97706', '#311D3F'];
+const DONUT_PALETTE = ['#2563EB', '#0D9488', '#4F46E5', '#D97706', '#0F172A'];
 
 export default function OverviewPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -184,8 +184,8 @@ export default function OverviewPage() {
                 >
                   <defs>
                     <linearGradient id="entriesGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#E23E57" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#E23E57" stopOpacity={0.02} />
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.6} />
@@ -205,13 +205,13 @@ export default function OverviewPage() {
                     allowDecimals={false}
                   />
                   <ChartTooltip
-                    cursor={{ stroke: '#E23E57', strokeWidth: 1, strokeDasharray: '2 2' }}
+                    cursor={{ stroke: '#2563EB', strokeWidth: 1, strokeDasharray: '2 2' }}
                     content={<ChartTooltipContent indicator="line" />}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="#E23E57"
+                    stroke="#2563EB"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#entriesGradient)"
@@ -306,7 +306,7 @@ export default function OverviewPage() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar
                   dataKey="entryCount"
-                  fill="#88304E"
+                  fill="#1E40AF"
                   radius={[0, 6, 6, 0]}
                   barSize={20}
                 />

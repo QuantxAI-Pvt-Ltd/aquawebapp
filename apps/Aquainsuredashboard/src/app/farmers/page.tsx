@@ -93,7 +93,7 @@ export default function FarmersPage() {
         header: 'Farmer Name',
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-xs font-bold text-white shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-900 text-xs font-bold text-white shadow-sm shadow-blue-500/20">
               {row.original.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div className="min-w-0">

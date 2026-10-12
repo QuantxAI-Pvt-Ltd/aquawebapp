@@ -75,7 +75,7 @@ function PondChartTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl border border-border bg-white p-3 shadow-xl backdrop-blur-md min-w-[150px] text-slate-900">
-        <p className="mb-2 text-xs font-bold text-[#311D3F] border-b border-border pb-1">
+        <p className="mb-2 text-xs font-bold text-foreground border-b border-border pb-1">
           {label}
         </p>
         <div className="space-y-1.5">
@@ -84,11 +84,11 @@ function PondChartTooltip({ active, payload, label }: any) {
               <span className="flex items-center gap-1.5 font-medium text-slate-700">
                 <span
                   className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs"
-                  style={{ backgroundColor: entry.color || entry.stroke || '#E23E57' }}
+                  style={{ backgroundColor: entry.color || entry.stroke || '#2563EB' }}
                 />
                 <span className="font-medium text-slate-800">{entry.name}:</span>
               </span>
-              <span className="font-bold text-[#311D3F] font-mono">
+              <span className="font-bold text-foreground font-mono">
                 {entry.value}
               </span>
             </div>
@@ -235,7 +235,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
   if (!pond) {
     return (
       <div className="p-12 text-center space-y-4">
-        <AlertTriangle className="mx-auto h-12 w-12 text-[#E23E57]" />
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
         <h2 className="text-xl font-bold text-foreground">Pond Record Not Found</h2>
         <p className="text-sm text-muted-foreground">
           The requested pond was not found for farmer #{farmerId.slice(-6)}.
@@ -291,9 +291,9 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                 policy.status === 'active'
                   ? 'bg-primary text-white'
                   : policy.status === 'claim_pending'
-                  ? 'bg-[#E23E57] text-white'
+                  ? 'bg-amber-500 text-white'
                   : policy.status === 'claim_approved' || policy.status === 'claimed'
-                  ? 'bg-[#522546] text-white'
+                  ? 'bg-emerald-600 text-white'
                   : 'bg-muted text-foreground'
               }`}
             >
@@ -305,7 +305,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
 
       {/* ── Pond Hero Banner ─────────────────────────────────────────────────── */}
       <Card className="overflow-hidden border-border bg-card shadow-xs rounded-2xl">
-        <div className="h-2 bg-gradient-to-r from-[#E23E57] via-[#88304E] to-[#311D3F]" />
+        <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900" />
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
@@ -336,7 +336,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                     </div>
                   </div>
                 ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#E23E57] to-[#311D3F] text-2xl font-black text-white shadow-md">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-900 text-2xl font-black text-white shadow-md shadow-blue-500/20">
                     P{pond.pondNumber}
                   </div>
                 )}
@@ -447,7 +447,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
             <div>
               <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Latest DO Level</p>
               <p className={`text-xl font-black mt-0.5 ${
-                latestDO === null ? 'text-muted-foreground' : latestDO >= 4.5 ? 'text-primary' : 'text-[#E23E57]'
+                latestDO === null ? 'text-muted-foreground' : latestDO >= 4.5 ? 'text-primary' : 'text-destructive'
               }`}>
                 {latestDO !== null ? `${latestDO} mg/L` : '—'}
               </p>
@@ -465,7 +465,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
             <div>
               <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Latest pH Level</p>
               <p className={`text-xl font-black mt-0.5 ${
-                latestPH === null ? 'text-muted-foreground' : (latestPH >= 7.5 && latestPH <= 8.5) ? 'text-primary' : 'text-[#E23E57]'
+                latestPH === null ? 'text-muted-foreground' : (latestPH >= 7.5 && latestPH <= 8.5) ? 'text-primary' : 'text-destructive'
               }`}>
                 {latestPH !== null ? latestPH : '—'}
               </p>
@@ -483,7 +483,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
             <div>
               <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Ammonia (NH3)</p>
               <p className={`text-xl font-black mt-0.5 ${
-                latestAmmonia === null ? 'text-muted-foreground' : latestAmmonia <= 0.1 ? 'text-primary' : 'text-[#E23E57]'
+                latestAmmonia === null ? 'text-muted-foreground' : latestAmmonia <= 0.1 ? 'text-primary' : 'text-destructive'
               }`}>
                 {latestAmmonia !== null ? `${latestAmmonia} ppm` : '0.02 ppm'}
               </p>
@@ -580,41 +580,41 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                   <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="doGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#88304E" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#88304E" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#0D9488" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#0D9488" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/60" vertical={false} />
                     <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis domain={[0, 10]} tickLine={false} axisLine={false} tickMargin={8} fontSize={11} width={55} stroke="currentColor" className="text-muted-foreground" unit=" mg/L" />
-                    <ReferenceLine y={4.0} stroke="#E23E57" strokeDasharray="4 4" label={{ value: 'Min DO Safe (4.0)', fill: '#E23E57', fontSize: 10, position: 'insideBottomRight' }} />
+                    <ReferenceLine y={4.0} stroke="#EF4444" strokeDasharray="4 4" label={{ value: 'Min DO Safe (4.0)', fill: '#EF4444', fontSize: 10, position: 'insideBottomRight' }} />
                     <RechartsTooltip content={<PondChartTooltip />} />
-                    <Area type="monotone" dataKey="do" stroke="#88304E" strokeWidth={2.5} fillOpacity={1} fill="url(#doGradient)" name="DO (mg/L)" />
+                    <Area type="monotone" dataKey="do" stroke="#0D9488" strokeWidth={2.5} fillOpacity={1} fill="url(#doGradient)" name="DO (mg/L)" />
                   </AreaChart>
                 ) : chartMetric === 'ph' ? (
                   <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="phGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#E23E57" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#E23E57" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/60" vertical={false} />
                     <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis domain={[6, 10]} tickLine={false} axisLine={false} tickMargin={8} fontSize={11} width={40} stroke="currentColor" className="text-muted-foreground" />
-                    <ReferenceLine y={7.5} stroke="#88304E" strokeDasharray="3 3" />
-                    <ReferenceLine y={8.5} stroke="#88304E" strokeDasharray="3 3" />
+                    <ReferenceLine y={7.5} stroke="#64748B" strokeDasharray="3 3" />
+                    <ReferenceLine y={8.5} stroke="#64748B" strokeDasharray="3 3" />
                     <RechartsTooltip content={<PondChartTooltip />} />
-                    <Area type="monotone" dataKey="ph" stroke="#E23E57" strokeWidth={2.5} fillOpacity={1} fill="url(#phGradient)" name="pH Level" />
+                    <Area type="monotone" dataKey="ph" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#phGradient)" name="pH Level" />
                   </AreaChart>
                 ) : chartMetric === 'ammonia' ? (
                   <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/60" vertical={false} />
                     <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis domain={[0, 0.5]} tickLine={false} axisLine={false} tickMargin={8} fontSize={11} width={55} stroke="currentColor" className="text-muted-foreground" unit=" ppm" />
-                    <ReferenceLine y={0.1} stroke="#E23E57" strokeDasharray="4 4" label={{ value: 'Toxic Alert (>0.1 ppm)', fill: '#E23E57', fontSize: 10, position: 'insideBottomRight' }} />
+                    <ReferenceLine y={0.1} stroke="#EF4444" strokeDasharray="4 4" label={{ value: 'Toxic Alert (>0.1 ppm)', fill: '#EF4444', fontSize: 10, position: 'insideBottomRight' }} />
                     <RechartsTooltip content={<PondChartTooltip />} />
-                    <Line type="monotone" dataKey="ammonia" stroke="#E23E57" strokeWidth={2.5} dot={{ r: 3, fill: '#E23E57' }} name="Ammonia (ppm)" />
+                    <Line type="monotone" dataKey="ammonia" stroke="#6366F1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366F1' }} name="Ammonia (ppm)" />
                   </LineChart>
                 ) : chartMetric === 'temp' ? (
                   <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -622,18 +622,18 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                     <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis domain={[20, 38]} tickLine={false} axisLine={false} tickMargin={8} fontSize={11} width={50} stroke="currentColor" className="text-muted-foreground" unit=" °C" />
                     <RechartsTooltip content={<PondChartTooltip />} />
-                    <Area type="monotone" dataKey="temp" stroke="#522546" strokeWidth={2.5} fill="#522546" fillOpacity={0.2} name="Temp (°C)" />
+                    <Area type="monotone" dataKey="temp" stroke="#D97706" strokeWidth={2.5} fill="#D97706" fillOpacity={0.2} name="Temp (°C)" />
                   </AreaChart>
                 ) : (
                   <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/60" vertical={false} />
                     <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis domain={[0, 10]} tickLine={false} axisLine={false} tickMargin={8} fontSize={11} width={40} stroke="currentColor" className="text-muted-foreground" />
-                    <ReferenceLine y={4.0} stroke="#E23E57" strokeDasharray="4 4" />
+                    <ReferenceLine y={4.0} stroke="#EF4444" strokeDasharray="4 4" />
                     <RechartsTooltip content={<PondChartTooltip />} />
-                    <Line type="monotone" dataKey="do" stroke="#88304E" strokeWidth={2.5} dot={{ r: 2 }} name="DO (mg/L)" />
-                    <Line type="monotone" dataKey="ph" stroke="#E23E57" strokeWidth={2} dot={{ r: 2 }} name="pH" />
-                    <Line type="monotone" dataKey="ammonia" stroke="#522546" strokeWidth={2} dot={false} name="Ammonia" />
+                    <Line type="monotone" dataKey="do" stroke="#0D9488" strokeWidth={2.5} dot={{ r: 2 }} name="DO (mg/L)" />
+                    <Line type="monotone" dataKey="ph" stroke="#2563EB" strokeWidth={2} dot={{ r: 2 }} name="pH" />
+                    <Line type="monotone" dataKey="ammonia" stroke="#6366F1" strokeWidth={2} dot={false} name="Ammonia" />
                   </LineChart>
                 )}
               </ResponsiveContainer>
@@ -812,13 +812,13 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                         <div className="space-y-1 font-mono text-[11px]">
                           <div className="flex items-center gap-1.5">
                             <span className="text-muted-foreground">DO:</span>
-                            <span className={`font-bold ${doVal !== undefined && doVal < 4.0 ? 'text-[#E23E57]' : 'text-foreground'}`}>
+                            <span className={`font-bold ${doVal !== undefined && doVal < 4.0 ? 'text-destructive' : 'text-foreground'}`}>
                               {doVal !== undefined ? `${doVal} mg/L` : '—'}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-muted-foreground">pH:</span>
-                            <span className={`font-bold ${phVal !== undefined && (phVal < 7.5 || phVal > 8.5) ? 'text-[#E23E57]' : 'text-foreground'}`}>
+                            <span className={`font-bold ${phVal !== undefined && (phVal < 7.5 || phVal > 8.5) ? 'text-destructive' : 'text-foreground'}`}>
                               {phVal !== undefined ? phVal : '—'}
                             </span>
                             {entry.waterQuality?.temperature && (
@@ -828,7 +828,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                           {nh3Val !== undefined && (
                             <div className="flex items-center gap-1.5">
                               <span className="text-muted-foreground">NH3:</span>
-                              <span className={`font-bold ${nh3Val > 0.1 ? 'text-[#E23E57]' : 'text-foreground'}`}>
+                              <span className={`font-bold ${nh3Val > 0.1 ? 'text-destructive' : 'text-foreground'}`}>
                                 {nh3Val} ppm
                               </span>
                             </div>
@@ -859,7 +859,7 @@ export default function PondDossierPage({ params }: { params: Promise<{ id: stri
                               className={`text-[10px] font-bold uppercase ${
                                 entry.shrimpHealth.status === 'healthy' || entry.shrimpHealth.status === 'normal'
                                   ? 'border-primary/40 text-primary bg-primary/10'
-                                  : 'border-[#E23E57]/40 text-[#E23E57] bg-[#E23E57]/10'
+                                  : 'border-destructive/40 text-destructive bg-destructive/10'
                               }`}
                             >
                               {entry.shrimpHealth.status}
