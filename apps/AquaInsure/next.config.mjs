@@ -22,7 +22,7 @@ if (typeof globalThis !== 'undefined') {
 const rawDevOrigins = process.env.ALLOWED_DEV_ORIGINS || '';
 const allowedDevOrigins = rawDevOrigins
   ? rawDevOrigins.split(',').map((o) => o.trim()).filter(Boolean)
-  : ['10.47.51.139', '10.63.178.139', 'localhost'];
+  : ['192.168.10.7', '10.47.51.139', '10.63.178.139', 'localhost'];
 
 const isDev = process.env.NODE_ENV !== 'production';
 

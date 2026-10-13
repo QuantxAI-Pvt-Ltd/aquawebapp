@@ -3,6 +3,12 @@ import axios from 'axios';
 const getApiBaseUrl = (): string => {
   let envUrl = process.env.NEXT_PUBLIC_API_URL || '';
   if (envUrl) {
+    if (typeof window !== 'undefined') {
+      if ((!window.location.port || window.location.port === '80' || window.location.port === '443') &&
+          (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+        return '';
+      }
+    }
     // Strip trailing slash and any redundant trailing '/api' since frontend paths include '/api'
     envUrl = envUrl.replace(/\/+$/, '').replace(/\/api$/, '');
     return envUrl;
